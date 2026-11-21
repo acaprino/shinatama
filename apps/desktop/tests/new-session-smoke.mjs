@@ -67,7 +67,7 @@ const savedLayout = async () => {
   const value = await ipc('global_workspace_load', { request: { workspaceId: 'main' } });
   return value ? JSON.parse(value.layoutJson) : null;
 };
-const pane = id => page.locator(`.wm-pane:has([data-view-id="${id}"])`);
+const pane = id => page.locator(`.im-pane:has([data-view-id="${id}"])`);
 function exitWithin(milliseconds) {
   if (app.exitCode !== null || app.signalCode !== null) return Promise.resolve();
   return new Promise((accept, reject) => {
@@ -233,11 +233,11 @@ try {
   // Stop only sessions in this verified private app. No terminal contents or
   // screenshots are recorded, including the original Claude sign-in screen.
   for (const item of opened) {
-    await page.locator(`.wm-tab[data-view-id="${item.id}"]`).click();
+    await page.locator(`.im-tile-tab[data-view-id="${item.id}"]`).click();
     // The tab's own close control confirms before stopping a running session.
-    await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${item.id}"]) .wm-tab-close`).click();
+    await page.locator(`.im-tile-tabwrap:has(.im-tile-tab[data-view-id="${item.id}"]) .im-tile-tab-close`).click();
     await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
-    await expect(page.locator(`.wm-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
+    await expect(page.locator(`.im-tile-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
     if (harness === 'claude_code') {
       await expect.poll(async () => {
         const page = await ipc('thread_list', {request:{projectId:item.projectId,cursor:null,limit:50}});

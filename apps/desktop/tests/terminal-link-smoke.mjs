@@ -64,7 +64,7 @@ try {
   // Click the wrapped part, on the second row of the path.
   const screen = await terminal.locator('.xterm-screen').boundingBox();
   // The pane's footer says the terminal's size, e.g. 150×43.
-  const cols = Number((await window.locator('.wm-footer').first().textContent()).match(/(\d+)×\d+/)?.[1]);
+  const cols = Number((await window.locator('.pane-footer').first().textContent()).match(/(\d+)×\d+/)?.[1]);
   if (!cols) throw new Error('The terminal size is not shown.');
   const width = screen.width / cols;
   const box = await rows.nth(rowIndex).boundingBox();

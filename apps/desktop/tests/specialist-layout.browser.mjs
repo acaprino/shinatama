@@ -96,7 +96,7 @@ test('browser frames and file editor occupy their allocated panes', t => withSpe
     await page.getByRole('button', { name: 'Close files' }).click();
     await page.evaluate(() => {
       const anchor = document.querySelector('#host');
-      anchor.classList.add('wm-body');
+      anchor.classList.add('im-tile-body');
       anchor.tabIndex = 0;
       window.fixture.createTerminalFind({
         current: () => ({ id: 'terminal', terminal: {

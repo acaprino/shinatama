@@ -3,7 +3,8 @@
 // the menu themselves are Imago's guardDesktop and zoom controller.
 
 /** Zoom levels of the interface; 200% is the WCAG minimum the app must reach on its own. */
-export const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2] as const;
+/** The interface zoom levels Settings offers: Imago's, 50 to 200% in steps of 10 (a level saved before is rounded to one). */
+export const ZOOM_STEPS = Array.from({ length: 16 }, (_, step) => (5 + step) / 10);
 
 /** Terminals, the browser tab and the editor run their own keys and menus: guardDesktop leaves them alone there. */
 export const ENGINE_SURFACES = '.xterm, .browser-canvas, .cm-editor';

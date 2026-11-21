@@ -55,7 +55,7 @@ const errors = [];
 try {
   await launch();
   let rows, tabs;
-  const bind = () => { rows = page.locator('.thread-sidebar-list .thread-sidebar-anchor'); tabs = page.locator('.wm-tab'); };
+  const bind = () => { rows = page.locator('.thread-sidebar-list .thread-sidebar-anchor'); tabs = page.locator('.im-tile-tab'); };
   bind();
   const open = async () => { const flow = await startSession(page, { project: projectPath, harness: 'powershell' }); await flow.done(); };
   const terminals = () => page.evaluate(() => window.__TAURI_INTERNALS__.invoke('terminal_list').then(list => list.length));
@@ -108,7 +108,7 @@ try {
   expect(await terminals()).toBe(2);
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(3, { timeout: 15000 });
-  await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1);
+  await expect(page.locator('.im-tile-tab', { hasText: 'not running' })).toHaveCount(1);
   expect(await terminals()).toBe(2);
   // Nothing of it runs now: it goes off without asking.
   await rowOf(threadB).click();
@@ -118,7 +118,7 @@ try {
   await shot('3-first-thread-only');
 
   // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
-  await page.locator('.wm-tab-close').first().click({ force: true });
+  await page.locator('.im-tile-tab-close').first().click({ force: true });
   await expect(page.getByRole('dialog', { name: 'Close session?', exact: true })).toBeVisible();
   await page.getByRole('dialog', { name: 'Close session?', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
@@ -131,7 +131,7 @@ try {
 
   // 7. Reopen puts it back as a tab that says it is not running; nothing starts.
   await closed.locator('button[data-restore]').click();
-  await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator('.im-tile-tab', { hasText: 'not running' })).toHaveCount(1, { timeout: 15000 });
   await expect(tabs).toHaveCount(2);
   await expect(closed.locator('.thread-sidebar-closed')).toBeHidden();
   expect(await terminals()).toBe(1);
@@ -139,7 +139,7 @@ try {
   await shot('5-reopened-session');
 
   // 8. The x on a tab that is not running closes it again without asking; Delete deletes it after a second click.
-  await page.locator('.wm-tabwrap', { hasText: 'not running' }).locator('.wm-tab-close').click({ force: true });
+  await page.locator('.im-tile-tabwrap', { hasText: 'not running' }).locator('.im-tile-tab-close').click({ force: true });
   await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
   await expect(tabs).toHaveCount(1);
   const forget = closed.locator('.thread-sidebar-closed li button').nth(1);
@@ -148,14 +148,14 @@ try {
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
 
   // 9. One layout for the window: split the first thread's tabs in two columns, turn the second thread on and off; the columns stay.
-  const panes = () => page.locator('.wm-pane').evaluateAll(list => list.map(pane => [...pane.querySelectorAll('[role="tab"]')].map(tab => tab.dataset.viewId)));
+  const panes = () => page.locator('.im-pane').evaluateAll(list => list.map(pane => [...pane.querySelectorAll('[role="tab"]')].map(tab => tab.dataset.viewId)));
   await open();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
-  const selected = page.locator('.wm-pane [role="tab"][aria-selected="true"]');
-  const split = page.locator('.wm-pane').first();
-  await dragTab(page, split.locator('.wm-tab').last(), split, 'right');
-  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
+  await expect(page.locator('.im-pane')).toHaveCount(1);
+  const selected = page.locator('.im-pane [role="tab"][aria-selected="true"]');
+  const split = page.locator('.im-pane').first();
+  await dragTab(page, split.locator('.im-tile-tab').last(), split, 'right');
+  await expect(page.locator('.im-pane')).toHaveCount(2, { timeout: 15000 });
   const columns = await panes();
   expect(columns.map(group => group.length), 'tabs per column of the first thread').toEqual([1, 1]);
   expect(new Set(columns.flat()).size).toBe(2);
@@ -163,7 +163,7 @@ try {
   await shot('6-first-thread-two-columns');
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(3, { timeout: 15000 });
-  await expect(page.locator('.wm-pane')).toHaveCount(2);
+  await expect(page.locator('.im-pane')).toHaveCount(2);
   // The second thread's session was closed with it at step 5: it comes back not running.
   expect(await terminals()).toBe(2);
   await shot('7-second-thread-on-beside');
@@ -187,9 +187,9 @@ try {
   await expect(rows).toHaveCount(2, { timeout: 30000 });
   expect(await identify()).toEqual(listBefore);
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"]')).toHaveCount(1);
-  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
+  await expect(page.locator('.im-pane')).toHaveCount(2, { timeout: 15000 });
   await expect(tabs).toHaveCount(2);
-  await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(2);
+  await expect(page.locator('.im-tile-tab', { hasText: 'not running' })).toHaveCount(2);
   expect((await panes()).map(group => group.length)).toEqual([1, 1]);
   expect(await terminals()).toBe(0);
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('2 sessions');

@@ -92,7 +92,7 @@ try {
     await delay(1000);
   }
   // Tile: Codex top-left, Claude Code on the right, Pi and OpenCode below Codex.
-  const tab = id => page.locator(`.wm-tab[data-view-id="${id}"]`);
+  const tab = id => page.locator(`.im-tile-tab[data-view-id="${id}"]`);
   await tab(ids.Claude).focus(); await page.keyboard.press('Alt+Shift+ArrowRight'); await delay(500);
   await tab(ids.OpenCode).focus(); await page.keyboard.press('Alt+Shift+ArrowDown'); await delay(500);
   await tab(ids.Pi).focus(); await page.keyboard.press('Alt+Shift+ArrowDown'); await delay(1500);

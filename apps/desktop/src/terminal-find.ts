@@ -74,7 +74,7 @@ export function createTerminalFind(options: {
       if (dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
       origin = options.current();
       if (!origin) { options.notify('Open or select a terminal to search its retained output.'); return; }
-      const pane = origin.terminal.element?.closest('.wm-body') ?? null;
+      const pane = origin.terminal.element?.closest('.im-tile-body') ?? null;
       if (!openSheet(dialog, { anchor: () => pane?.isConnected ? pane : null, placement: 'pane-top' })) openModal(dialog);
       query.focus(); query.select(); search();
     },

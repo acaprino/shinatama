@@ -30,7 +30,7 @@ export async function initializeDesktopShell(options: DesktopShellOptions): Prom
   const webview = getCurrentWebview();
   const notifyZoom = (level: number) => { for (const listener of zoomListeners) listener(level); };
   const controller = createZoomController({
-    levels: ZOOM_STEPS, storageKey: ZOOM_KEY, applyDefaultOnStart: false,
+    storageKey: ZOOM_KEY, applyDefaultOnStart: false,
     apply: level => webview.setZoom(level), onChange: notifyZoom,
   });
   await controller.ready;

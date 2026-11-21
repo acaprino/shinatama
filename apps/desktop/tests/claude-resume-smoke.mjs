@@ -397,7 +397,7 @@ async function resourceSnapshot(id) {
   const { phase, reason, observed, applied, queues, sampleAgeMs } = resources;
   return { phase, reason, observed, applied, queues, sampleAgeMs };
 }
-const pane = id => page.locator(`.wm-pane:has([data-view-id="${id}"])`);
+const pane = id => page.locator(`.im-pane:has([data-view-id="${id}"])`);
 const layout = async () => { const row = await ipc('global_workspace_load', { request: { workspaceId: 'main' } }); return row ? JSON.parse(row.layoutJson) : null; };
 async function screen(id) {
   const value = await pane(id).locator('.xterm-accessibility-tree').innerText();
@@ -554,8 +554,8 @@ function exited(milliseconds) {
   return within(new Promise(accept => app.once('exit', accept)), milliseconds, 'owned-app-exit-deadline');
 }
 async function stop(id) {
-  await page.locator(`.wm-tab[data-view-id="${id}"]`).click();
-  await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${id}"]) .wm-tab-close`).click();
+  await page.locator(`.im-tile-tab[data-view-id="${id}"]`).click();
+  await page.locator(`.im-tile-tabwrap:has(.im-tile-tab[data-view-id="${id}"]) .im-tile-tab-close`).click();
   await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
   await poll(async () => !(await sessions()).some(session => session.id === id), 15000, 'owned-terminal-cleanup-deadline');
 }

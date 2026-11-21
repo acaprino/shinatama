@@ -86,7 +86,7 @@ try {
   const page = await context.newPage();
   await page.goto(origin + '/index.html');
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  const panes = page.locator('.wm-pane');
+  const panes = page.locator('.im-pane');
   await expect(panes).toHaveCount(2);
   const paneBoxes = () => panes.evaluateAll(nodes => nodes.map(node => { const { x, y, width, height } = node.getBoundingClientRect(); return { x, y, width, height }; }));
   await expect(page.locator('[data-group-id="pane-fixture-live"] .xterm')).toBeVisible();
@@ -132,7 +132,7 @@ try {
   // Beside the panes, not over them: the work area gives the drawer its width.
   const drawerBox = await dialog.boundingBox();
   await expect.poll(async () => Math.max(...(await paneBoxes()).map(box => box.x + box.width))).toBeLessThanOrEqual(drawerBox.x + 1);
-  assert.equal(await page.locator('.wm-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
+  assert.equal(await page.locator('.im-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
   await page.locator('[data-group-id="pane-fixture-live"] .xterm-helper-textarea').focus();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();

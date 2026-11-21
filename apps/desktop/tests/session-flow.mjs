@@ -68,18 +68,18 @@ export async function startSession(page, { project, harness, trigger = page.loca
 export async function dragTab(page, tab, pane, where) {
   // A narrow pane scrolls its tab strip: a person brings the tab into view before taking it.
   await tab.scrollIntoViewIfNeeded();
-  const from = await tab.boundingBox(); const body = await pane.locator('.wm-body').boundingBox();
+  const from = await tab.boundingBox(); const body = await pane.locator('.im-tile-body').boundingBox();
   if (!from || !body) throw new Error('The tab or the target pane is not on screen.');
   const fraction = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9], center: [0.5, 0.5] }[where];
   if (!fraction) throw new Error('Unknown drop side: ' + where);
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
   await page.mouse.move(body.x + body.width * fraction[0], body.y + body.height * fraction[1], { steps: 12 });
-  try { await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.'); }
+  try { await until(() => page.locator('.im-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.'); }
   catch (failure) {
     // Whether the gesture started, the dragged tab survived a re-render, or input was held by a layer.
     const state = await tab.evaluate(node => ({
-      connected: node.isConnected, dragging: node.classList.contains('wm-tab-dragging'),
-      hostDragging: !!document.querySelector('.wm-dragging'),
+      connected: node.isConnected, dragging: node.classList.contains('im-tile-tab-dragging'),
+      hostDragging: !!document.querySelector('.im-dragging'),
       openModals: [...document.querySelectorAll('dialog[open][aria-modal="true"]')].map(dialog => dialog.id),
       openDialogs: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
       // What the press landed on: the tab itself, a child, or something drawn over it.
@@ -91,7 +91,7 @@ export async function dragTab(page, tab, pane, where) {
         return { path: path.join(' < '), hitRect: hit && rect(hit), tabRect: rect(node), viewport: [innerWidth, innerHeight], insideTab: !!hit && node.contains(hit) };
       })(),
       tabPointerEvents: getComputedStyle(node).pointerEvents,
-      splitters: [...document.querySelectorAll('.wm-splitter')].slice(0, 6).map(splitter => {
+      splitters: [...document.querySelectorAll('.im-tile-splitter')].slice(0, 6).map(splitter => {
         const box = splitter.getBoundingClientRect(); return [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)];
       }),
     })).catch(error => ({ tabGone: String(error).slice(0, 200) }));

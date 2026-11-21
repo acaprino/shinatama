@@ -61,7 +61,7 @@ try {
 
   await installStub(page);
   await sidebar.locator('.thread-sidebar-team').click();
-  await expect(page.locator('.wm-tab[data-view-id^="team-"]')).toBeVisible();
+  await expect(page.locator('.im-tile-tab[data-view-id^="team-"]')).toBeVisible();
   await driveTeamMap(page, expect, message => console.log(message));
   await driveNotices(page, expect, message => console.log(message));
 

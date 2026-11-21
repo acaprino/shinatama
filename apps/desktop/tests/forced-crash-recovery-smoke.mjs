@@ -222,7 +222,7 @@ async function ipc(command, args = {}) {
   }
 }
 const sessions = () => ipc('terminal_list');
-const pane = id => page.locator(`.wm-pane:has([data-view-id="${id}"])`);
+const pane = id => page.locator(`.im-pane:has([data-view-id="${id}"])`);
 const layout = async () => { const row = await ipc('global_workspace_load', { request: { workspaceId: 'main' } }); return row ? JSON.parse(row.layoutJson) : null; };
 async function screen(id) { const value = await pane(id).locator('.xterm-accessibility-tree').innerText(); require(value.length <= 32768, 'bounded-visible-terminal'); return value; }
 async function input(id, text, key) {

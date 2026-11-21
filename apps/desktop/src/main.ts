@@ -461,7 +461,7 @@ function setFocus(groupId: string, terminal = true) {
   if (terminal && !modalOpen()) {
     const view = group.activeTabId ? views.get(group.activeTabId) : null;
     if (view) view.terminal.focus();
-    else workspace.querySelector<HTMLButtonElement>(`.wm-pane[data-group-id="${groupId}"] .wm-empty-start`)?.focus();
+    else workspace.querySelector<HTMLButtonElement>(`.im-pane[data-group-id="${groupId}"] .im-tile-empty-start`)?.focus();
   }
 }
 function threadHasRunningTab(threadId: string) {
@@ -479,12 +479,12 @@ function render() {
   }
   renderer.render(workspaceLayout);
   tabFilter?.paint();
-  for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
+  for (const pane of workspace.querySelectorAll<HTMLElement>('.im-pane')) {
     const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId); if (!group) continue;
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
-    let footer = pane.querySelector<HTMLElement>('.wm-footer');
-    if (!footer) { footer = uiPart('footer', undefined, 'wm-footer'); pane.append(footer); }
+    let footer = pane.querySelector<HTMLElement>('.pane-footer');
+    if (!footer) { footer = uiPart('footer', undefined, 'pane-footer'); pane.append(footer); }
     footer.hidden = group.collapsed;
     const state = uiPart('text', undefined, 'pane-state'); state.textContent = active ? active.ended ? 'Exited' : 'Shell running' : 'Ready';
     const profile = uiSelect(); profile.setAttribute('aria-label', 'Terminal color profile'); profile.disabled = !active;
@@ -941,11 +941,11 @@ const canResume = (harness: string | null) => sessionHarnesses.some(item => item
  *  and its button. No button is disabled because another session is opening: asking queues this one. */
 function savedSessionCard(panelId: string): HTMLElement | null {
   const saved = savedSession(panelId); if (!saved) return null;
-  const card = uiPart('stack', undefined, 'wm-placeholder session-idle');
+  const card = uiPart('stack', undefined, 'im-placeholder session-idle');
   const name = uiPart('strong', memberName(saved));
   const said = uiPart('text');
   const button = (label: string, title: string, act: () => void) => {
-    const made = uiButton(label, { primary: true, cls: 'wm-empty-start', attrs: { title } });
+    const made = uiButton(label, { primary: true, cls: 'im-tile-empty-start', attrs: { title } });
     made.onclick = act; card.append(made); return made;
   };
   const plan = openCard(saved.id, { current: opens.current(), wants: wants.all(), now: Date.now() });
@@ -1235,7 +1235,7 @@ const newSession = createNewSession({
 /** The body of a pane: where a sheet that belongs to that pane is docked. */
 function paneBody(groupId: string | null): Element | null {
   const group = tabGroups(workspaceLayout.root).some(group => group.id === groupId) ? groupId! : focusedGroup();
-  return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
+  return [...workspace.querySelectorAll<HTMLElement>('.im-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.im-tile-body') ?? null;
 }
 const sessionMenu = createSessionMenu({
   start: (harnessId, path) => { void launchSession(path, harnessId, sessionMenuTarget.group, sessionMenuTarget.workset); },
@@ -1254,7 +1254,7 @@ async function launchSession(path: string, harnessId: string, group: string, wor
  * known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project', workset: WorksetScope | null = null) {
   if (openingSessionDialog) return;
-  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
+  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.im-add,.im-tile-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
   // The thread's folder: from the project list, else from one of its open sessions.
@@ -1737,10 +1737,10 @@ async function initialize() {
     const stopResources = startTerminalResources(statuses => {
       terminalMetrics.clear();
       for (const status of statuses ?? []) terminalMetrics.set(status.id, status);
-      for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
+      for (const pane of workspace.querySelectorAll<HTMLElement>('.im-pane')) {
         const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId);
         const measured = group?.activeTabId && terminalMetrics.get(group.activeTabId);
-        const footer = pane.querySelector<HTMLElement>('.wm-footer');
+        const footer = pane.querySelector<HTMLElement>('.pane-footer');
         const label = footer?.querySelector<HTMLElement>('.terminal-resources');
         if (!footer || !label) continue;
         if (measured) { const formatted = formatTerminalResources(measured); label.textContent = formatted.summary; footer.title = formatted.detail; }

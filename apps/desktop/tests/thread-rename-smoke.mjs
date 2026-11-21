@@ -165,8 +165,8 @@ try {
   evidence.checks.reloadPersistsTitleAndSameShellRemainsResponsive=true;
   expect(pageErrors).toBe(0);
   // The tab's own close control confirms before stopping a running session.
-    await expect(page.locator('.wm-tab')).toHaveCount(1);
-  await page.locator('.wm-tab-close').click({force:true});
+    await expect(page.locator('.im-tile-tab')).toHaveCount(1);
+  await page.locator('.im-tile-tab-close').click({force:true});
   await page.locator('#confirm-dialog button[value="stop"]').click();
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);

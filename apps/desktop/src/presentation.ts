@@ -1,4 +1,5 @@
-import { applyLook, applyShinatamaPalette, SHINATAMA_PALETTES as SKINS, type ShinatamaPaletteTokens as Tokens } from '@acaprino/imago/shell';
+import { applyLook } from '@acaprino/imago/shell';
+import { applyShinatamaPalette, SHINATAMA_PALETTES as SKINS, type ShinatamaPaletteTokens as Tokens } from './shinatama-palette.ts';
 import { uiPart, uiSelect, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
