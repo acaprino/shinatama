@@ -1,7 +1,7 @@
 // Real embedded app: rejected storage cannot write or disable window controls.
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { mkdtemp, access } from 'node:fs/promises';
+import { mkdtemp, access, readdir } from 'node:fs/promises';
 import { tmpdir as systemTmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -64,6 +64,10 @@ async function check(home, valid, index) {
 
 await check(resolve(fixture, 'data'), true, 0);
 await check(forbidden, false, 1);
-expect(await access(forbidden).then(() => true, () => false)).toBe(false);
+if (await access(forbidden).then(() => true, () => false)) {
+  // Which component wrote into the rejected location says where the write slipped past the check.
+  const written = await readdir(forbidden, { recursive: true }).catch(error => [`unreadable: ${error.message}`]);
+  throw new Error(`The rejected storage location was created; it holds: ${JSON.stringify(written.slice(0, 64))}`);
+}
 await check(String.raw`\\shinatama-invalid-network-host\missing\state`, false, 2);
 console.log('PASS storage: exact data path, project conflict rejected, no writes to rejected project/UNC location, usable frame and close.');
