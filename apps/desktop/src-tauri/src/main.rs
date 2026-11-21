@@ -768,10 +768,10 @@ fn main() {
                     ),
                 );
             }
+            // Marionette starts once the storage services exist (below): it writes its store only
+            // into a data folder they accept.
             #[cfg(windows)]
-            if let Ok(home) = &directory {
-                marionette::start(home);
-            }
+            let marionette_home = directory.as_ref().ok().cloned();
             // Shinatama's own Muro keeps the plugins of its agent boxes in sync: it is set up and
             // started on a thread of its own, beside Marionette's, which writes only its own store.
             let plugins = Arc::new(muro::Muro::for_app(
@@ -810,6 +810,13 @@ fn main() {
                     .map_err(|e| e.to_string()),
             ));
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
+            #[cfg(windows)]
+            if let Some(home) = marionette_home {
+                // On Marionette's own thread: the storage check opens the database, and the window
+                // does not wait for it.
+                let checked = services.clone();
+                marionette::start(&home, move || checked.load().is_ok());
+            }
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
             app.state::<resources::Resources>()
                 .attach_governor(&maintenance);
