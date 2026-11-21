@@ -3216,7 +3216,7 @@
         "F34.5": {
           "status": "in_progress",
           "limits": [
-            "The team map takes the graph editor's roles (c0d2c88) and team-map-smoke passes; Imago and imago-shell are pinned to the same commit of Imago's develop, not yet to the same release tag, which the owner publishes."
+            "The team map takes the graph editor roles (c0d2c88); team-map-smoke passes on Verify Windows run 44948332289 (7fe3859, 30/30), after 9b5099d kept a tab opened while the window takes its layout over. Imago and imago-shell are pinned to the same commit of Imago develop, not yet to the same release tag, which the owner publishes."
           ]
         }
       }

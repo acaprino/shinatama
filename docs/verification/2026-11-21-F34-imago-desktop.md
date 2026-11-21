@@ -51,7 +51,7 @@ imago-shell` and the whole gallery) passed on every one of those commits.
 | What | Result |
 |---|---|
 | The team map takes the graph editor's roles by name (Imago `e368e5c`). Commit `c0d2c88` | done |
-| `team-map-smoke` on Verify Windows: in run 44942028896 a click on a card the open arrow box covered on the runner's smaller map; the smoke now closes the box first, as a user would, and passes 3 times out of 3 on the executable that run built | awaits the next run |
+| `team-map-smoke` on Verify Windows, commit `7fe3859` (run 44948332289, 30/30). On the way it found a product defect: after a restart the window takes its layout over and loads it a second time, and that load replaced a tab opened meanwhile (the other thread's team map, opened while the layout was claiming); `9b5099d` keeps it. The smoke also closes a box that lies over a card before pressing it, and measures the arrow port on screen | passed |
 | Imago and imago-shell pinned to the same release tag | open: needs the owner's Imago release |
 
 ## Limits
