@@ -44,9 +44,12 @@ export function createLeftoversPanel(options: Options) {
   let state: LeftoverStatus = { available: false, reason: null, projects: [] };
   let message = '';
 
+  // Whether the viewer opened or closed the rail themselves; until then Xiox decides (refresh).
+  let chosen = false;
+  function show(visible: boolean) { panel.hidden = !visible; toggle.setAttribute('aria-pressed', String(visible)); }
   function setHidden(hidden: boolean) {
-    panel.hidden = hidden;
-    toggle.setAttribute('aria-pressed', String(!hidden));
+    chosen = true;
+    show(!hidden);
     try { localStorage.setItem(HIDDEN_KEY, hidden ? '1' : '0'); } catch { /* a per-viewer convenience */ }
     if (!hidden) void refresh();
   }
@@ -166,12 +169,17 @@ export function createLeftoversPanel(options: Options) {
 
   async function refresh() {
     try { state = await options.invoke<LeftoverStatus>('project_leftovers'); } catch (error) { if (!panel.hidden) say(text(error), true); }
+    // Unless the viewer chose, the rail opens only when Xiox watches: a rail opened at every start
+    // to say xiox.exe is missing took the workspace's room (on a narrow window, over its tabs).
+    if (!chosen && panel.hidden === state.available) show(state.available);
     render();
   }
 
-  let hidden = false;
-  try { hidden = localStorage.getItem(HIDDEN_KEY) === '1'; } catch { /* shown by default */ }
-  panel.hidden = hidden; toggle.setAttribute('aria-pressed', String(!hidden));
+  try {
+    const stored = localStorage.getItem(HIDDEN_KEY);
+    chosen = stored !== null;
+    show(stored === '0');
+  } catch { show(false); }
   void listen('project-leftovers', () => { void refresh(); }).catch(() => {});
   // "5 min ago" moves on, and an observer that started meanwhile shows up.
   window.setInterval(() => { if (!document.hidden) void refresh(); }, 30_000);
