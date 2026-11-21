@@ -1053,7 +1053,8 @@ fn noise_png(width: u32, height: u32) -> Vec<u8> {
     let mut raw = Vec::with_capacity((width as usize + 1) * height as usize);
     let mut seed = 0x2545_f491_u32;
     for _ in 0..height {
-        raw.push(0);
+        // Each scanline starts with its filter type, None (clippy::same_item_push reads a push here).
+        raw.extend([0]);
         for _ in 0..width {
             seed ^= seed << 13;
             seed ^= seed >> 17;
