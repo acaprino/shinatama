@@ -304,15 +304,15 @@ try {
   if (agentOnly) {
     const separator = sidebar.getByRole('separator', {name:'Thread sidebar width'});
     await separator.focus(); await separator.press('ArrowRight');
-    await expect(separator).toHaveAttribute('aria-valuenow','280');
+    await expect(separator).toHaveAttribute('aria-valuenow','272');
     await sidebar.getByRole('button',{name:'Collapse threads',exact:true}).click();
     await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings,{timeout:10000})
-      .toEqual({version:1,width:280,collapsed:true});
+      .toEqual({version:1,width:272,collapsed:true});
     await page.reload();
     await expect(page.locator('#runtime-status')).toContainText('Local runtime');
     await expect(sidebar).toHaveClass(/is-collapsed/);
     await sidebar.getByRole('button',{name:'Expand threads',exact:true}).click();
-    await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','280');
+    await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','272');
     await expect(sidebar.locator('.thread-sidebar-group[data-project-id="'+project.id+'"]')).toBeVisible({timeout:10000});
     await expect(sidebar.locator('button.thread-sidebar-anchor')).toHaveCount(1);
     expect(await ids()).toEqual([]);

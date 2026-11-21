@@ -1353,11 +1353,17 @@ threadSidebar = createWorksetSidebar({
 $('#app .im-body').prepend(threadSidebar.element);
 // mountApp: the layer stack, the sidebar's drawer and fold, F6 between the regions, the registry on the document, Ctrl+K
 // (the palette) and Ctrl+F (Find in the focused pane). A terminal keeps its own keys (it claims them, see openTerminal).
-const unmountApp = mountApp($('#app'), registry, {
-  search: () => terminalFind.open(),
-  sidebar: { collapsed: threadSidebar.collapsed(), onChange: collapsed => threadSidebar?.setCollapsed(collapsed) },
-});
-window.addEventListener('pagehide', unmountApp, { once: true });
+// It is mounted once the sidebar has read its saved state (or failed to), so the fold it is given is the saved one.
+{
+  const sidebar = threadSidebar;
+  void sidebar.ready.then(() => {
+    const unmountApp = mountApp($('#app'), registry, {
+      search: () => terminalFind.open(),
+      sidebar: { collapsed: sidebar.collapsed(), onChange: collapsed => sidebar.setCollapsed(collapsed) },
+    });
+    window.addEventListener('pagehide', unmountApp, { once: true });
+  });
+}
 // ADR-0057: the conversation of a thread whose sessions talk to each other, beside the terminals.
 threadChat = createThreadChat({
   invoke: (command, args) => invoke(command, args),

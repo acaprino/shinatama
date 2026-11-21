@@ -21,7 +21,7 @@
     "parts": 31
   },
   "leftovers-panel.ts": {
-    "parts": 32
+    "parts": 28
   },
   "main.ts": {
     "parts": 22
@@ -81,10 +81,13 @@
     "parts": 56
   },
   "shell-frame.ts": {
-    "parts": 21
+    "parts": 20
+  },
+  "side-panel.ts": {
+    "parts": 7
   },
   "sidecar-control.ts": {
-    "parts": 31
+    "parts": 27
   },
   "team-map.ts": {
     "parts": 19
@@ -99,7 +102,7 @@
     "parts": 1
   },
   "thread-chat.ts": {
-    "parts": 34
+    "parts": 30
   },
   "toolbar-simple.ts": {
     "parts": 10
