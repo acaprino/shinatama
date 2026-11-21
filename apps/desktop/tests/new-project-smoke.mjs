@@ -178,8 +178,17 @@ async function openCreator(instance, fromPicker = false) {
     }, command);
     const [direct, list] = await Promise.all([timed('new_project_options'), timed('terminal_list')]);
     const enabled = await expect(instance.page.locator('#new-project-root')).toBeEnabled({ timeout: 30000 }).then(() => true, () => false);
+    // Closed and opened again: a read that never settles is shared by the next opening and stays stuck; a read that
+    // ended without repainting is replaced by a fresh one, which enables the field.
+    let reopened = 'not tried';
+    if (!enabled) {
+      await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click().catch(() => {});
+      await expect(instance.page.locator('#new-project-dialog')).not.toBeVisible().catch(() => {});
+      await instance.page.locator('#project').focus(); await instance.page.keyboard.press('n');
+      reopened = await expect(instance.page.locator('#new-project-root')).toBeEnabled({ timeout: 10000 }).then(() => 'enabled', () => 'still disabled');
+    }
     throw new Error('The project root stayed disabled: ' + JSON.stringify({ ...state, directOptionsMs: direct, terminalListMs: list,
-      dialogReadEnded: enabled ? `${Math.round(performance.now() - opened)} ms after opening` : 'not within 30 s more' }), { cause: failure });
+      dialogReadEnded: enabled ? `${Math.round(performance.now() - opened)} ms after opening` : 'not within 30 s more', reopened }), { cause: failure });
   }
   await expect(instance.page.locator('#new-project-git')).not.toBeChecked();
 }
