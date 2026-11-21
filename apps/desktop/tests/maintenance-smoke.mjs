@@ -6,11 +6,15 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mainPage } from './main-page.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('The embedded maintenance check requires Windows/WebView2.');
 const root = process.cwd();
@@ -192,7 +196,7 @@ try {
     catch { await delay(250); }
   }
   if (!browser) throw new Error('Maintenance WebView2 startup exceeded its deadline.');
-  page = browser.contexts()[0].pages()[0] || await browser.contexts()[0].waitForEvent('page', { timeout: 5000 });
+  page = await mainPage(browser);
   page.on('pageerror', error => pageErrors.push(error.name));
   await page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
   await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 15000 });

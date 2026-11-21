@@ -2,9 +2,13 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdtemp, access } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mainPage } from './main-page.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('Storage UI checks require Windows.');
 const root = process.cwd();
@@ -29,7 +33,7 @@ async function check(home, valid, index) {
       catch { await delay(300); }
     }
     if (!browser) throw new Error('Desktop did not expose its local test endpoint.');
-    const page = browser.contexts()[0].pages()[0];
+    const page = await mainPage(browser);
     await expect(page.locator('#runtime-status')).toContainText(valid ? 'Local runtime' : 'Storage unavailable', { timeout: 15000 });
     const error = () => invoke(page, 'storage_location').then(() => null, error => String(error));
     if (valid) {

@@ -3,10 +3,14 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mainPage } from './main-page.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This embedded WebView2 state check is Windows-only.');
 const root = process.cwd();
@@ -88,7 +92,7 @@ async function openApp(readOnly = false) {
     }
     if (!instance.browser) throw new Error('The state-test WebView2 startup exceeded 30 seconds.');
     const context = instance.browser.contexts()[0];
-    instance.page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+    instance.page = await mainPage(instance.browser);
     instance.page.on('pageerror', error => instance.errors.push(error.message));
     await instance.page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
     expect(new URL(instance.page.url()).hostname).toBe('tauri.localhost');
@@ -146,7 +150,7 @@ try {
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'first-project');
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['first-project', 'second-project']);
-  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
   await selectFolder(instance, second);
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   const selected = await invoke(instance, 'project_recent');
@@ -172,7 +176,7 @@ try {
   expect(restored).toEqual(selected);
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['second-project', 'first-project']);
-  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
   expect(await readFile(legacyPath)).toEqual(corruptedLegacy);
   await closeApp(instance);
   expect(snapshotDatabase()).toEqual(initialSnapshot);
@@ -198,7 +202,7 @@ try {
   await expect(instance.page.locator('#project-error')).toContainText('999');
   await expect(instance.page.locator('#project-dialog')).toBeVisible();
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
   await closeApp(instance);
   expect(await readFile(databasePath)).toEqual(futureBytes);
   expect(snapshotDatabase()).toEqual(beforeReadOnly);

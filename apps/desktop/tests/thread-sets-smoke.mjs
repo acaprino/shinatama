@@ -4,11 +4,14 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
 import { dragTab, startSession } from './session-flow.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
