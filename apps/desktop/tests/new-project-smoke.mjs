@@ -157,7 +157,17 @@ async function openCreator(instance, fromPicker = false) {
   else await instance.page.locator('#project').focus();
   await instance.page.keyboard.press('n');
   await expect(instance.page.locator('#new-project-dialog')).toBeVisible();
-  await expect(instance.page.locator('#new-project-root')).toBeEnabled();
+  try { await expect(instance.page.locator('#new-project-root')).toBeEnabled(); }
+  catch (failure) {
+    // Disabled means reading the roots or an operation still running: the dialog's status says which.
+    const state = await instance.page.evaluate(() => ({
+      status: document.querySelector('#new-project-status')?.textContent,
+      error: document.querySelector('#new-project-error')?.textContent,
+      busy: document.querySelector('#new-project-dialog form')?.getAttribute('aria-busy'),
+      modals: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
+    }));
+    throw new Error('The project root stayed disabled: ' + JSON.stringify(state), { cause: failure });
+  }
   await expect(instance.page.locator('#new-project-git')).not.toBeChecked();
 }
 async function rootFolders() {
