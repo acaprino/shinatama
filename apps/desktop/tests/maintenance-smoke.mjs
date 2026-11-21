@@ -237,6 +237,15 @@ try {
   let completedChecks = 0;
   let sawShapeAnomaly = false;
   let lastExplicitStatus;
+  // The resource governor holds back optional work until it has calibrated (30 samples over 30 s,
+  // "missing_telemetry"); an explicit check asked before then is deferred by design.
+  for (const deadline = Date.now() + 90000; ;) {
+    const policy = (await invoke('resources_telemetry', { telemetry: {} }))?.policy;
+    if (policy && !policy.reduce_optional) break;
+    if (Date.now() > deadline) throw new Error('The resource governor still held back optional work after 90 s: ' + JSON.stringify(policy).slice(0, 1024));
+    await probeHealthyTerminal();
+    await delay(1000);
+  }
   for (let check = 0; check < 6; check++) {
     const status = await checkAlongsideTerminal();
     if (status.report?.outcome === 'completed') completedChecks++;
