@@ -57,11 +57,12 @@ async function checkScratchNames(directory) {
   }
   return counts;
 }
+let lastConnectError = 'none';
 try {
   for (let attempt = 0; attempt < 60; attempt++) {
     if (app.exitCode !== null) throw new Error('Desktop exited: ' + app.exitCode + '\n' + diagnostics);
     try { browser = await chromium.connectOverCDP('http://127.0.0.1:' + port, { timeout: 1000 }); break; }
-    catch { await delay(500); }
+    catch (error) { lastConnectError = String(error?.message ?? error).slice(0, 2048); await delay(500); }
   }
   if (!browser) throw new Error('WebView2 unavailable.\n' + diagnostics);
   const context = browser.contexts()[0];
@@ -329,6 +330,13 @@ try {
       console.error('Start diagnostic, processes:\n' + execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
         "Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'shinatama|msedgewebview2' } | ForEach-Object { '{0} {1} parent={2}' -f $_.ProcessId, $_.Name, $_.ParentProcessId }"],
       { encoding: 'utf8', windowsHide: true, timeout: 20000 }));
+      // Whether the debugging port reached WebView2, is open, and what Playwright refused.
+      console.error('Start diagnostic, last CDP connect error (port ' + port + '): ' + lastConnectError);
+      console.error('Start diagnostic, /json/version: ' + await fetch('http://127.0.0.1:' + port + '/json/version', { signal: AbortSignal.timeout(3000) })
+        .then(async response => response.status + ' ' + (await response.text()).slice(0, 1024)).catch(reason => 'unreachable: ' + reason.message));
+      console.error('Start diagnostic, WebView2 browser arguments:\n' + execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -notmatch '--type=' } | ForEach-Object { $_.CommandLine }"],
+      { encoding: 'utf8', windowsHide: true, timeout: 20000 }).slice(0, 4096));
     } catch (diagnosticError) { console.error('Start diagnostic failed:', diagnosticError.message); }
   }
   if (page && !page.isClosed()) {

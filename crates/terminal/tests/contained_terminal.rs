@@ -313,12 +313,14 @@ struct Transcript {
     eof: bool,
     exit: Option<u32>,
     errors: usize,
+    last_error: Option<String>,
 }
 impl Transcript {
     fn poll(&mut self, host: &TerminalHost, info: &SessionInfo, healthy: bool) -> Result<()> {
         let batch = host.read(&info.id)?;
         if let Some(error) = &batch.error {
             self.errors += 1;
+            self.last_error = Some(error.chars().take(1024).collect());
             if healthy {
                 let error = error.chars().take(1024).collect::<String>();
                 let tail =
@@ -481,7 +483,19 @@ fn fault_until(
             let tail = String::from_utf8_lossy(
                 &fault_trace.tail[fault_trace.tail.len().saturating_sub(4096)..],
             );
-            bail!("Synthetic resource fault ended before reporting local refusal; tail={tail:?}");
+            // Who ended it: the exit code, the host's errors and its last resource reason.
+            let status = host
+                .resources()
+                .into_iter()
+                .find(|status| status.id == fault.id);
+            bail!(
+                "Synthetic resource fault ended before printing {expected}; eof={} exit={:?} \
+                 errors={} last_error={:?} status={status:?}; tail={tail:?}",
+                fault_trace.eof,
+                fault_trace.exit,
+                fault_trace.errors,
+                fault_trace.last_error,
+            );
         }
         replies.push(ping(
             host,
