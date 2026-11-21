@@ -47,7 +47,9 @@ try {
   });
   app = spawn(resolve(workspace, 'target/debug/shinatama-desktop.exe'), [], {
     cwd: workspace, windowsHide: true, stdio: 'ignore',
-    env: { ...process.env, SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview'),
+    // Marionette's background install writes its store once the data folder is accepted, at a moment of
+    // its own: off here, so "preflight writes nothing" compares the folder without it.
+    env: { ...process.env, SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview'), SHINATAMA_MARIONETTE: 'off',
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` },
   });
   let spawnError;
