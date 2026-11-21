@@ -643,6 +643,11 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
 
     let crash = host.start(&project, 24, 100)?;
     let mut crash_output = Transcript::default();
+    // This shell reads its lines without PSReadLine. After the managed OutOfMemoryException below,
+    // Windows PowerShell ended by itself (exit code 5, nothing terminated, no PSReadLine message)
+    // when it read its next line, in four of six Verify Windows runs, arrays released or not:
+    // the line reader is PSReadLine's, which allocates on every key.
+    host.write(&crash.id, b"Remove-Module PSReadLine -Force\r".to_vec())?;
     let armed = send_marker(&host, &crash, "SHN_CRASH_READY_")?;
     marker(
         &host,
