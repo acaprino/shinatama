@@ -13,8 +13,7 @@ const publicImports = new Set(['ui', 'shell', 'tauri', 'graph', 'graph-layout', 
 // Native engine mount points, identified by source path, owning binding and element type.
 const engineNodes = new Set([
   'src/browser-tab.ts:canvas:canvas', 'src/code-view.ts:mark:span',
-  'src/files-panel.ts:code:div', 'src/files-panel.ts:preview:div', 'src/files-panel.ts:picture:div',
-  'src/files-panel.ts:visual:div', 'src/files-panel.ts:img:img', 'src/terminal-history-view.ts:screen:div',
+  'src/files-panel.ts:img:img', 'src/terminal-history-view.ts:screen:div',
   'src/terminal-minimap.ts:strip:div', 'src/terminal-minimap.ts:canvas:canvas',
   'src/terminal-minimap.ts:archiveBand:div', 'src/terminal-minimap.ts:frame:div',
 ]);
@@ -119,15 +118,7 @@ const terminalSelectors = new Set([
   '.terminal-history-title', '.terminal-history-screen',
 ]);
 const fileSelectors = new Set([
-  '.im-document-panes[data-view="split"] > .files-code', '.files-code', '.files-code .cm-editor', '.cm-fold-mark', '.cm-fold-mark.open',
-  '.files-preview', '#files-dialog .files-preview :is(h1, h2, h3, h4, h5, h6)', '#files-dialog .files-preview h1',
-  '#files-dialog .files-preview h2', '#files-dialog .files-preview h3', '#files-dialog .files-preview :is(h4, h5, h6)',
-  '#files-dialog .files-preview > :first-child', '#files-dialog .files-preview p', '#files-dialog .files-preview :is(ul, ol)',
-  '#files-dialog .files-preview blockquote', '.files-preview pre', '.files-preview code', '.files-preview table',
-  '.files-preview th', '.files-preview td', '.files-preview a[data-path]', '.files-preview .md-link', '.files-preview .md-image',
-  '.files-picture', '.files-picture img', '.files-visual', '.files-visual :is(input, textarea)', '#files-dialog .files-visual .files-visual-heading',
-  '#files-dialog .files-visual .files-visual-heading.level-1', '#files-dialog .files-visual .files-visual-code',
-  '.files-visual .invalid', '.files-visual-kept',
+  '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image',
 ]);
 function inspectCss(file: string, source: string): string[] {
   const scope = file === 'src/terminal-content.css' ? terminalSelectors : file === 'src/files-panel.css' ? fileSelectors : null;
@@ -214,6 +205,6 @@ test('engine files cannot host extra controls or raw markup through an alias', (
   assert.ok(!issues.some(issue => issue.startsWith('src/browser-tab.ts:3 ')), 'the Moli canvas mount remains allowed');
   assert.ok(issues.some(issue => issue.startsWith('src/browser-tab.ts:4 ')), 'the same engine cannot build toolbar buttons');
   assert.ok(issues.some(issue => issue.startsWith('src/browser-tab.ts:6 ')), 'computed method aliases are checked');
-  assert.deepEqual(inspectCss('src/files-panel.css', '#files-dialog .files-preview p, .application-button {color:red}'),
+  assert.deepEqual(inspectCss('src/files-panel.css', '.files-preview .md-link, .application-button {color:red}'),
     ['src/files-panel.css unsupported selector .application-button']);
 });

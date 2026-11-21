@@ -1,31 +1,5 @@
-.im-document-panes[data-view="split"] > .files-code { border-right: 1px solid color-mix(in srgb, var(--im-line) 70%, transparent); }
-.files-code { position: relative; overflow: hidden; }
-.files-code .cm-editor { height: 100%; }
+/* CodeMirror, the engine of the source pane (code-view.ts): the marker of its fold gutter. */
 .cm-fold-mark { display: inline-block; width: 6px; height: 6px; margin-top: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; rotate: -45deg; }
 .cm-fold-mark.open { rotate: 45deg; margin-top: 4px; }
-.files-preview { overflow: auto; padding: 14px 24px 14px 18px; color: var(--im-text); font-size: 14px; line-height: 1.65; user-select: text; scrollbar-width: thin; }
-/* Rendered Markdown uses document heading levels and selectable body text. */
-#files-dialog .files-preview :is(h1, h2, h3, h4, h5, h6) { margin: 1.2em 0 .5em; font-family: var(--im-font-display); font-weight: 650; letter-spacing: -.01em; line-height: 1.25; text-transform: none; color: var(--im-text); }
-#files-dialog .files-preview h1 { font-size: 24px; }
-#files-dialog .files-preview h2 { font-size: 19px; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--im-line) 70%, transparent); }
-#files-dialog .files-preview h3 { font-size: 16px; }
-#files-dialog .files-preview :is(h4, h5, h6) { font-size: 14px; }
-#files-dialog .files-preview > :first-child { margin-top: 0; }
-#files-dialog .files-preview p { margin: 0 0 .9em; font-size: 14px; color: var(--im-text); }
-#files-dialog .files-preview :is(ul, ol) { padding-left: 1.4em; }
-#files-dialog .files-preview blockquote { margin: 0 0 .9em; padding-left: 12px; border-left: 1px solid var(--im-line-strong); color: var(--im-muted); }
-.files-preview pre { background: var(--im-ground); padding: 10px 12px; overflow: auto; font: 12.5px/1.55 var(--im-font-code); }
-.files-preview code { font-family: var(--im-font-code); font-size: .92em; }
-.files-preview table { border-collapse: collapse; margin: 12px 0; font-size: 13px; }
-.files-preview th, .files-preview td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--im-line); text-align: left; vertical-align: top; }
-.files-preview th { color: var(--im-muted); font-weight: 600; }
-.files-preview a[data-path] { color: var(--im-accent-text); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+/* What the Rust renderer (crates/files/src/markdown.rs) marks in a rendered document: a link or an image it does not follow. */
 .files-preview .md-link, .files-preview .md-image { color: var(--im-muted); }
-.files-picture { overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 14px; background: var(--im-ground); }
-.files-picture img { max-width: 100%; height: auto; image-rendering: auto; }
-.files-visual { overflow: auto; padding: 14px 24px 14px 18px; display: flex; flex-direction: column; gap: 8px; }
-.files-visual :is(input, textarea) { width: 100%; height: auto; resize: vertical; }
-#files-dialog .files-visual .files-visual-heading { font-weight: 700; font-size: 18px; }
-#files-dialog .files-visual .files-visual-heading.level-1 { font-size: 22px; }
-#files-dialog .files-visual .files-visual-code { font: 13px/1.5 var(--im-font-code); background: var(--im-ground); }
-.files-visual-kept { margin: 0; padding: 6px 8px; color: var(--im-muted); background: var(--im-ground); border-left: 1px solid var(--im-line-strong); white-space: pre-wrap; font: 12px/1.5 var(--im-font-code); }

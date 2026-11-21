@@ -1,4 +1,4 @@
-import { breadcrumbs, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone } from '@acaprino/imago/ui';
+import { breadcrumbs, documentPane, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 import { createFilesTree, type Entry, type Listing } from './files-tree.ts';
 import type { CodeView } from './code-view.ts';
@@ -72,10 +72,10 @@ export function createFilesPanel(options: Options) {
     dialog.close();
   };
   bar.append(language, modes, inBrowser, save);
-  const code = document.createElement('div'); code.className = 'files-code'; code.setAttribute('aria-label', 'File source');
-  const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
-  const picture = document.createElement('div'); picture.className = 'files-picture'; picture.hidden = true;
-  const visual = document.createElement('div'); visual.className = 'files-visual'; visual.hidden = true; visual.setAttribute('aria-label', 'Visual editor');
+  const code = documentPane('source', 'File source'); code.classList.add('files-code');
+  const preview = documentPane('rendered', 'Rendered Markdown'); preview.classList.add('files-preview');
+  const picture = documentPane('picture'); picture.classList.add('files-picture'); picture.hidden = true;
+  const visual = documentPane('form', 'Visual editor'); visual.classList.add('files-visual'); visual.hidden = true;
   const empty = uiTraits(uiPart('hint', 'Choose a file in the tree, or find one by name.'), 'emptyMessage');
   panes.append(code, preview, picture, visual, empty);
   status.classList.add('files-status');
@@ -254,12 +254,13 @@ export function createFilesPanel(options: Options) {
     doc.blocks.forEach((block, index) => {
       if (block.kind === 'blank') return;
       if (!block.editable) {
-        const kept = uiPart('pre'); kept.classList.add('files-visual-kept'); kept.textContent = block.prefix + block.text + block.suffix;
+        const kept = uiTraits(uiPart('pre'), 'documentKept'); kept.textContent = block.prefix + block.text + block.suffix;
         kept.title = 'Kept as source: not part of the visual subset'; visual.append(kept); return;
       }
       const field = block.kind === 'heading' ? uiInput() : uiTextarea();
       field.classList.add(`files-visual-${block.kind}`);
-      if (block.kind === 'heading') field.classList.add(`level-${block.level}`);
+      if (block.kind === 'heading') { uiTraits(field, 'documentHeading'); field.dataset.imLevel = String(block.level); }
+      if (block.kind === 'code') uiTraits(field, 'documentCode');
       field.value = block.kind === 'code' ? block.text.replace(/\r?\n$/, '') : block.text;
       field.setAttribute('aria-label', `${block.kind} ${index}`);
       if (field instanceof HTMLTextAreaElement) field.rows = Math.min(12, Math.max(2, field.value.split('\n').length));
