@@ -111,7 +111,11 @@ try {
   assert.equal(governed.policy.active_native_workloads, 0);
   assert.ok(governed.policy.monitor_age_ms < 3000);
   assert.ok(governed.resources.owned_private_commit_bytes > 0);
-  assert.ok((await page.locator('#resource-status').getAttribute('title')).includes('Native agent launches: unavailable'));
+  // The badge says what it measured and what a new session waits for (resource-status.ts); the
+  // "Native agent launches" line this checked was dropped from it before the history restart.
+  const badgeTitle = await page.locator('#resource-status').getAttribute('title');
+  assert.ok(badgeTitle.includes('Observed process memory: ') && !badgeTitle.includes('Observed process memory: unavailable'), badgeTitle);
+  assert.match(badgeTitle, /New sessions: (waiting for measurements|waiting for resources|checked individually against available limits)/);
   evidence.checks.liveGovernorAndHonestStatus = true;
   evidence.checks.nativeCountersAndProcessCoverage = true;
   evidence.checks.frontendFrameInputAndIpcMeasurements = true;

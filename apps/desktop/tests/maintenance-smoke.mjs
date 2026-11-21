@@ -13,6 +13,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { mainPage } from './main-page.mjs';
+import { startSession } from './session-flow.mjs';
 // The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
 const tmpdir = () => realpathSync.native(systemTmpdir());
 
@@ -210,7 +211,8 @@ try {
   expect(await invoke('terminal_list')).toEqual([]);
 
   evidence.stage = 'start-healthy-pty';
-  await page.locator('#new-terminal').click();
+  // New session is a menu of harnesses (FRD-0001 R68): PowerShell in the synthetic project.
+  await (await startSession(page, { project, harness: 'powershell' })).done(30000);
   await expect(page.locator('.xterm-accessibility').first()).toContainText('PS ', { timeout: 20000 });
   await page.locator('.xterm-helper-textarea').first().focus();
   // The echoed command contains split literals; only actual PTY output matches

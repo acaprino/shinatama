@@ -182,7 +182,7 @@ try {
   await expect(page.locator('.catalog-root-status')).toHaveCount(2, { timeout: 10000 });
   await page.locator('.catalog-root-status').nth(1).getByRole('button', { name: /^Make default/ }).click();
   await expect(page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
-  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   const configuration = await invoke(instance, 'new_project_options');
   const defaultId = configuration.defaultRootId;
   expect(key(configuration.roots.find(root => root.id === defaultId).path)).toBe(key(rootB));
@@ -193,7 +193,7 @@ try {
   await expect(page.locator('#new-project-dialog')).not.toBeVisible();
   await page.locator('#folder').fill('typed-'); await page.locator('#folder').focus(); await page.keyboard.press('n');
   await expect(page.locator('#folder')).toHaveValue('typed-n'); await expect(page.locator('#new-project-dialog')).not.toBeVisible();
-  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await (await startSession(page, { project: seed, harness: 'powershell' })).done(30000); await expect(page.locator('.xterm-accessibility')).toContainText('PS ', { timeout: 20000 });
   const originalSession = (await invoke(instance, 'terminal_list'))[0];
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.type("Write-Output ('C05_KEY_' + '");

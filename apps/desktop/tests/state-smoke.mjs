@@ -150,7 +150,7 @@ try {
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'first-project');
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['first-project', 'second-project']);
-  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await selectFolder(instance, second);
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   const selected = await invoke(instance, 'project_recent');
@@ -176,7 +176,7 @@ try {
   expect(restored).toEqual(selected);
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['second-project', 'first-project']);
-  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   expect(await readFile(legacyPath)).toEqual(corruptedLegacy);
   await closeApp(instance);
   expect(snapshotDatabase()).toEqual(initialSnapshot);
@@ -202,7 +202,7 @@ try {
   await expect(instance.page.locator('#project-error')).toContainText('999');
   await expect(instance.page.locator('#project-dialog')).toBeVisible();
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await closeApp(instance);
   expect(await readFile(databasePath)).toEqual(futureBytes);
   expect(snapshotDatabase()).toEqual(beforeReadOnly);

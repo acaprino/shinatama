@@ -140,7 +140,7 @@ try {
   await expect(page.locator('#project-filter')).toBeFocused();
   await page.locator('#project-filter').fill('z-last-opened');
   await expect(page.locator('.catalog-project')).toHaveCount(1);
-  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await expect(page.locator('#project')).toHaveAttribute('data-project', 'z-last-opened');
   expect(await invoke(instance, 'terminal_list')).toEqual([originalSession]);
   evidence.checks.multipleRootsExplicitDefaultAnd100RowPagination = true;
@@ -150,7 +150,7 @@ try {
   // A path typed but never added is not saved.
   await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await page.locator('#root-path').fill(resolve(fixture, 'discarded-root'));
-  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.type('/');
   await expect(page.locator('#project-dialog')).not.toBeVisible();
   await page.keyboard.press('Backspace');
@@ -174,7 +174,7 @@ try {
   await expect(instance.page.locator('#default-root-summary')).toContainText(rootB);
   await expect(instance.page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true');
   await instance.page.screenshot({ path: resolve(output, 'project-roots.png') });
-  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).click();
+  await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await closeApp(instance);
   expect(managerConfig()).toEqual(saved);
   evidence.checks.restartRetainsRootsAndMissingDefaultWithoutFallback = true;
