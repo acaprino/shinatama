@@ -236,7 +236,7 @@ try {
     await page.locator(`.im-tile-tab[data-view-id="${item.id}"]`).click();
     // The tab's own close control confirms before stopping a running session.
     await page.locator(`.im-tile-tabwrap:has(.im-tile-tab[data-view-id="${item.id}"]) .im-tile-tab-close`).click();
-    await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+    await page.locator('#confirm-dialog').getByRole('button', { name: /^(Stop terminal|Close session)$/ }).click();
     await expect(page.locator(`.im-tile-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
     if (harness === 'claude_code') {
       await expect.poll(async () => {

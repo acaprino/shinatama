@@ -1,13 +1,14 @@
-import { uiPart, uiButton } from '@acaprino/imago/ui';
+import { confirm, uiPart, uiButton } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { closeSidePanel, openSidePanel, sidePanelShows, sideView } from './side-panel.ts';
 import { adoptStopReply, archiveLine, buttons, confirmStillNeeded, diskLine, driftLine, exitLine, faultLine, indicator, messageLine, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
 
 const POLL_MS = 1500;
 
-/** The Model proxy side panel, a view of the window's side panel, never a dialog: terminals stay live beside it and the
- * confirmations before a costly stop or a restart are inline, inside the panel. `restart` closes the
- * workspace and starts Shinatama again: the exit that works when the supervisor no longer answers. */
+/** The Model proxy side panel, a view of the window's side panel, never a dialog itself: terminals stay live beside it.
+ * A stop that would cut agents off and a restart cannot be undone, so each asks in a dialog that says what it costs, its
+ * Cancel first. `restart` closes the workspace and starts Shinatama again: the exit that works when the supervisor no
+ * longer answers. */
 export function createSidecarControl(desktop: boolean, notify: (message: string) => void, restart: () => Promise<void>) {
   // The toolbar shows a traffic light, not a labelled button: the phase is in its accessible name
   // and tooltip, and a click still opens the panel.
@@ -29,31 +30,20 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   const archive = uiPart('hint');
   const drift = uiPart('hint');
   const interruption = uiPart('hint');
-  const confirm = Object.assign(uiPart('panel'), { id: 'model-proxy-confirm', hidden: true }); confirm.setAttribute('role', 'group'); confirm.setAttribute('aria-label', 'Confirm stop');
-  const consequence = uiPart('paragraph');
-  const keep = uiButton('Keep running', { primary: true });
-  const stopAnyway = uiButton('Stop anyway');
-  const choices = uiPart('actions'); choices.append(stopAnyway, keep);
-  confirm.append(consequence, choices);
-  const restartConfirm = Object.assign(uiPart('panel'), { id: 'model-proxy-restart', hidden: true }); restartConfirm.setAttribute('role', 'group'); restartConfirm.setAttribute('aria-label', 'Confirm restart');
-  const restartText = uiPart('paragraph', 'Shinatama will close and start again. Running terminals stop; their sessions are restored at the next start.');
-  const restartNow = uiButton('Restart Shinatama', { cls: 'danger', danger: true });
-  const keepWaiting = uiButton('Keep waiting', { primary: true });
-  const restartChoices = uiPart('actions'); restartChoices.append(restartNow, keepWaiting);
-  restartConfirm.append(restartText, restartChoices);
   const actions = uiPart('actions');
   const start = uiButton('', { primary: true });
   const stop = uiButton('Stop');
   const retry = uiButton('Retry recovery');
   const restartOffer = Object.assign(uiButton('Restart Shinatama', { cls: 'danger', danger: true }), { hidden: true });
   actions.append(stop, retry, restartOffer, start);
-  view.body.append(description, state, traffic, message, stall, fault, disk, archive, interruption, drift, confirm, restartConfirm);
+  view.body.append(description, state, traffic, message, stall, fault, disk, archive, interruption, drift);
   view.foot.append(actions);
   const shownNow = () => sidePanelShows(panel);
 
-  let current: ProxyStatus | null = null; let outstanding = false; let destroyed = false; let confirming = false;
+  let current: ProxyStatus | null = null; let outstanding = false; let destroyed = false;
   // Status reads that failed in a row: three mean the panel can no longer see the proxy's owner.
-  let failedPolls = 0; let confirmingRestart = false; let restarting = false;
+  // asking: a stop or restart dialog is open, so a second press or a refused stop does not open another.
+  let failedPolls = 0; let asking = false; let restarting = false;
 
   function render() {
     const phase = current?.phase ?? 'unavailable';
@@ -70,9 +60,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
       line.hidden = !text; line.textContent = text || '';
     }
     const offered = restartOffered(current, failedPolls);
-    if (!offered && !restarting) confirmingRestart = false;
-    restartOffer.hidden = !offered; restartOffer.disabled = !offered || restarting || confirmingRestart;
-    restartConfirm.hidden = !confirmingRestart; restartNow.disabled = restarting; keepWaiting.disabled = restarting;
+    restartOffer.hidden = !offered; restartOffer.disabled = !offered || restarting || asking;
     const note = current ? driftLine(current) : null;
     drift.hidden = note === null; drift.textContent = note ?? '';
     const ended = current ? exitLine(current) : null;
@@ -80,9 +68,6 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     const enabled = buttons(current, outstanding);
     start.disabled = !enabled.start; stop.disabled = !enabled.stop; retry.disabled = !enabled.retry;
     start.textContent = startLabel(current);
-    const cost = current ? stopConsequence(current) : null;
-    if (confirming && !confirmStillNeeded(current)) confirming = false;
-    confirm.hidden = !confirming; consequence.textContent = confirming && cost ? cost : '';
     panel.setAttribute('aria-busy', String(outstanding));
   }
   // A reply that began before the panel was closed or a newer command is stale and never adopted.
@@ -100,7 +85,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
       else if (command === 'sidecar_stop' && !adoptStopReply(before)) again = true;
       else {
         current = received;
-        if (received.refused) confirming = true; // the server saw agents the panel had not
+        if (received.refused) void askStop(); // the server saw agents the panel had not
       }
     } catch {
       if (poll) failedPolls += 1;
@@ -109,7 +94,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     }
     finally {
       if (poll) polling = false; else outstanding = false;
-      if (!destroyed) { render(); if (!confirm.hidden && command === 'sidecar_stop') keep.focus(); }
+      if (!destroyed) render();
     }
     if (again) void request('sidecar_status');
   }
@@ -118,7 +103,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   let open = false;
   function left() {
     if (!open) return;
-    open = false; generation++; confirming = false; if (!restarting) confirmingRestart = false; button.setAttribute('aria-expanded', 'false'); render();
+    open = false; generation++; button.setAttribute('aria-expanded', 'false'); render();
   }
   function show() { open = true; openSidePanel(panel, { opener: button, onLeave: left }); button.setAttribute('aria-expanded', 'true'); render(); close.focus(); void request('sidecar_status'); }
   function shut(returnFocus: boolean) {
@@ -130,20 +115,39 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   close.onclick = () => shut(true);
   start.onclick = () => { void request('sidecar_start', true); };
   retry.onclick = () => { void request('sidecar_retry', true); };
+  const shell = () => document.querySelector<HTMLElement>('#app') ?? document.body;
+  /** A stop that would cut running agents off asks first, with what it costs; Keep running is its Cancel. */
+  async function askStop() {
+    const cost = current ? stopConsequence(current) : null;
+    if (asking || destroyed || cost === null) return;
+    asking = true; render();
+    try {
+      const yes = await confirm(shell(), { title: 'Stop the model proxy?', body: cost, confirm: 'Stop model proxy', cancel: 'Keep running', danger: true });
+      // Agents that ended meanwhile need no forced stop, and one already stopped needs none at all.
+      if (yes && !destroyed) void request('sidecar_stop', true, { force: confirmStillNeeded(current) });
+    } finally { asking = false; if (!destroyed) render(); }
+  }
   stop.onclick = () => {
-    if (current && stopConsequence(current) !== null) { confirming = true; render(); keep.focus(); return; }
+    if (current && stopConsequence(current) !== null) { void askStop(); return; }
     void request('sidecar_stop', true, { force: false });
   };
-  keep.onclick = () => { confirming = false; render(); stop.focus(); };
-  restartOffer.onclick = () => { confirmingRestart = true; render(); keepWaiting.focus(); };
-  keepWaiting.onclick = () => { confirmingRestart = false; render(); restartOffer.focus(); };
-  restartNow.onclick = async () => {
+  restartOffer.onclick = async () => {
+    if (asking || restarting) return;
+    asking = true; render();
+    let yes = false;
+    try {
+      yes = await confirm(shell(), {
+        title: 'Restart Shinatama?',
+        body: 'Shinatama will close and start again. Running terminals stop; their sessions are restored at the next start.',
+        confirm: 'Restart Shinatama', cancel: 'Keep waiting', danger: true,
+      });
+    } finally { asking = false; if (!destroyed) render(); }
+    if (!yes || destroyed) return;
     restarting = true; render();
     // A refused restart closed nothing: say why and keep the panel as it was.
     try { await restart(); } catch (error) { notify(error instanceof Error ? error.message : String(error)); }
-    finally { restarting = false; confirmingRestart = false; if (!destroyed) render(); }
+    finally { restarting = false; if (!destroyed) render(); }
   };
-  stopAnyway.onclick = () => { confirming = false; render(); state.focus(); void request('sidecar_stop', true, { force: true }); };
   render();
   if (desktop) void request('sidecar_status');
   const timer = desktop ? window.setInterval(() => { if (shownNow() || current?.phase !== 'stopped') void request('sidecar_status'); }, POLL_MS) : 0;

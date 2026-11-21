@@ -183,6 +183,9 @@ try {
   await page.evaluate(() => window.smoke.emit('confirm-close', null));
   const confirmation = page.getByRole('alertdialog', { name: 'Close workspace?' });
   await expect(confirmation).toBeVisible();
+  // The confirming button carries the verb and the object; focus starts on Cancel.
+  await expect(confirmation.getByRole('button', { name: 'Close workspace', exact: true })).toBeVisible();
+  await expect(confirmation.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Control+Shift+t');
   await expect(page.locator('#session-menu')).toBeHidden();
   await expect(confirmation).toBeVisible();

@@ -125,6 +125,18 @@ try {
   await expect(details.locator('#thread-rename-title')).toHaveValue('Alpha two');
   await expect(details.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)');
   await expect(details.locator('.thread-sidebar-closed-name')).toHaveText('Codex');
+  // Deleting a closed session asks in a dialog that names it, focus on Cancel; Cancel keeps it.
+  const closedDelete = details.locator('.thread-sidebar-closed').getByRole('button', { name: 'Delete', exact: true });
+  const deleting = page.getByRole('alertdialog', { name: 'Delete the session Codex?', exact: true });
+  await closedDelete.click();
+  await expect(deleting.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await deleting.getByRole('button', { name: 'Cancel' }).click();
+  await expect(deleting).toBeHidden();
+  expect((await log()).forgotten).toEqual([]);
+  await closedDelete.click();
+  await deleting.getByRole('button', { name: 'Delete session', exact: true }).click();
+  await expect.poll(async () => (await log()).forgotten).toEqual(['t_aaaaaaaaaaa5']);
+  await expect(details).toBeVisible();
   await expect(page.getByRole('button', { name: 'Settings of Alpha two', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await shot('sidebar-details');
   await details.locator('#thread-rename-title').fill('Billing');

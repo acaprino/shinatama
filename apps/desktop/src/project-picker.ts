@@ -1,4 +1,4 @@
-import { uiButton, uiPart, uiEmphasis } from '@acaprino/imago/ui';
+import { notify, uiButton, uiPart, uiEmphasis } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
@@ -217,7 +217,7 @@ export function createProjectPicker(options: Options) {
     star.title = isDefault ? 'New projects are created in this root' : 'Create new projects in this root';
     star.setAttribute('aria-label', `${isDefault ? 'Default root' : 'Make default'}: ${root.path}`);
     star.disabled = saving || !configFresh || isDefault; star.onclick = () => { void writeRoots(config!.roots.map(entry => ({ ...entry })), index); };
-    const remove = uiButton('Remove', { danger: true }); remove.classList.add('root-remove');
+    const remove = uiButton('Remove root', { danger: true }); remove.classList.add('root-remove');
     remove.setAttribute('aria-label', `Remove root ${root.path}`); remove.title = 'Stop listing this root. The folder itself is not touched.';
     remove.disabled = saving || !configFresh; remove.onclick = () => { void removeRoot(index); };
     row.append(text, star, remove); return row;
@@ -262,11 +262,20 @@ export function createProjectPicker(options: Options) {
     // The first root, or a root added while none is the default, becomes the default.
     return writeRoots([...roots, { path: trimmed }], current >= 0 ? current : roots.length);
   }
+  // Removing a root only stops listing it (the folder is not touched), so it happens at once and its notice offers Undo,
+  // which lists it again where it was. The store gives the root a new id: the old one no longer exists.
   async function removeRoot(index: number) {
     if (!config) return;
-    const roots: RootDraft[] = config.roots.map(root => ({ ...root })).filter((_, position) => position !== index);
+    const before: RootDraft[] = config.roots.map(root => ({ ...root }));
+    const removed = before[index]; if (!removed) return;
+    const wasDefault = before.findIndex(root => root.id === config!.defaultRootId);
+    const roots = before.filter((_, position) => position !== index);
     const kept = roots.findIndex(root => root.id === config!.defaultRootId);
-    await writeRoots(roots, kept >= 0 ? kept : roots.length ? 0 : null);
+    if (!await writeRoots(roots, kept >= 0 ? kept : roots.length ? 0 : null)) return;
+    const restored = before.map((root, position) => position === index ? { path: root.path } : root);
+    notify(document.querySelector<HTMLElement>('#app') ?? document.body, `${removed.path} is no longer a project root. The folder is not touched.`, {
+      action: { label: 'Undo', run: () => { void writeRoots(restored, wasDefault >= 0 ? wasDefault : null); } },
+    });
   }
   // The two path fields (project-controls.ts) are Imago path fields that act on the choice: the native
   // picker runs through the same tracked mutation as before, then the root is added or the project opened.

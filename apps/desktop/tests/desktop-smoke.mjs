@@ -329,7 +329,7 @@ try {
   }
   const closed = page.waitForEvent('close', { timeout: 30000 });
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (healthyCount > 0) await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
+  if (healthyCount > 0) await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closed;
   expect(errors).toEqual([]);
   console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; '

@@ -22,7 +22,7 @@ const tones = createToneKeeper();
 const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
 const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions, open: 0, lead: null });
 const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
-const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], deleted: [], modes: [], chats: [] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], deleted: [], forgotten: [], modes: [], chats: [] };
 const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
 const waiting = new Set(['w_bbbbbbbbbbb3']); const talking = new Set(['w_aaaaaaaaaaa3']);
 // Held removals wait for an answer, as main.ts waits for the stop confirmation; kept, the project comes back.
@@ -41,6 +41,7 @@ const sidebar = window.__sidebar = createWorksetSidebar({
   chat: { enabled: id => talking.has(id), unread: () => true, set: async () => {}, open: thread => log.chats.push(thread.id) },
   update: async request => { log.renamed.push(request); },
   remove: async thread => { log.deleted.push(thread.id); },
+  onForgetSession: async id => { log.forgotten.push(id); },
   closed: async id => id === 'w_aaaaaaaaaaa4' ? [{ id: 't_aaaaaaaaaaa5', name: 'Codex', updatedAt: Date.now() - 3600000 }] : [],
   onProjectsRemoved: projectIds => {
     log.removed.push(...projectIds);

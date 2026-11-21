@@ -93,7 +93,7 @@ export function stopControls() {
   form.method = 'dialog';
   const actions = uiPart('actions');
   const cancel = uiButton('Cancel'); cancel.value = 'cancel'; cancel.type = 'submit'; cancel.autofocus = true;
-  const stop = uiButton('Stop', { danger: true }); stop.value = 'stop'; stop.type = 'submit';
+  const stop = uiButton('Stop terminal', { danger: true }); stop.value = 'stop'; stop.type = 'submit';
   actions.append(cancel, stop);
   form.append(identified(uiPart('heading', 'Stop terminal?'), 'confirm-title'),
     identified(uiPart('paragraph'), 'confirm-message'), actions);

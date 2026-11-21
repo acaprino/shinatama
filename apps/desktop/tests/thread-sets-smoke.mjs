@@ -102,7 +102,7 @@ try {
   //    session stops and its tab leaves; turned on again, the session is back as a tab that is not running.
   await rowOf(threadB).click();
   await expect(page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true })).toBeVisible();
-  await page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true }).getByRole('button', { name: 'Turn off', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true }).getByRole('button', { name: 'Turn the thread off', exact: true }).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
   await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
   expect(await terminals()).toBe(2);
@@ -120,7 +120,7 @@ try {
   // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
   await page.locator('.im-tile-tab-close').first().click({ force: true });
   await expect(page.getByRole('dialog', { name: 'Close session?', exact: true })).toBeVisible();
-  await page.getByRole('dialog', { name: 'Close session?', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Close session?', exact: true }).getByRole('button', { name: 'Close session', exact: true }).click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
   expect(await terminals()).toBe(1);
   const closed = page.locator('.thread-sidebar-details');
@@ -143,7 +143,11 @@ try {
   await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
   await expect(tabs).toHaveCount(1);
   const forget = closed.locator('.thread-sidebar-closed li button').nth(1);
-  await forget.click(); await expect(forget).toHaveText('Sure?'); await forget.click();
+  // Deleting a closed session asks in a dialog that names it; focus starts on Cancel.
+  await forget.click();
+  const deleting = page.getByRole('alertdialog', { name: /^Delete the session .+\?$/ });
+  await expect(deleting.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await deleting.getByRole('button', { name: 'Delete session', exact: true }).click();
   await expect(closed.locator('.thread-sidebar-closed')).toBeHidden({ timeout: 15000 });
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
 
@@ -180,7 +184,7 @@ try {
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   const gone = new Promise(accept => app.once('exit', accept));
-  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   expect(await Promise.race([gone, delay(20000).then(() => 'timeout')])).toBe(0);
   await browser.close().catch(() => {});
   await launch(); bind();

@@ -337,7 +337,7 @@ try {
   void closeCompleted.catch(() => {});
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
-  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closeCompleted;
   expect(app.exitCode).toBe(0); closedNormally = true;
   evidence.checks.themedCloseStopsOwnedTerminal = true;

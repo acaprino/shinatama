@@ -534,7 +534,7 @@ function exited(milliseconds) {
 async function stop(id) {
   await page.locator(`.im-tile-tab[data-view-id="${id}"]`).click();
   await page.locator(`.im-tile-tabwrap:has(.im-tile-tab[data-view-id="${id}"]) .im-tile-tab-close`).click();
-  await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.locator('#confirm-dialog').getByRole('button', { name: /^(Stop terminal|Close session)$/ }).click();
   await poll(async () => !(await sessions()).some(session => session.id === id), 15000, 'owned-terminal-cleanup-deadline');
 }
 async function closeFrame() {

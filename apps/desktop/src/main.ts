@@ -815,7 +815,7 @@ async function closeWorkspace(relaunch: boolean): Promise<void> {
   // Asked only when something would be lost: a release refused while nothing is unsaved (storage
   // read-only, newer schema) loses nothing, and the next start takes the layout over.
   if (!appearanceSaved || (saved && (saved.ok ? saved.dirty : persistence?.status().dirty))) {
-    if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
+    if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.', undefined, 'Close without saving')) return;
     await invoke('workspace_allow_close');
   }
   // The point of no return: a restart starts its successor here, never before a question the user may decline.
@@ -828,7 +828,9 @@ async function closeWorkspace(relaunch: boolean): Promise<void> {
   await getCurrentWindow().close();
 }
 let workspaceConfirmPending = false;
-async function confirmStop(title: string, message: string, group?: string, action = 'Stop', danger = true): Promise<boolean> {
+/** Asks before an action that cannot be undone: the confirming button carries the verb and its object ("Stop terminal"),
+ *  and focus starts on Cancel. */
+async function confirmStop(title: string, message: string, group: string | undefined, action: string, danger = true): Promise<boolean> {
   // A window close request can arrive over another dialog; the confirmation stacks above it.
   if (confirmDialog.open || workspaceConfirmPending) return false;
   if (!group) {
@@ -856,7 +858,7 @@ async function stopTerminal(view: View) {
   const kept = view.threadId !== null && view.workset !== null;
   if (!view.ended && !await confirmStop(kept ? 'Close session?' : 'Stop terminal?', kept
     ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or deleted.'
-    : 'This stops the shell and the programs it started.', view.group, kept ? 'Close' : 'Stop')) return;
+    : 'This stops the shell and the programs it started.', view.group, kept ? 'Close session' : 'Stop terminal')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     discardView(view);
@@ -1132,10 +1134,10 @@ async function hideWorksets(ids: readonly string[]): Promise<boolean> {
   if (!openWorksets.some(workset => ids.includes(workset.id))) return true;
   const off = threadsOff([...views.values()], ids);
   if (off.ask) {
-    const count = off.stop.length; const several = ids.filter(id => isOn(id)).length > 1;
+    const count = off.stop.length; const turning = ids.filter(id => isOn(id)).length; const several = turning > 1;
     if (!await confirmStop(several ? 'Turn the threads off?' : 'Turn the thread off?',
       `This closes ${several ? 'them' : 'it'}: ${count} running session${count === 1 ? '' : 's'} and the programs ${count === 1 ? 'it' : 'they'} started stop. `
-      + `The sessions stay in the thread, not running, and can be resumed when it is turned on again. Nothing is deleted.`, undefined, 'Turn off')) return true;
+      + `The sessions stay in the thread, not running, and can be resumed when it is turned on again. Nothing is deleted.`, undefined, several ? `Turn ${turning} threads off` : 'Turn the thread off')) return true;
   }
   for (const view of off.stop) {
     try { await invoke('terminal_stop', { id: view.info.id }); }
@@ -1752,7 +1754,7 @@ async function initialize() {
     for (const info of existing) await attachTerminal(info, focusedGroup(), known[info.id]?.threadId ?? null, known[info.id]?.workset ?? null);
     if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.', 'info');
     await listen('confirm-close', async () => {
-      if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.')) return;
+      if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.', undefined, 'Close workspace')) return;
       try { await closeWorkspace(false); } catch (error) { notify(error); }
     });
     await initializeWindowControls(notify);

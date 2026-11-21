@@ -227,7 +227,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   // Nothing is saved before the saved state is read: an early save would overwrite it.
   let loaded = !options.loadState; let saveWanted = false;
   let message = NO_PROJECTS; let failed = false;
-  let editing = false; let forgetting: string | null = null; let saveTimer = 0; let changeTimer = 0;
+  let editing = false; let saveTimer = 0; let changeTimer = 0;
   /** The mode last reported to `onModeChange`, also after the saved display is restored. */
   let shownMode: SidebarMode = 'open';
   /** The thread whose settings are open, and its sessions as last read. */
@@ -353,19 +353,25 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     // A host that gives only the closed sessions (`closed`) says nothing of the others.
     renderSessions(loadedSessions === null || !options.sessions ? null : all.filter(session => session.state !== 'closed'));
     closedHead.hidden = closedList.hidden = !closedSessions.length; closedHead.textContent = `Closed sessions (${closedSessions.length})`;
-    if (!closedSessions.some(session => session.id === forgetting)) forgetting = null;
     closedList.replaceChildren(...closedSessions.map(session => {
       const item = uiPart('item'); const name = uiTraits(uiPart('text', session.name, 'thread-sidebar-closed-name'), 'grow');
       name.title = `${session.name} · ${agoText(session.updatedAt)}`; item.append(name);
       const action = closedSessionAction(session);
       const restore = uiButton(action.label, { sm: true }); restore.disabled = busy; restore.dataset.restore = session.id; restore.title = action.title;
       restore.onclick = () => { void operate('reopened', async () => { await options.onRestore?.(session.id); await loadSessions(); }); };
-      // Deleting a closed session asks with a second click on the same button.
-      const forget = uiButton(forgetting === session.id ? 'Sure?' : 'Delete', { sm: true, danger: forgetting === session.id }); forget.disabled = busy;
+      // Deleting a closed session cannot be undone: a dialog names it, and the focus starts on Cancel.
+      const forget = uiButton('Delete', { sm: true, danger: true }); forget.disabled = busy;
       forget.title = 'Delete this session from Shinatama. The agent\'s own session files stay.';
       forget.onclick = () => {
-        if (forgetting !== session.id) { forgetting = session.id; render(); return; }
-        forgetting = null; void operate('deleted', async () => { await options.onForgetSession?.(session.id); await loadSessions(); }, 'session');
+        if (busy) return;
+        void confirm(shell, {
+          title: `Delete the session ${session.name}?`,
+          body: 'It is deleted from Shinatama with its place in this thread. The agent\'s own session files stay. This cannot be undone.',
+          confirm: 'Delete session', cancel: 'Cancel', danger: true,
+        }).then(yes => {
+          if (!yes || destroyed || busy) return;
+          void operate('deleted', async () => { await options.onForgetSession?.(session.id); await loadSessions(); }, 'session');
+        });
       };
       item.append(restore, forget); return item;
     }));
@@ -661,7 +667,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   }
   /** Opens the settings of a thread, or closes them; one thread at a time. */
   function toggleDetails(id: string) {
-    editing = false; forgetting = null; renamingSession = null;
+    editing = false; renamingSession = null;
     expanded = expanded === id ? null : id; sessionsOf = null; render();
     if (expanded) void loadSessions();
   }
