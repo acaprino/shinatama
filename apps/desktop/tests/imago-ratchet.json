@@ -1,0 +1,154 @@
+{
+  "agent-setup.ts": {
+    "parts": 20,
+    "classes": 4
+  },
+  "attention-control.ts": {
+    "parts": 9,
+    "classes": 1
+  },
+  "browser-tab.ts": {
+    "parts": 8,
+    "classes": 2
+  },
+  "files-panel.ts": {
+    "parts": 13,
+    "classes": 5
+  },
+  "files-tree.ts": {
+    "parts": 1,
+    "classes": 0
+  },
+  "hop-preview.ts": {
+    "parts": 24,
+    "classes": 1
+  },
+  "instances-overview.ts": {
+    "parts": 31,
+    "classes": 2
+  },
+  "leftovers-panel.ts": {
+    "parts": 32,
+    "classes": 2
+  },
+  "main.ts": {
+    "parts": 22,
+    "classes": 3
+  },
+  "modal.ts": {
+    "parts": 0,
+    "classes": 5
+  },
+  "model-settings-panel.ts": {
+    "parts": 50,
+    "classes": 6
+  },
+  "new-project.ts": {
+    "parts": 20,
+    "classes": 0
+  },
+  "new-session.ts": {
+    "parts": 24,
+    "classes": 3
+  },
+  "presentation.ts": {
+    "parts": 13,
+    "classes": 1
+  },
+  "project-controls.ts": {
+    "parts": 31,
+    "classes": 1
+  },
+  "project-picker.ts": {
+    "parts": 13,
+    "classes": 1
+  },
+  "projects-overview.ts": {
+    "parts": 30,
+    "classes": 2
+  },
+  "resource-status.ts": {
+    "parts": 1,
+    "classes": 1
+  },
+  "session-detail.ts": {
+    "parts": 44,
+    "classes": 4
+  },
+  "session-export.ts": {
+    "parts": 30,
+    "classes": 0
+  },
+  "session-find.ts": {
+    "parts": 21,
+    "classes": 2
+  },
+  "session-library.ts": {
+    "parts": 65,
+    "classes": 1
+  },
+  "session-menu.ts": {
+    "parts": 1,
+    "classes": 0
+  },
+  "session-progress.ts": {
+    "parts": 3,
+    "classes": 0
+  },
+  "session-raw.ts": {
+    "parts": 15,
+    "classes": 1
+  },
+  "session-search.ts": {
+    "parts": 36,
+    "classes": 3
+  },
+  "sessions-panel.ts": {
+    "parts": 45,
+    "classes": 0
+  },
+  "settings-panel.ts": {
+    "parts": 56,
+    "classes": 7
+  },
+  "shell-frame.ts": {
+    "parts": 21,
+    "classes": 8
+  },
+  "sidecar-control.ts": {
+    "parts": 31,
+    "classes": 2
+  },
+  "team-map.ts": {
+    "parts": 19,
+    "classes": 35
+  },
+  "terminal-find.ts": {
+    "parts": 10,
+    "classes": 0
+  },
+  "terminal-history-view.ts": {
+    "parts": 6,
+    "classes": 0
+  },
+  "terminal-minimap.ts": {
+    "parts": 1,
+    "classes": 0
+  },
+  "thread-chat.ts": {
+    "parts": 34,
+    "classes": 8
+  },
+  "thread-sidebar.ts": {
+    "parts": 44,
+    "classes": 6
+  },
+  "toolbar-simple.ts": {
+    "parts": 10,
+    "classes": 0
+  },
+  "workset-sidebar.ts": {
+    "parts": 59,
+    "classes": 17
+  }
+}
