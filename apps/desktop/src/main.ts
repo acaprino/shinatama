@@ -543,7 +543,7 @@ function sameApartFromSizes(a: WorkspaceLayout, b: WorkspaceLayout): boolean {
   return bare(a) === bare(b);
 }
 /** Connects saving for the layout on screen: the open thread's, or the loose terminals'. */
-async function connectWorkspace(adoptSaved = true, recovered = false) {
+async function connectWorkspace(adoptSaved = true, recovered = false, unchangedSince?: WorkspaceLayout) {
   if (!desktop) return;
   // One layout for the window, whichever threads are on (ADR-0055 v2).
   const scope = { workspaceId: 'main' };
@@ -562,7 +562,7 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
         label.dataset.layoutPending = String(status.inFlight);
       }
     });
-    const beforeLoad = workspaceLayout;
+    const beforeLoad = unchangedSince ?? workspaceLayout;
     // Not yet the window's saver: an edit reported while the saved layout loads would count as a local edit and keep it from being restored.
     // A refusal that can pass (storage busy with another operation, still starting) is retried a few times before it is reported.
     let loaded = await controller.load();
@@ -577,9 +577,10 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       appLog('layout', `Load refused: ${loaded.error}${loaded.detail ? ` (${loaded.detail})` : ''}. The window keeps its panes and does not save its layout.`);
       notify(layoutLoadFailureText(loaded.error, loaded.detail)); return;
     }
+    let adopted = false;
     if (loaded.restored && adoptSaved && sameApartFromSizes(workspaceLayout, beforeLoad)) {
       workspaceLayout = reconciled(loaded.layout);
-      controller.update(workspaceLayout); render();
+      controller.update(workspaceLayout); render(); adopted = true;
     } else controller.update(workspaceLayout);
     if (loaded.ownership === 'other') {
       // Marked by another Shinatama. The store hands the arrangement over only when that process is
@@ -588,10 +589,14 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       // as soon as that window closes.
       let code: unknown = 'still_owned';
       if (!recovered) {
+        // The takeover loads the saved arrangement again. It replaces the panes only where this load could (it
+        // adopted it, or there was none) and only if they are still as this load left them: a tab opened meanwhile,
+        // or an edit this load kept, stays.
+        const settled = workspaceLayout;
         try {
           await invoke('global_workspace_recover', { request: { ...scope, expectedRevision: loaded.revision } });
           if (generation !== scopeRevision) return;
-          controller.dispose(); persistence = null; await connectWorkspace(adoptSaved, true); return;
+          controller.dispose(); persistence = null; await connectWorkspace(adoptSaved && (adopted || !loaded.restored), true, settled); return;
         } catch (error) { code = typeof error === 'object' && error && 'code' in error ? (error as { code: unknown }).code : null; }
       }
       if (generation !== scopeRevision) return;
