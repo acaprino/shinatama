@@ -4,7 +4,7 @@
 // reads, waits for or acknowledges a message, and holds no member handle or credential).
 // An agent may have no session yet (+ New agent, or a template): it takes a model from the menu of the Models panel and Apply opens
 // a session for it, or a session dropped on it fills it.
-import { graphLegendHtml, componentElement, uiButton, uiPart, uiInput, uiSelect, uiOption, uiTextarea, type UiPart } from '@acaprino/imago/ui';
+import { graphLegendHtml, componentElement, uiButton, uiPart, uiInput, uiSelect, uiOption, uiTextarea, uiTraits, type UiPart } from '@acaprino/imago/ui';
 import { graphEditorWorkspace, graphInspector, graphEditorNode, graphEditorPort, graphEditorEdge, graphGesture, graphArrowMarker, graphConnectionPreview, graphMiniature } from '@acaprino/imago/graph';
 import { confirmsField } from './desktop-shell-model.ts';
 import { createEvaluator } from './team-map-evaluate.ts';
@@ -125,7 +125,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   root.classList.add('team-map'); body.classList.add('team-body'); side.classList.add('team-side'); stage.classList.add('team-stage');
   root.dataset.viewId = viewId; root.tabIndex = -1;
   const bar = part('toolbar', 'team-bar'); bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Team map');
-  const shapesLabel = part('text', 'team-bar-label im-muted', 'Arrange as');
+  const shapesLabel = uiTraits(part('text', 'team-bar-label', 'Arrange as'), 'muted');
   const shapes = part('actions', 'team-shapes'); shapes.setAttribute('role', 'group'); shapes.setAttribute('aria-label', 'Arrange the team as');
   const shapeButtons = SHAPES.map(shape => {
     const b = button(); b.dataset.shape = shape.id; b.title = shape.tip;
@@ -136,26 +136,26 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   });
   const tidyButton = button('⤢ Tidy up', 'team-tidy'); tidyButton.type = 'button';
   tidyButton.title = 'Place the cards by their arrows: who gives work above, who takes it below, observers on the right';
-  const autoLabel = part('label', 'team-auto im-inline-row'); autoLabel.title = 'Rearrange by itself whenever an arrow or a card changes';
+  const autoLabel = uiTraits(part('label', 'team-auto'), 'row'); autoLabel.title = 'Rearrange by itself whenever an arrow or a card changes';
   const autoBox = uiInput('checkbox'); autoBox.checked = keepTidy; autoLabel.append(autoBox, ' keep tidy');
   const templatesButton = button('Templates ▾', 'team-templates-button'); templatesButton.type = 'button';
   templatesButton.setAttribute('aria-haspopup', 'dialog'); templatesButton.setAttribute('aria-expanded', 'false');
   templatesButton.title = 'Teams saved to use again, in any thread';
-  const state = part('status', 'team-state im-editor-summary'); state.setAttribute('role', 'status');
+  const state = uiTraits(part('status', 'team-state'), 'editorSummary'); state.setAttribute('role', 'status');
   const discard = button('Discard', 'quiet'); discard.type = 'button'; discard.title = 'Throw away what is not applied and read the team again';
   const apply = button('Apply', 'primary'); apply.type = 'button';
   bar.append(shapesLabel, shapes, tidyButton, autoLabel, templatesButton, state, discard, apply);
   // The Templates menu: the saved teams, each with a drawing of its shape; below, a name and "Save this team".
-  const menu = graphInspector('Templates'); menu.classList.add('team-templates', 'im-editor-popup'); menu.hidden = true;
+  const menu = graphInspector('Templates'); uiTraits(menu, 'editorPopup').classList.add('team-templates'); menu.hidden = true;
   const menuHead = part('subheading', undefined, 'Templates'); const menuClose = quietButton('×'); menuClose.setAttribute('aria-label', 'Close the templates'); menuHead.append(menuClose);
-  const templateList = part('list', 'team-template-list im-editor-items'); templateList.setAttribute('aria-label', 'Saved teams');
+  const templateList = uiTraits(part('list', 'team-template-list'), 'editorItems'); templateList.setAttribute('aria-label', 'Saved teams');
   const templateName = uiInput(); templateName.maxLength = 60; templateName.placeholder = 'Name this team'; templateName.setAttribute('aria-label', 'Name of the template');
   const templateSave = button('Save this team', 'primary'); templateSave.type = 'button';
-  const templateForm = part('body', 'team-template-form im-editor-inline-form'); templateForm.append(templateName, templateSave);
-  const templateSaid = part('paragraph', 'team-template-said im-status-text'); templateSaid.setAttribute('role', 'status');
+  const templateForm = uiTraits(part('body', 'team-template-form'), 'editorInlineForm'); templateForm.append(templateName, templateSave);
+  const templateSaid = uiTraits(part('paragraph', 'team-template-said'), 'statusText'); templateSaid.setAttribute('role', 'status');
   menu.append(menuHead, templateList, templateForm, templateSaid);
-  const problems = part('list', 'team-problems im-editor-issues'); problems.setAttribute('aria-label', 'Problems with this team'); problems.hidden = true;
-  const sideList = part('list', 'team-sessions im-editor-items'); const sideNote = part('paragraph');
+  const problems = uiTraits(part('list', 'team-problems'), 'editorIssues'); problems.setAttribute('aria-label', 'Problems with this team'); problems.hidden = true;
+  const sideList = uiTraits(part('list', 'team-sessions'), 'editorItems'); const sideNote = part('paragraph');
   const newAgent = button('+ New agent', 'team-new-agent'); newAgent.type = 'button';
   newAgent.title = 'An agent with no session yet: choose its model and Apply opens one, or drop a session of the thread on it';
   side.append(part('heading', undefined, 'Sessions'), sideList, sideNote, newAgent);
@@ -168,12 +168,12 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     arrow.classList.add('team-head'); arrow.dataset.kind = kind === 'observes' ? 'observes' : 'work';
     if (kind === 'bad') arrow.setAttribute('data-bad', ''); if (kind === 'rubber') arrow.setAttribute('data-rubber', '');
   }
-  const hint = part('paragraph', 'team-hint im-editor-empty'); hint.textContent = 'Drag the sessions from the list on the left onto this map (or press one to add it). Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is. Or start from Templates, or add + New agent and drop a session on it later.';
+  const hint = uiTraits(part('paragraph', 'team-hint'), 'editorEmpty'); hint.textContent = 'Drag the sessions from the list on the left onto this map (or press one to add it). Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is. Or start from Templates, or add + New agent and drop a session on it later.';
   canvas.append(hint);
-  const tray = part('body', 'team-tray im-editor-shelf'); tray.dataset.zone = 'tray';
-  const statusLine = part('paragraph', 'team-status im-status-text'); statusLine.hidden = true;
+  const tray = uiTraits(part('body', 'team-tray'), 'editorShelf'); tray.dataset.zone = 'tray';
+  const statusLine = uiTraits(part('paragraph', 'team-status'), 'statusText'); statusLine.hidden = true;
   stage.append(tray, statusLine);
-  const off = part('paragraph', 'team-off im-muted'); off.hidden = true;
+  const off = uiTraits(part('paragraph', 'team-off'), 'muted'); off.hidden = true;
   root.append(bar, problems, body, off, menu);
 
   // ------------------------------------------------------------------------------------------------------------- lookups
@@ -460,8 +460,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     if (templates === null) templateList.replaceChildren(part('item', 'team-template-empty', 'Reading the templates…'));
     else if (!templates.length) templateList.replaceChildren(part('item', 'team-template-empty', 'No template yet. Build a team, name it below and press Save this team.'));
     else templateList.replaceChildren(...templates.map(t => {
-      const item = part('item', 'team-template im-editor-preset'); item.dataset.id = t.id;
-      const text = part('body', 'team-template-text im-editor-caption'); text.append(part('strong', undefined, t.name), part('text', undefined, `${t.agents.length} agent${t.agents.length === 1 ? '' : 's'}`));
+      const item = uiTraits(part('item', 'team-template'), 'editorPreset'); item.dataset.id = t.id;
+      const text = uiTraits(part('body', 'team-template-text'), 'editorCaption'); text.append(part('strong', undefined, t.name), part('text', undefined, `${t.agents.length} agent${t.agents.length === 1 ? '' : 's'}`));
       const use = quietButton(confirming === `use:${t.id}` ? 'Replace the map?' : 'Use'); use.dataset.act = 'use'; use.setAttribute('aria-label', `Use ${t.name}`);
       use.title = confirming === `use:${t.id}` ? 'Press again: the agents on the map are replaced by the template\'s. Discard brings back what was applied.' : 'Replace the draft with this team; no agent has a session yet';
       use.disabled = applying; use.onclick = () => useTemplate(t);
@@ -530,18 +530,18 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
       node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id) || told === 'failed');
-      const head = part('body', 'team-card-top im-editor-node-title'); const dot = part('text', 'team-dot im-editor-dot'); dot.setAttribute('aria-hidden', 'true'); dot.dataset.imTone = session?.connection === 'in_room' ? 'ok' : '';
-      head.append(dot, part('text', 'team-card-name im-truncate', a.name || '(no name)'));
+      const head = uiTraits(part('body', 'team-card-top'), 'editorNodeTitle'); const dot = uiTraits(part('text', 'team-dot'), 'editorDot'); dot.setAttribute('aria-hidden', 'true'); dot.dataset.imTone = session?.connection === 'in_room' ? 'ok' : '';
+      head.append(dot, uiTraits(part('text', 'team-card-name', a.name || '(no name)'), 'truncate'));
       if (bad.has(a.id)) { const mark = part('text', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
       const view = roles[a.id]; const roleName = view ? ROLE_NAME[view.role] ?? view.role : 'checking…';
-      const role = part('body', 'team-card-role im-editor-caption', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName);
+      const role = uiTraits(part('body', 'team-card-role', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName), 'editorCaption');
       if (view) role.title = `${roleName}: ${view.detail}. Inferred from its arrows.`;
-      const meta = part('body', 'team-card-meta im-editor-caption', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
-        : `${programOf(a)}${a.model?.model ? ` · ${a.model.model}` : ''}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
+      const meta = uiTraits(part('body', 'team-card-meta', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
+        : `${programOf(a)}${a.model?.model ? ` · ${a.model.model}` : ''}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`), 'editorCaption');
       const toldNode = part('text', 'team-told', toldText); toldNode.dataset.s = told; toldNode.title = told === 'failed' ? toldText : '';
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
       const wakes = part('text', 'team-wakes', left);
-      const foot = part('body', 'team-card-foot im-editor-node-foot'); foot.append(toldNode, wakes);
+      const foot = uiTraits(part('body', 'team-card-foot'), 'editorNodeFoot'); foot.append(toldNode, wakes);
       const port = graphEditorPort('→', 'Pull onto another card to connect them (the keyboard: open the card and use Connect to…)',
         event => press(event, a.id, 'link'));
       port.classList.add('team-port');
@@ -592,7 +592,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const rest = (snap?.sessions ?? []).filter(s => !onMap.has(s.sessionId));
     const full = draft.agents.length >= MAX_AGENTS;
     sideList.replaceChildren(...rest.map(s => {
-      const item = part('item'); const b = button('', 'team-session im-editor-source'); b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? ''; b.dataset.imTone = harnessTone(s.harness ?? '');
+      const item = part('item'); const b = uiTraits(button('', 'team-session'), 'editorSource'); b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? ''; b.dataset.imTone = harnessTone(s.harness ?? '');
       const label = s.harness ? deps.harnessLabel(s.harness) : 'Session';
       b.append(part('strong', undefined, s.title && s.title !== label ? s.title : label), part('text', undefined, `${label} · ${s.state.replace('_', ' ')}${s.connection === 'unsupported' ? ' · cannot take part' : ''}`));
       b.disabled = s.connection === 'unsupported' || full;
@@ -693,7 +693,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const menuLabel = part('field', undefined, 'Model'); menuLabel.append(modelMenu);
     const role = part('paragraph', 'role-line'); const roleName = part('strong'); const roleDetail = part('text'); role.append(roleName, roleDetail);
     const inferred = part('paragraph', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
-    const handOut = part('body'); const handLabel = part('paragraph', 'lab'); const seg = part('body', 'team-seg im-editor-options'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
+    const handOut = part('body'); const handLabel = part('paragraph', 'lab'); const seg = uiTraits(part('body', 'team-seg'), 'editorOptions'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
     const shareButtons = (Object.keys(SHARE_NAME) as Share[]).map(key => {
       const b = button(SHARE_NAME[key]); b.title = SHARE_TIP[key]; b.dataset.share = key;
       b.onclick = () => updateAgent(a.id, { share: key }); seg.append(b); return b;
@@ -708,10 +708,10 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const pick = uiSelect(); pick.setAttribute('aria-label', 'Use a session…'); pick.title = 'The session takes this agent\'s place: its name and arrows stay';
     const pickLabel = part('field', undefined, 'Use a session…'); pickLabel.append(pick);
     pick.onchange = () => { const id = pick.value; pick.value = ''; const s = snap?.sessions.find(x => x.sessionId === id); if (s) fillWith(s, a.id); };
-    const fields = part('body', 'team-fields im-stack'); fields.append(nameLabel, modelLabel, menuLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
+    const fields = uiTraits(part('body', 'team-fields'), 'stack'); fields.append(nameLabel, modelLabel, menuLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
     const show = quietButton('Show its tab', 'Show this session\'s tab in the window'); show.onclick = () => { const at = agentOf(a.id)?.session; if (at) deps.focusSession(at); };
     const out = quietButton('Take off the map', 'The session stays open; it only leaves the team map'); out.onclick = () => takeOff(a.id);
-    const foot = part('body', 'foot im-action-row'); foot.append(show, out);
+    const foot = uiTraits(part('body', 'foot'), 'actions'); foot.append(show, out);
     element.append(head, fields, foot);
     const update = () => {
       const live = agentOf(a.id); if (!live) return;
@@ -760,22 +760,22 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const l = draft.links[index]; const from = l.from, to = l.to;
     const element = graphInspector('Arrow'); element.classList.add('team-box', 'team-box-link'); element.style.width = '330px';
     const head = part('subheading'); const title = part('text'); head.append(title, closeButton('the arrow box'));
-    const kinds = part('body', 'team-kinds im-stack'); kinds.setAttribute('role', 'group'); kinds.setAttribute('aria-label', 'Kind of relation');
+    const kinds = uiTraits(part('body', 'team-kinds'), 'stack'); kinds.setAttribute('role', 'group'); kinds.setAttribute('aria-label', 'Kind of relation');
     const kindButtons = (['work', 'observes'] as const).map(kind => {
-      const b = button(); b.dataset.kind = kind; b.dataset.first = '1'; b.classList.add('im-editor-choice'); const i = part('text', 'team-kind-line im-editor-sample'); i.setAttribute('aria-hidden', 'true'); i.dataset.kind = kind; i.dataset.imStroke = kind === 'observes' ? 'dotted' : 'solid'; const name = part('strong'); const why = part('text'); b.append(i, name, why);
+      const b = button(); b.dataset.kind = kind; b.dataset.first = '1'; uiTraits(b, 'editorChoice'); const i = uiTraits(part('text', 'team-kind-line'), 'editorSample'); i.setAttribute('aria-hidden', 'true'); i.dataset.kind = kind; i.dataset.imStroke = kind === 'observes' ? 'dotted' : 'solid'; const name = part('strong'); const why = part('text'); b.append(i, name, why);
       b.onclick = () => { const at = linkIndex(from, to); if (at >= 0 && draft.links[at].kind !== kind) updateLink(at, { kind, report: 'done' }); };
       kinds.append(b); return { b, name, why, kind };
     });
-    const howLabel = part('paragraph', 'lab'); const seg = part('body', 'team-seg im-editor-options'); seg.setAttribute('role', 'group');
+    const howLabel = part('paragraph', 'lab'); const seg = uiTraits(part('body', 'team-seg'), 'editorOptions'); seg.setAttribute('role', 'group');
     const reportButtons = REPORTS.map(([key, text, tip]) => {
       const b = button(text); b.title = tip; b.dataset.report = key;
       b.onclick = () => { const at = linkIndex(from, to); if (at >= 0) updateLink(at, { report: key }); }; seg.append(b); return b;
     });
-    const reportReason = part('paragraph', 'team-reason im-field-error');
+    const reportReason = uiTraits(part('paragraph', 'team-reason'), 'fieldError');
     const wordsLabel = part('field', undefined, 'In your words (optional)'); const words = uiInput(); words.maxLength = MAX_WORDS; words.value = l.words;
     words.oninput = () => { const clean = plain(words.value).slice(0, MAX_WORDS); if (clean !== words.value) words.value = clean; const at = linkIndex(from, to); if (at >= 0) updateLink(at, { words: clean }); };
     wordsLabel.append(words);
-    const says = part('paragraph', 'team-says im-editor-description');
+    const says = uiTraits(part('paragraph', 'team-says'), 'editorDescription');
     const flip = quietButton('⇄ Reverse'); flip.dataset.act = 'reverse';
     flip.onclick = () => {
       const at = linkIndex(from, to); if (at < 0) return;
@@ -785,9 +785,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     };
     const del = quietButton('Delete the arrow'); del.dataset.act = 'delete';
     del.onclick = () => { const at = linkIndex(from, to); if (at < 0) return; selection = null; edit({ ...draft, links: draft.links.filter((_, i) => i !== at) }); };
-    const foot = part('body', 'foot im-action-row'); foot.append(flip, del);
+    const foot = uiTraits(part('body', 'foot'), 'actions'); foot.append(flip, del);
     const how = part('body'); how.append(howLabel, seg, reportReason);
-    const fields = part('body', 'team-fields im-stack'); fields.append(kinds, how, wordsLabel, says);
+    const fields = uiTraits(part('body', 'team-fields'), 'stack'); fields.append(kinds, how, wordsLabel, says);
     element.append(head, fields, foot);
     const update = () => {
       const at = linkIndex(from, to); if (at < 0) return; const now = draft.links[at];
@@ -886,7 +886,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const hover = over(event)?.closest<HTMLElement>('.team-card');
       for (const [id, node] of cards) node.toggleAttribute('data-over', node === hover && id !== g.id);
     } else {
-      g.ghost ??= (() => { const gh = part('body', 'team-ghost im-editor-ghost', g.target.querySelector('strong')?.textContent ?? 'Session'); gh.dataset.harness = g.target.dataset.harness ?? ''; document.body.append(gh); return gh; })();
+      g.ghost ??= (() => { const gh = uiTraits(part('body', 'team-ghost', g.target.querySelector('strong')?.textContent ?? 'Session'), 'editorGhost'); gh.dataset.harness = g.target.dataset.harness ?? ''; document.body.append(gh); return gh; })();
       g.ghost.style.transform = `translate(${event.clientX + 12}px, ${event.clientY + 8}px)`;
       scroll.toggleAttribute('data-drop', overMap(event));
       // A card with no session takes the session dropped on it.
@@ -983,7 +983,7 @@ export function createTeamMap(deps: TeamMapDeps) {
     /** A saved tab whose map is not open (after a restart): a button to open it again. */
     placeholder(viewId: string, reopen: (thread: TeamThread) => void): HTMLElement | null {
       if (maps.has(viewId)) return null;
-      const id = threadOfView(viewId); const card = part('body', 'team-map team-closed im-stack');
+      const id = threadOfView(viewId); const card = uiTraits(part('body', 'team-map team-closed'), 'stack');
       card.append(part('paragraph', undefined, 'The team map of this thread is closed.'));
       if (id) { const b = button('Open the team map'); b.onclick = () => reopen({ id }); card.append(b); }
       return card;
