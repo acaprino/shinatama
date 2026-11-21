@@ -1288,10 +1288,10 @@ threadSidebar = createWorksetSidebar({
   onRestore: restoreSession, onForgetSession: forgetSession,
   // A project leaves the sidebar: its threads go off with it, so no tab is left without a row to bring it back.
   // Turning them off closes their running sessions, after asking: kept on (cancelled, or a stop failed), the project comes back to the sidebar.
-  onProjectsRemoved: projectIds => { void (async () => {
+  onProjectsRemoved: async projectIds => {
     await hideWorksets(openWorksets.filter(workset => projectIds.includes(workset.projectId)).map(workset => workset.id));
-    for (const id of projectIds) if (openWorksets.some(workset => workset.projectId === id) && !threadSidebar?.activeIds().includes(id)) threadSidebar?.toggleActive(id);
-  })(); },
+    for (const id of projectIds) if (openWorksets.some(workset => workset.projectId === id) && !threadSidebar?.activeIds().includes(id)) void threadSidebar?.toggleActive(id);
+  },
   harnessLabel,
   onOpen: thread => showWorkset({ id: thread.id, projectId: thread.projectId }),
   onClose: thread => hideWorkset(thread.id),
@@ -1618,7 +1618,8 @@ createProjectMenu({
   search: desktop ? onResults => createCatalogClient(snapshot => onResults(snapshot.projects), () => onResults([])) : undefined,
   current: () => projectPath,
   active: () => new Set(threadSidebar?.activeIds() ?? []),
-  toggleActive: id => { threadSidebar?.toggleActive(id); },
+  // The project menu repaints its marks once this settles, so a cancelled removal shows the project kept.
+  toggleActive: id => threadSidebar?.toggleActive(id),
   running: () => [...views.values()].filter(view => !view.ended && !view.disposed).map(view => view.info.cwd),
   choose: chooseProject,
   browse: () => { projectPicker.open(); void projectPicker.browse(); },

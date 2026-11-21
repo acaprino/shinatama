@@ -52,7 +52,8 @@ export type WorksetSidebarOptions = {
   /** Only the closed sessions, for a host without `sessions`: kept, not shown as tabs. */
   closed?: (worksetId: string) => Promise<readonly { id: string; name: string; updatedAt: number }[]>;
   /** Projects left the sidebar (×, or untick in the Project menu): their threads are turned off, which stops their running sessions after asking. */
-  onProjectsRemoved?: (projectIds: readonly string[]) => void;
+  /** Settles once the projects' threads are off, or kept on after a cancelled confirmation. */
+  onProjectsRemoved?: (projectIds: readonly string[]) => void | Promise<void>;
   /** The label of an agent, as the rest of the window shows it. */
   harnessLabel?: (harness: string) => string;
   /** Puts a closed session back among the tabs, and resumes it when its agent can (`ThreadSession.resumable`). */
@@ -577,18 +578,19 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     projects = [...values.map(value => ({ ...value })), ...kept]; render(); return true;
   }
   /** Lists exactly these projects, in this order, and reads their threads. */
-  function setActive(next: readonly string[], save = true) {
+  function setActive(next: readonly string[], save = true): void | Promise<void> {
     const unique = [...new Set(next)].filter(id => projectId(id)).slice(0, MAX_ACTIVE);
     if (unique.length === active.length && unique.every((id, index) => id === active[index])) { render(); return; }
     const leaving = active.filter(id => !unique.includes(id));
     generation++; active = unique; editing = false; failed = false; message = active.length ? '' : NO_PROJECTS;
     // Its threads go off with it: no tab is left without a row to turn it off or on again.
-    if (leaving.length) options.onProjectsRemoved?.(leaving);
+    const removed = leaving.length ? options.onProjectsRemoved?.(leaving) : undefined;
     for (const id of [...groups.keys()]) if (!active.includes(id)) groups.delete(id);
     for (const id of [...heads.keys()]) if (!active.includes(id)) { heads.delete(id); notes.delete(id); }
     rows = active.flatMap(id => groups.get(id)?.rows ?? []);
     if (save) changedDisplay(); else render();
     if (active.length) void read();
+    return removed;
   }
   /** The toolbar's project: marked in the list, and listed if it was not. */
   function setProject(value: CurrentThreadProject | null) {
@@ -642,7 +644,8 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   return {
     element, setProject, setProjects, currentProjectId: (): string | null => currentProject,
     activeIds: (): readonly string[] => [...active],
-    toggleActive(id: string) { if (!destroyed) setActive(active.includes(id) ? active.filter(other => other !== id) : [...active, id]); },
+    /** Settles when the change is final: a removal waits for its confirmation, which may bring the project back. */
+    async toggleActive(id: string): Promise<void> { if (!destroyed) await setActive(active.includes(id) ? active.filter(other => other !== id) : [...active, id]); },
     mode, setMode,
     /** Whether the sidebar comes back compact when it is shown again. */
     compactWhenShown: (): boolean => display.collapsed,

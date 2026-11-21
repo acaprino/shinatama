@@ -89,7 +89,7 @@ export function createProjectMenu(options: {
   /** Ids of the projects listed in the thread sidebar. */
   active?: () => ReadonlySet<string>;
   /** Lists or unlists a project in the thread sidebar; the current project does not change. */
-  toggleActive?: (projectId: string) => void;
+  toggleActive?: (projectId: string) => void | Promise<void>;
   /** Folder of every running session, one entry per session. */
   running?: () => readonly string[];
   choose: (path: string) => Promise<void>;

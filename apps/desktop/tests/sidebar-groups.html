@@ -18,6 +18,10 @@ const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, 
 const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
 const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], modes: [] };
 const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
+// Held removals wait for an answer, as main.ts waits for the stop confirmation; kept, the project comes back.
+let held = null;
+window.__holdRemovals = () => { held = []; };
+window.__answerRemovals = keep => { const waiting = held ?? []; held = null; for (const settle of waiting) settle(keep); };
 const sidebar = window.__sidebar = createWorksetSidebar({
   host: document.getElementById('host'),
   list: async ({ projectId }) => ({ rows: threads[projectId] ?? [], more: false }),
@@ -28,7 +32,13 @@ const sidebar = window.__sidebar = createWorksetSidebar({
   tone: id => tones.tone([...on], id),
   update: async request => { log.renamed.push(request); },
   closed: async id => id === 'w_aaaaaaaaaaa4' ? [{ id: 't_aaaaaaaaaaa5', name: 'Codex', updatedAt: Date.now() - 3600000 }] : [],
-  onProjectsRemoved: projectIds => log.removed.push(...projectIds),
+  onProjectsRemoved: projectIds => {
+    log.removed.push(...projectIds);
+    if (!held) return;
+    return new Promise(settle => held.push(settle)).then(keep => {
+      if (keep) for (const id of projectIds) if (!window.__sidebar.activeIds().includes(id)) void window.__sidebar.toggleActive(id);
+    });
+  },
   harnessLabel: id => ({ claude_code: 'Claude Code' })[id] ?? id,
   onAddSession: thread => log.added.push(thread.id),
   openId: () => null, running: id => running[id] ?? 0,

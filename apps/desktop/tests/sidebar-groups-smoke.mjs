@@ -106,6 +106,23 @@ try {
   await expect.poll(async () => (await log()).saved.at(-1)).toMatchObject({ collapsed: false });
   passed.push('the sidebar goes compact (a square per thread), closes altogether and comes back as it was; each is saved');
 
+  // The Project menu repaints its tick when toggleActive settles: after the confirmation, never before it.
+  const removal = keep => page.evaluate(async keep => {
+    const sidebar = window.__sidebar; const alpha = 'p_aaaaaaaaaaaa';
+    if (!sidebar.activeIds().includes(alpha)) await sidebar.toggleActive(alpha);
+    window.__holdRemovals();
+    let settled = false;
+    const pending = sidebar.toggleActive(alpha).then(() => { settled = true; });
+    await new Promise(wait => setTimeout(wait, 100));
+    const beforeAnswer = settled;
+    window.__answerRemovals(keep);
+    await pending;
+    return { beforeAnswer, listed: sidebar.activeIds().includes(alpha) };
+  }, keep);
+  expect(await removal(true)).toEqual({ beforeAnswer: false, listed: true });
+  expect(await removal(false)).toEqual({ beforeAnswer: false, listed: false });
+  passed.push('a removal that asks first settles only after the answer: cancelled, the project stays; confirmed, it goes');
+
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));
 } catch (error) {

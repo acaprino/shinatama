@@ -113,6 +113,8 @@ try {
     # The real tiling renderer and layout model in headless Edge: drag, keyboard, three-way split, and the
     # live DOM bindings a terminal or editor keeps across moves and parking. No app build is needed.
     Invoke-Verification 'pane-drag-smoke' 'npm.cmd' @('run', 'test:drag')
+    # The thread sidebar in headless Edge, including a project removal that waits for its confirmation.
+    Invoke-Verification 'sidebar-groups-smoke' 'node' @('apps/desktop/tests/sidebar-groups-smoke.mjs')
     Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
