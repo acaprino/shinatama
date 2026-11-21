@@ -150,7 +150,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | Rust | miniz_oxide | 0.9.1 | build-tool | MIT OR Zlib OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
 | Rust | mio | 1.2.4 | dev-test, runtime | MIT | recognized | LICENSE |
 | Rust | muda | 0.20.0 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE.spdx |
-| Rust | mukade | 0.1.0 | runtime | MIT | recognized | LICENSE |
+| Rust | mukade | 0.1.3 | runtime | MIT | recognized | LICENSE |
 | Rust | new_debug_unreachable | 1.0.6 | build-tool, runtime | MIT | recognized | LICENSE-MIT |
 | Rust | nix | 0.28.0 | runtime | MIT | recognized | LICENSE |
 | Rust | num-conv | 0.2.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-Apache; LICENSE-MIT |
