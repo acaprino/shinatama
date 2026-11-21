@@ -117,6 +117,27 @@ try {
     await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe(theme);
   }
   assert.ok(palette.every(Boolean) && palette[0] !== palette[1], 'The Imago sheet color follows the theme');
+  // Settings is a drawer of Imago's one layer stack, beside live panels: Escape in the terminal belongs to the
+  // agent, anywhere else it closes the drawer, and focus goes back to the focused pane (settings-panel.ts).
+  assert.equal(await dialog.getAttribute('data-im-layer'), 'drawer');
+  assert.equal(await page.locator('.wm-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
+  await page.locator('[data-group-id="pane-fixture-live"] .xterm-helper-textarea').focus();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await zoom.focus();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  assert.ok(await page.evaluate(() => Boolean(document.activeElement?.closest('[data-group-id="pane-fixture-live"]'))), 'Focus is back in the focused pane');
+  // One press, one action: the control that opened the drawer closes it, and opens nothing else. The drawer
+  // covers it, so it is pressed from the keyboard.
+  await more('Settings');
+  await expect(dialog).toBeVisible();
+  await page.getByRole('button', { name: 'More options' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await more('Settings');
+  await expect(dialog).toBeVisible();
   await page.getByRole('button', { name: 'Close settings' }).click();
   await expect(dialog).toBeHidden();
   await page.evaluate(() => { window.smoke.failure = 'plugin:window|minimize'; });

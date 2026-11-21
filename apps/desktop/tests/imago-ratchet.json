@@ -35,10 +35,6 @@
     "parts": 22,
     "classes": 3
   },
-  "modal.ts": {
-    "parts": 0,
-    "classes": 5
-  },
   "model-settings-panel.ts": {
     "parts": 50,
     "classes": 6

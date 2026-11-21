@@ -180,10 +180,10 @@ export function createSessionSearch(options: Options) {
   allow.onclick = () => options.openSettings();
   // Settings covers this drawer while it is open; what was switched there shows when it comes back.
   new MutationObserver(() => {
-    if (!dialog.open || dialog.hasAttribute('data-covered')) return;
+    if (!dialog.open || dialog.hasAttribute('data-im-covered')) return;
     // Focus came back to the button that opened Settings; once indexing is on it hides, and Index sessions takes its place.
     void refresh().then(() => { if (allow.hidden && (document.activeElement === document.body || document.activeElement === allow)) start.focus(); });
-  }).observe(dialog, { attributes: true, attributeFilter: ['data-covered'] });
+  }).observe(dialog, { attributes: true, attributeFilter: ['data-im-covered'] });
   function show() {
     if (destroyed) return; generation++; busy = false; status.textContent = 'Type a word and press Search.'; renderIndex();
     openModal(dialog); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });
