@@ -1,4 +1,4 @@
-import { uiButton, uiPart } from '@acaprino/imago/ui';
+import { uiButton, uiPart, uiTraits } from '@acaprino/imago/ui';
 /** The archived lines of one terminal, shown in its own pane over the live screen: a read-only
  * terminal holding a window of `WINDOW_LINES` around the line asked for. "Earlier" and "Later"
  * move the window; Esc or "Back to live" closes it and frees everything it held. The live
@@ -18,10 +18,10 @@ export function openTerminalHistory(options: {
 }) {
   const { host, history } = options;
   host.querySelector('.terminal-history')?.dispatchEvent(new Event('history-close'));
-  const panel = uiPart('region'); panel.classList.add('terminal-history');
+  const panel = uiTraits(uiPart('region', undefined, 'terminal-history'), 'overlay');
   panel.setAttribute('aria-label', 'Earlier terminal lines'); panel.style.background = options.background;
   const bar = uiPart('toolbar'); bar.classList.add('terminal-history-bar');
-  const title = uiPart('status'); title.classList.add('terminal-history-title'); title.setAttribute('role', 'status');
+  const title = uiTraits(uiPart('status', undefined, 'terminal-history-title'), 'grow', 'truncate');
   const earlier = uiButton('Earlier'); const later = uiButton('Later'); const live = uiButton('Back to live', { primary: true });
   bar.setAttribute('aria-label', 'Terminal history'); bar.append(title, earlier, later, live);
   const screen = document.createElement('div'); screen.className = 'terminal-history-screen';

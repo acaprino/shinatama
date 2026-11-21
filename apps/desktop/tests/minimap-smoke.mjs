@@ -76,7 +76,7 @@ const minimap = () => page.evaluate(() => {
     }
   }
   const screen = view?.querySelector('.xterm-screen');
-  const mark = strip?.querySelector('.terminal-minimap-view');
+  const mark = strip?.querySelector('.im-overview-frame');
   const open = [...document.querySelectorAll('dialog[open]')].map(element => element.id || element.className);
   return { strip: box(strip), screen: box(screen), mark: mark && !mark.hidden ? box(mark) : null, painted,
     ink: rows ? Math.round(ink / rows * 100) / 100 : 0, canvas: canvas ? [canvas.width, canvas.height] : null, open };

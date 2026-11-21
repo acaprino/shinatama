@@ -90,6 +90,15 @@ try {
   await expect(panes).toHaveCount(2);
   const paneBoxes = () => panes.evaluateAll(nodes => nodes.map(node => { const { x, y, width, height } = node.getBoundingClientRect(); return { x, y, width, height }; }));
   await expect(page.locator('[data-group-id="pane-fixture-live"] .xterm')).toBeVisible();
+  // The terminal's minimap is Imago's overview strip, 20px wide at the right edge of the terminal view.
+  const strip = await page.locator('[data-group-id="pane-fixture-live"] .terminal-view').evaluate(view => {
+    const overview = view.querySelector(':scope > .im-overview');
+    if (!overview) return null;
+    const box = overview.getBoundingClientRect(), host = view.getBoundingClientRect();
+    return { width: box.width, right: host.right - box.right, top: box.top - host.top, hidden: overview.getAttribute('aria-hidden') };
+  });
+  assert.ok(strip && Math.abs(strip.width - 20) <= 1 && Math.abs(strip.right - 4) <= 1 && Math.abs(strip.top - 10) <= 1 && strip.hidden === 'true',
+    'The minimap is Imago\'s overview strip in its place: ' + JSON.stringify(strip));
   const [left, right] = await paneBoxes();
   assert.ok(left.width > 250 && left.height > 400 && right.x >= left.x + left.width - 1, JSON.stringify([left, right]));
   async function more(name) {

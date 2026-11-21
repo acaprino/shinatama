@@ -14,8 +14,6 @@ const publicImports = new Set(['ui', 'shell', 'tauri', 'graph', 'graph-layout', 
 const engineNodes = new Set([
   'src/browser-tab.ts:canvas:canvas', 'src/code-view.ts:mark:span',
   'src/files-panel.ts:img:img', 'src/terminal-history-view.ts:screen:div',
-  'src/terminal-minimap.ts:strip:div', 'src/terminal-minimap.ts:canvas:canvas',
-  'src/terminal-minimap.ts:archiveBand:div', 'src/terminal-minimap.ts:frame:div',
 ]);
 const constructors = new Set(['createElement', 'createElementNS', 'createContextualFragment', 'insertAdjacentHTML',
   'setHTML', 'setHTMLUnsafe', 'parseFromString', 'insertRule', 'replaceSync']);
@@ -112,10 +110,7 @@ function inspectModule(file: string, source: string) {
 const terminalSelectors = new Set([
   '.terminal-view', '.xterm', '.xterm-viewport', '.terminal-view.has-minimap', '.terminal-view.drop-target',
   '.terminal-view.has-minimap > .xterm .xterm-scrollable-element > .scrollbar.vertical',
-  '.terminal-view.has-minimap > .xterm .xterm-viewport', '.terminal-minimap', '.terminal-minimap canvas',
-  '.terminal-minimap-archive', '.terminal-minimap-view', '.terminal-minimap:hover .terminal-minimap-view',
-  '.terminal-minimap.dragging .terminal-minimap-view', '.terminal-earlier', '.terminal-history',
-  '.terminal-history-title', '.terminal-history-screen',
+  '.terminal-view.has-minimap > .xterm .xterm-viewport', '.terminal-earlier', '.terminal-history-screen',
 ]);
 const fileSelectors = new Set([
   '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image',

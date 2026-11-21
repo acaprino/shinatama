@@ -34,7 +34,7 @@
     "verify": "pwsh -NoProfile -File scripts/verify.ps1"
   },
   "dependencies": {
-    "@acaprino/imago": "git+https://github.com/acaprino/imago.git#98c3e13a4aeb498f382505b39a890491f67bf862",
+    "@acaprino/imago": "git+https://github.com/acaprino/imago.git#b14d1b8c5167e7113930151ac429a5075773cbb2",
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.12",
