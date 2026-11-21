@@ -477,7 +477,7 @@ async fn agent_check(
     {
         let owner = ready::<agents::Controller>(&window)?;
         let checked = owner.check(&agent_id).await.map_err(str::to_owned)?;
-        return serde_json::to_value(checked).map_err(|_| "Agent status is unavailable.".into());
+        serde_json::to_value(checked).map_err(|_| "Agent status is unavailable.".into())
     }
     #[cfg(not(windows))]
     Err("Agent checks are available on Windows.".into())
@@ -511,8 +511,8 @@ async fn agent_start(
             )
             .await
             .map_err(str::to_owned)?;
-        return serde_json::to_value(started)
-            .map_err(|_| "Agent startup status is unavailable.".into());
+        serde_json::to_value(started)
+            .map_err(|_| "Agent startup status is unavailable.".into())
     }
     #[cfg(not(windows))]
     Err("Agent startup is available on Windows.".into())
@@ -548,8 +548,8 @@ async fn agent_open(
             )
             .await
             .map_err(str::to_owned)?;
-        return serde_json::to_value(started)
-            .map_err(|_| "Agent startup status is unavailable.".into());
+        serde_json::to_value(started)
+            .map_err(|_| "Agent startup status is unavailable.".into())
     }
     #[cfg(not(windows))]
     {
@@ -615,7 +615,7 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
         if let (true, Some(fields)) = (refused, value.as_object_mut()) {
             fields.insert("refused".into(), true.into());
         }
-        return Ok(value);
+        Ok(value)
     }
     #[cfg(not(windows))]
     {
@@ -653,7 +653,7 @@ async fn sidecar_capabilities(
         })
         .await
         .map_err(|_| "Session capabilities are unavailable.".to_owned())?;
-        return Ok(sidecar::capabilities_reply(read));
+        Ok(sidecar::capabilities_reply(read))
     }
     #[cfg(not(windows))]
     {

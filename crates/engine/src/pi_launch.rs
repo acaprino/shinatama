@@ -875,8 +875,12 @@ mod tests {
         let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
         let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
         let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
-        fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
-        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        fullest.extend(model_arguments(
+            PathBuf::from(r"C:\Data\i\model-provider.mjs"),
+            "provider",
+            "model",
+        ));
+        assert!(fullest.len() < 32, "{} arguments", fullest.len() + 1);
         assert!(fullest.contains(&OsString::from("--session-id")));
     }
     use super::*;
@@ -920,7 +924,7 @@ mod tests {
         let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
         fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
         let fullest = with_first_message(fullest, Some(&"x".repeat(8192)));
-        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        assert!(fullest.len() < 32, "{} arguments", fullest.len() + 1);
         assert_eq!(fullest[fullest.len() - 2], OsString::from("--"));
     }
     /// Task 12 of the thread team: a launch for an agent carries the agent's model, the panel's

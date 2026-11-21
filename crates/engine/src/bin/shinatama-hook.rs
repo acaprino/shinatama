@@ -76,7 +76,7 @@ fn read_input() -> Result<Vec<u8>> {
                 .take((INPUT_LIMIT + 1) as u64)
                 .read_to_end(&mut input)
                 .map_err(|_| ())
-                .and_then(|_| {
+                .and({
                     if input.len() <= INPUT_LIMIT {
                         Ok(input)
                     } else {

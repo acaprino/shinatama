@@ -99,7 +99,7 @@ const TREE_SCRIPT: &str = r#"(() => {
 
 fn ref_script(reference: &str, body: &str) -> Option<String> {
     let index: usize = reference.strip_prefix('e')?.parse().ok()?;
-    (index >= 1 && index <= 400).then(|| format!("(() => {{ const el = (window.__shinatamaRefs || [])[{}]; if (!el || !el.isConnected) return null; {body} }})()", index - 1))
+    (1..=400).contains(&index).then(|| format!("(() => {{ const el = (window.__shinatamaRefs || [])[{}]; if (!el || !el.isConnected) return null; {body} }})()", index - 1))
 }
 
 #[derive(Deserialize)]

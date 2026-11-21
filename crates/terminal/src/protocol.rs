@@ -95,7 +95,9 @@ impl<'a> Decoder<'a> {
         }
         let bytes = self.take(count.checked_mul(2).ok_or_else(invalid)?)?;
         let units: Vec<u16> = bytes
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|unit| u16::from_le_bytes([unit[0], unit[1]]))
             .collect();
         if units.contains(&0) {

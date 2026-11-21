@@ -245,7 +245,7 @@ impl ExitLog {
             self.last = Some(key);
             self.streak = 1;
         }
-        if self.streak > 5 && self.streak % 20 != 0 {
+        if self.streak > 5 && !self.streak.is_multiple_of(20) {
             return None;
         }
         let said = match &exit.detail {
@@ -1247,11 +1247,11 @@ fn resources_root() -> Result<PathBuf, &'static str> {
     }
     #[cfg(debug_assertions)]
     {
-        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(3)
             .map(|root| root.join("sidecar"))
-            .ok_or("The development resource directory is unavailable.");
+            .ok_or("The development resource directory is unavailable.")
     }
     #[cfg(not(debug_assertions))]
     Err("The proxy resources are missing from this application package.")

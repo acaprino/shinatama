@@ -326,18 +326,33 @@ mod tests {
         let jumped=read_detail(&snapshot,&jump).page.unwrap();
         assert_eq!(jumped.events[0].entry_ordinal,target.entry_ordinal);
         assert!(jumped.events[0].text.contains("Alpha"));
-        request.cursor=page.next; let tail=read_find(&snapshot,&request).page.unwrap();
-        assert_eq!(tail.hits.len(),3); assert!(tail.next.is_none());
-        assert_eq!(tail.hits[0].match_ordinal,50);
-        request.cursor=None; request.query="private-needle".into();
-        let private=read_find(&snapshot,&request).page.unwrap(); assert_eq!(private.total_hits,0);
-        request.query="🦀".repeat(33);
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::InvalidQuery));
-        request.query="Alpha".into();
-        let mut changed=bytes.clone(); changed.push_str("\n"); fs::write(&path,changed).unwrap();
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::Detail(DetailIssue::SourceChanged)));
-        request.detail.cursor=None;
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::FingerprintRequired));
+        request.cursor = page.next;
+        let tail = read_find(&snapshot, &request).page.unwrap();
+        assert_eq!(tail.hits.len(), 3);
+        assert!(tail.next.is_none());
+        assert_eq!(tail.hits[0].match_ordinal, 50);
+        request.cursor = None;
+        request.query = "private-needle".into();
+        let private = read_find(&snapshot, &request).page.unwrap();
+        assert_eq!(private.total_hits, 0);
+        request.query = "🦀".repeat(33);
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::InvalidQuery)
+        );
+        request.query = "Alpha".into();
+        let mut changed = bytes.clone();
+        changed.push('\n');
+        fs::write(&path, changed).unwrap();
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::Detail(DetailIssue::SourceChanged))
+        );
+        request.detail.cursor = None;
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::FingerprintRequired)
+        );
     }
 
     #[test]

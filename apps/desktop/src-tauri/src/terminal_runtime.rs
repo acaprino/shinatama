@@ -678,7 +678,7 @@ impl Admission {
             &policy.stamp,
             ledger.revision,
             PrepareRequest {
-                budget: budget,
+                budget,
                 process_commit_bytes,
                 now_ms: now,
                 lease_expires_at_ms: now + lease_ms,
@@ -713,11 +713,10 @@ impl WindowsTerminalAdmission for Admission {
         let result = workload
             .finish_cleanup(&state.store, timeout)
             .map_err(|e| anyhow!("Terminal cleanup remains reserved: {e:?}"))?;
-        if matches!(result, CleanupStatus::Released { .. }) {
-            if let Ok(mut approved) = self.approved.lock() {
+        if matches!(result, CleanupStatus::Released { .. })
+            && let Ok(mut approved) = self.approved.lock() {
                 approved.retain(|item| item.key != workload.owned_key());
             }
-        }
         Ok(result)
     }
     fn observe(

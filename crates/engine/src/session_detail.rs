@@ -1149,8 +1149,10 @@ pub(crate) mod large_fixture {
     impl LargeSession {
         /// The session read whole by Mukade (what an in-memory render starts from).
         pub fn whole(&self) -> Session {
-            let mut roots = StoreRoots::default();
-            roots.claude_config_dir = Some(self.root_path.clone());
+            let roots = StoreRoots {
+                claude_config_dir: Some(self.root_path.clone()),
+                ..StoreRoots::default()
+            };
             mukade::reader::for_harness(HarnessId::ClaudeCode)
                 .unwrap()
                 .read(SESSION, &roots)

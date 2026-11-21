@@ -159,6 +159,7 @@ pub struct SessionCapabilities {
     pub stamped_at_request: Option<u64>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(clippy::large_enum_variant)]
 pub enum CapabilityRead {

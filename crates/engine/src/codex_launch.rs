@@ -1558,7 +1558,10 @@ mod tests {
             .arguments();
         assert_eq!(&followed[..fixed_arguments().len()], fixed_arguments());
         let theme = OsString::from("--config=tui.theme=\"ansi\"");
-        assert_eq!(&followed[fixed_arguments().len()..], [theme.clone()]);
+        assert_eq!(
+            &followed[fixed_arguments().len()..],
+            std::slice::from_ref(&theme)
+        );
         let open = CodexSessionOperation::start_new()
             .with_full_access()
             .with_palette(palette)

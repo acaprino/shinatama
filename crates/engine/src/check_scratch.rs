@@ -472,7 +472,10 @@ fn collect(nodes: &mut Vec<Node>, total: &mut u64, at: Instant) -> Result<(), Is
                     break;
                 }
                 let next = entry.NextEntryOffset as usize;
-                if next < header + bytes || offset + next >= size_of_val(&page) || !next.is_multiple_of(8) {
+                if next < header + bytes
+                    || offset + next >= size_of_val(&page)
+                    || !next.is_multiple_of(8)
+                {
                     return Err(Issue::UnsafeEntry);
                 }
                 offset += next;

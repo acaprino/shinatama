@@ -212,7 +212,7 @@ mod tests {
     fn transcript(lines: &[&str]) -> Vec<u8> {
         lines
             .iter()
-            .flat_map(|line| line.bytes().chain([b'\n']))
+            .flat_map(|line| line.bytes().chain(*b"\n"))
             .collect()
     }
 
