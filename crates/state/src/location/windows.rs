@@ -10,13 +10,13 @@ use std::ptr::{null, null_mut};
 use windows_sys::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HANDLE, LocalFree};
 use windows_sys::Win32::Security::Authorization::{
     ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo,
-    SE_FILE_OBJECT,
+    SE_FILE_OBJECT, SetSecurityInfo,
 };
 use windows_sys::Win32::Security::{
     ACCESS_ALLOWED_ACE, DACL_SECURITY_INFORMATION, EqualSid, GetAce, GetSecurityDescriptorControl,
     GetSecurityDescriptorDacl, GetTokenInformation, OWNER_SECURITY_INFORMATION,
     PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED,
-    SECURITY_ATTRIBUTES, SetKernelObjectSecurity, TOKEN_QUERY, TOKEN_USER, TokenUser,
+    SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER, TokenUser,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateDirectoryW, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY,
@@ -603,9 +603,15 @@ fn private_object(path: &Path, directory: bool, change: bool) -> Result<()> {
     }
     drop(existing);
     drop(file);
-    // READ_CONTROL | WRITE_DAC: the DACL is written on this handle alone (below), so an
-    // existing child (including a junction target) is never altered as a side effect.
-    let file = open_object(path, 0x0002_0000 | 0x0004_0000 | FILE_READ_ATTRIBUTES)?;
+    // Documented SetSecurityInfo behavior: MAXIMUM_ALLOWED prevents recursive ACE
+    // propagation to existing children. New files still inherit this directory's ACL.
+    // Never alter an existing child (including junction targets) as a side effect.
+    let access = if directory {
+        0x0200_0000
+    } else {
+        0x0002_0000 | 0x0004_0000 | FILE_READ_ATTRIBUTES
+    };
+    let file = open_object(path, access)?;
     let handle = file.as_raw_handle();
     let current = inspect_object(path, &file, directory)?;
     if before.dwVolumeSerialNumber != current.dwVolumeSerialNumber
@@ -642,25 +648,24 @@ fn private_object(path: &Path, directory: bool, change: bool) -> Result<()> {
             "Permessi privati non validi",
         ));
     }
-    // SetKernelObjectSecurity sets this object's DACL and nothing else. SetSecurityInfo goes
-    // through the access-control provider, which propagates inheritable ACEs to the existing
-    // children whenever it can: as an elevated administrator (Verify Windows runs elevated) it
-    // did, and a file already in the folder lost its inherited grants. The private descriptor
-    // carries SE_DACL_PROTECTED; files created later still inherit its OICI grant.
-    if unsafe {
-        SetKernelObjectSecurity(
+    let code = unsafe {
+        SetSecurityInfo(
             handle,
+            SE_FILE_OBJECT,
             DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-            private.0,
+            null_mut(),
+            null_mut(),
+            private_acl,
+            null(),
         )
-    } == 0
-    {
+    };
+    if code != ERROR_SUCCESS {
         return Err(LocationError::new(
             LocationErrorKind::Permissions,
             path,
             format!(
                 "Impossibile applicare permessi privati: {}.",
-                io::Error::last_os_error()
+                io::Error::from_raw_os_error(code as i32)
             ),
         ));
     }
