@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiEmphasis } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
@@ -60,7 +61,7 @@ export function createSessionSearch(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-search-dialog'; dialog.setAttribute('aria-labelledby', 'session-search-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-search-title'; title.textContent = 'Search all sessions';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close search'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close search'); heading.append(title, closeButton);
   const description = uiPart('hint');
   description.textContent = 'Searches the text you and the agents wrote in indexed sessions. Indexing only reads your session archives; it never starts or resumes an agent.';
 

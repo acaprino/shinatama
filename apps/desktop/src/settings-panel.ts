@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { closeControl, iconControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import { parseMuroStatus, pluginsButtons, pluginsLine, type MuroStatus } from './muro-status.ts';
 import { createModelSettingsPanel } from './model-settings-panel.ts';
@@ -39,7 +40,7 @@ export function createSettingsPanel(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
   const top = uiPart('stack');
   const heading = uiPart('row', undefined, 'dialog-heading'); const title = uiPart('title', 'Settings'); title.id = 'settings-title';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close settings');
+  const closeButton = closeControl('Close settings');
   heading.append(title, closeButton);
   const index = uiTraits(uiPart('nav'), 'row'); index.setAttribute('aria-label', 'Settings sections');
   top.append(heading, index);
@@ -195,7 +196,7 @@ export function createSettingsPanel(options: Options) {
     const secretLabel = uiPart('label', undefined, 'settings-secret'); const secret = uiInput('checkbox'); secret.checked = row.secret;
     secret.onchange = () => { row.secret = secret.checked; paintValue(); };
     secretLabel.append(secret, document.createTextNode(' Secret'));
-    const remove = uiButton('×'); remove.setAttribute('aria-label', `Remove ${row.name || 'variable'}`);
+    const remove = iconControl(`Remove ${row.name || 'variable'}`, 'close', 'remove');
     remove.onclick = () => { form.rows.splice(index, 1); paintRows(); };
     paintValue();
     line.append(name, value, secretLabel, remove);

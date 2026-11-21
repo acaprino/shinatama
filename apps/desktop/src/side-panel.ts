@@ -1,4 +1,5 @@
-import { closeLayers, inspector, uiButton, uiPart } from '@acaprino/imago/ui';
+import { closeLayers, inspector, uiPart } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 
 // The window's one side panel is Imago's inspector (canon v0.2.0): not modal, docked beside the panes from 1012 up and
 // over their edge under it, one view at a time. The Model proxy, the thread's conversation and Leftovers show there.
@@ -16,7 +17,7 @@ export function sideView(id: string, title: string, closeLabel: string, titleId 
   const root = uiPart('stack', undefined, 'side-view'); root.id = id; root.setAttribute('aria-labelledby', titleId);
   const header = uiPart('row', undefined, 'im-panel-header');
   const heading = uiPart('minorHeading', title, 'im-panel-title'); heading.id = titleId; heading.tabIndex = -1;
-  const close = uiButton('×'); close.setAttribute('aria-label', closeLabel); close.title = closeLabel;
+  const close = closeControl(closeLabel);
   header.append(heading, uiPart('spacer'), close);
   const body = uiPart('scroll', undefined, 'im-panel-body');
   const foot = uiPart('row', undefined, 'im-panel-foot');

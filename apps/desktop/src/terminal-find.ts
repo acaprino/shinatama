@@ -1,4 +1,5 @@
 import { componentElement, textFieldHtml, uiButton, uiPart } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import type { Terminal } from '@xterm/xterm';
 import { openModal, openSheet } from './modal.ts';
 
@@ -13,7 +14,7 @@ export function createTerminalFind(options: {
   const form = uiPart('form');
   const heading = uiPart('header');
   const title = uiPart('title', 'Find in terminal'); title.id = 'terminal-find-title';
-  const close = uiButton('×', { attrs: { 'aria-label': 'Close search' } });
+  const close = closeControl('Close search');
   heading.append(title, close);
   const field = componentElement(textFieldHtml('Text in this terminal', 'terminal-find', '', {
     id: 'terminal-find-query', type: 'search', error: false, attrs: { autocomplete: 'off', maxlength: '128' },

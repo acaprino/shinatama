@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
@@ -21,7 +22,7 @@ export function createHopPreview(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'hop-preview-dialog'; dialog.setAttribute('aria-labelledby', 'hop-preview-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'hop-preview-title'; title.textContent = 'Hop to another agent';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close hop preview'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close hop preview'); heading.append(title, closeButton);
   const source = uiPart('hint');
   const row = uiPart('row');
   const label = uiPart('label', 'Destination ');
