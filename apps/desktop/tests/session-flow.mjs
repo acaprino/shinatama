@@ -72,7 +72,19 @@ export async function dragTab(page, tab, pane, where) {
   if (!fraction) throw new Error('Unknown drop side: ' + where);
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
   await page.mouse.move(body.x + body.width * fraction[0], body.y + body.height * fraction[1], { steps: 12 });
-  await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.');
+  try { await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.'); }
+  catch (failure) {
+    // Whether the gesture started, the dragged tab survived a re-render, or input was held by a layer.
+    const state = await tab.evaluate(node => ({
+      connected: node.isConnected, dragging: node.classList.contains('wm-tab-dragging'),
+      hostDragging: !!document.querySelector('.wm-dragging'),
+      openModals: [...document.querySelectorAll('dialog[open][aria-modal="true"]')].map(dialog => dialog.id),
+      openDialogs: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
+      hit: document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.className?.toString().slice(0, 80),
+    })).catch(error => ({ tabGone: String(error).slice(0, 200) }));
+    await page.mouse.up();
+    throw new Error(failure.message + ' ' + JSON.stringify(state));
+  }
   await page.mouse.up();
 }
 

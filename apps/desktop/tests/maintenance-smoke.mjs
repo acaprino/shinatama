@@ -244,7 +244,8 @@ try {
     lastExplicitStatus = status;
     await delay(100);
   }
-  expect(completedChecks).toBeGreaterThan(0);
+  // What the last check answered says why none completed (refused, deferred, still running).
+  if (!completedChecks) throw new Error('No maintenance check completed alongside the terminal; the last answered: ' + JSON.stringify(lastExplicitStatus).slice(0, 2048));
   expect(sawShapeAnomaly).toBe(true);
   expect(snapshot().digest).toBe(original.digest);
   evidence.checks.manualFiniteChecksPreserveAuthoritativeRows = true;
