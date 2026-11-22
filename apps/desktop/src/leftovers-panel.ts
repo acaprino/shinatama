@@ -36,7 +36,7 @@ export function createLeftoversPanel(options: Options) {
   view.body.append(status, list);
   const shown = () => sidePanelShows(panel);
 
-  const toggle = uiButton('Leftovers', { onClick: () => setHidden(shown()), title: 'What agent sessions created: worktrees, copies, bench and backup folders' });
+  const toggle = uiButton('Leftovers', { cls: 'im-btn--ghost', onClick: () => setHidden(shown()), title: 'What agent sessions created: worktrees, copies, bench and backup folders' });
   toggle.id = 'leftovers-toggle';
   const badge = uiPart('text'); badge.hidden = true;
   toggle.append(badge);

@@ -26,7 +26,7 @@ export function sideView(id: string, title: string, closeLabel: string, titleId 
   const heading = uiPart('minorHeading', title, 'im-panel-title'); heading.id = titleId; heading.tabIndex = -1;
   const close = closeControl(closeLabel);
   header.append(heading, uiPart('spacer'), close);
-  const body = uiPart('scroll', undefined, 'im-panel-body');
+  const body = uiPart('scroll', undefined, 'im-panel-body side-body');
   const foot = uiPart('row', undefined, 'im-panel-foot'); foot.hidden = true;
   // The foot is an empty bordered strip until a view puts its actions there.
   new MutationObserver(() => { foot.hidden = !foot.hasChildNodes(); }).observe(foot, { childList: true });

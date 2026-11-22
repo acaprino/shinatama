@@ -14,22 +14,27 @@ renderShellFrame(shell, shellFrameHtml({
     navigationHtml: tabNavigationHtml(VIEW_TABS, 'workspace', { label: 'Views', action: 'view' }), views: { label: 'Views', action: 'views-menu' },
   }),
   contentId: 'desktop-content', contentLabel: 'Terminal workspace', skipLabel: 'Skip to terminal workspace',
-  inspectorLabel: 'Side panel', contentToolsHtml: '', contentHtml: '', footerHtml: '',
+  inspectorLabel: 'Side panel', contentHtml: '', footerHtml: '',
 }));
 const main = shell.querySelector<HTMLElement>('#desktop-content')!;
-const toolbar = uiTraits(uiPart('nav', undefined, 'toolbar'), 'toolbar');
+const titlebar = shell.querySelector<HTMLElement>('.im-titlebar')!;
+// No row above the terminals: the window's controls sit in the title bar, so the terminals keep the whole height.
+const toolbar = uiTraits(uiPart('nav', undefined, 'toolbar titlebar-tools'), 'toolbar');
 toolbar.setAttribute('aria-label', 'Workspace controls');
 const threads = componentElement(iconButtonHtml('Thread sidebar', 'threads-toggle', 'layers', {
   attrs: { id: 'threads-toggle', 'aria-pressed': 'true' },
 }));
-const project = uiButton('Projects', { attrs: { id: 'project', title: 'Choose projects for the thread sidebar' } });
-project.querySelector('span')!.id = 'project-name';
-toolbar.append(threads, project,
-  uiButton('New session', { primary: true, icon: 'plus', attrs: { id: 'new-terminal' } }),
+threads.classList.add('titlebar-threads');
+// Choosing the projects the thread sidebar lists is the sidebar's own action: workset-sidebar.ts moves this button into its header.
+const project = componentElement(iconButtonHtml('Choose projects for the thread sidebar', 'choose-projects', 'folder', { attrs: { id: 'project' } }));
+const newSession = uiButton('New session', { primary: true, icon: 'plus', attrs: { id: 'new-terminal' } });
+newSession.classList.add('titlebar-new');
+toolbar.append(project, newSession,
   uiTraits(uiPart('spacer', undefined, 'spring'), 'spacer'),
   uiButton('Layout', { attrs: { id: 'layout-toggle', title: 'Switch between columns and rows' } }),
   uiButton('Restore views', { attrs: { id: 'restore', title: 'Show all hidden terminals' } }));
-main.querySelector('.im-panel-tools')!.append(toolbar);
+titlebar.querySelector('.im-spacer')!.after(toolbar);
+titlebar.querySelector('.im-sidebar-toggle')!.after(threads);
 // The tiling workspace fills the content panel's body.
 const workspace = uiPart('stack', undefined, 'workspace-host');
 workspace.id = 'workspace';

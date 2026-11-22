@@ -1,0 +1,91 @@
+/* The layout of the window's screens. Imago's DOM parts (uiPart) carry a name and almost no layout: a stack, a heading
+   and a list item are plain boxes, so what the migration took out of the screens is written here once, from Imago's
+   tokens. A selector is a screen's own class, never an Imago one, and every measure, colour and size is a token. */
+
+/* The body of every view of the side panel: the page's padding, and one gap between its parts. */
+.side-body { display: flex; flex-direction: column; gap: var(--im-s-3); padding: var(--im-s-3) var(--im-s-4) var(--im-s-4); }
+.side-body > * { flex: none; min-inline-size: 0; }
+
+/* Sessions: the search and the scope over both lists, running first, saved after. */
+.sessions-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40%); gap: var(--im-s-2); }
+.sessions-heading { display: flex; align-items: baseline; gap: var(--im-s-2); margin: var(--im-s-2) 0 0; padding-block-end: var(--im-s-1); border-block-end: 1px solid var(--im-line); font-size: var(--im-fs-title); color: var(--im-text-hi); }
+.sessions-count { color: var(--im-text-2); font-size: var(--im-fs-meta); font-variant-numeric: tabular-nums; }
+.sessions-note { min-inline-size: 0; overflow: hidden; color: var(--im-muted); font-size: var(--im-fs-meta); text-overflow: ellipsis; white-space: nowrap; }
+.sessions-heading > .sessions-quiet { margin-inline-start: auto; }
+.sessions-more { inline-size: 100%; }
+.sessions-options { padding-block-start: var(--im-s-2); border-block-start: 1px solid var(--im-line); }
+.sessions-options-tools { margin-block: var(--im-s-3) 0; }
+
+/* Both lists reach the panel's edges: a row is a hairline and a hover wash, not a card. */
+.sessions-list, .instances-list { margin-inline: calc(var(--im-s-4) * -1); }
+.sessions-list > .sessions-row { display: block; padding: 0; }
+.sessions-list .sessions-row-head { display: grid; line-height: 1.4; grid-template-columns: minmax(0, 1fr) auto; justify-content: stretch; align-items: baseline; gap: var(--im-s-1) var(--im-s-3); inline-size: 100%; block-size: auto; min-block-size: 0; padding: var(--im-s-2) var(--im-s-4); border: 0; border-radius: 0; background: transparent; clip-path: none; text-align: start; white-space: normal; }
+.sessions-list .sessions-row-head:hover:not(:disabled) { background: var(--im-hover); }
+.sessions-list .sessions-row-head[aria-expanded="true"] { background: var(--im-selected); }
+.sessions-row-title { min-inline-size: 0; overflow: hidden; color: var(--im-text); text-overflow: ellipsis; white-space: nowrap; }
+.sessions-row-time { color: var(--im-text-2); font-size: var(--im-fs-meta); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sessions-row-meta { grid-column: 1 / -1; min-inline-size: 0; overflow: hidden; color: var(--im-muted); font-size: var(--im-fs-meta); text-overflow: ellipsis; white-space: nowrap; }
+.sessions-row-snippet { grid-column: 1 / -1; color: var(--im-text-2); font-size: var(--im-fs-meta); overflow-wrap: anywhere; white-space: normal; }
+.sessions-list > .sessions-row > .sessions-row-body { display: grid; gap: var(--im-s-3); padding: var(--im-s-1) var(--im-s-4) var(--im-s-3); background: var(--im-hover); }
+
+/* Running instances: who, how it is, then labelled facts. The marker's colour is the state, filled when certain. */
+.instances-list > .instances-item { --sh-state: var(--im-muted); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: var(--im-s-3); padding: var(--im-s-3) var(--im-s-4); }
+.instances-list > .instances-item > * { grid-column: 2; }
+.instances-list > .instances-item[data-state="producing_output"] { --sh-state: var(--im-ok); }
+.instances-list > .instances-item[data-state="attention_requested"] { --sh-state: var(--im-warn); }
+.instances-list > .instances-item[data-state="error"] { --sh-state: var(--im-err); }
+.instances-list > .instances-item[data-state="starting"] { --sh-state: var(--im-info); }
+.instances-list > .instances-item > .instances-marker { grid-column: 1; grid-row: 1; align-self: center; color: var(--sh-state); line-height: 1; }
+.instances-list > .instances-item > .instances-head { display: flex; align-items: center; gap: var(--im-s-2); min-inline-size: 0; }
+.instances-agent { min-inline-size: 0; overflow: hidden; font-family: var(--im-font-head); font-size: var(--im-fs-title); font-weight: 600; color: var(--im-text-hi); text-overflow: ellipsis; white-space: nowrap; }
+.instances-id { flex: none; font-family: var(--im-font-code); font-size: var(--im-fs-micro); color: var(--im-muted); }
+.instances-head > .instances-actions { flex: none; margin-inline-start: auto; }
+.instances-state { margin: 0; color: var(--im-muted); }
+.instances-state-name { font-weight: 600; color: var(--sh-state); }
+.instances-facts { grid-template-columns: auto minmax(0, 1fr); margin: 0; font-size: var(--im-fs-meta); }
+.instances-facts > dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.instances-facts > dd.path { color: var(--im-text); }
+.instances-facts > dd.muted { color: var(--im-muted); }
+.instances-facts > dd.numbers { font-variant-numeric: tabular-nums; }
+.instances-timeline > li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--im-s-3); font-size: var(--im-fs-meta); }
+.instances-legend { display: flex; flex-wrap: wrap; gap: var(--im-s-1) var(--im-s-4); margin: 0; color: var(--im-muted); font-size: var(--im-fs-meta); }
+.instances-legend > :last-child { flex-basis: 100%; }
+
+/* Settings: the title and the section index above, the actions below, and only the sections between them scroll. */
+.settings-view { display: flex; flex-direction: column; min-block-size: 0; }
+.settings-top { flex: none; padding: var(--im-s-3) var(--im-s-4) 0; border-block-end: 1px solid var(--im-line); }
+.settings-top > .settings-heading { justify-content: space-between; flex-wrap: nowrap; }
+.settings-index { gap: var(--im-s-1); padding-block: var(--im-s-1) var(--im-s-2); }
+.settings-body { flex: 1 1 auto; min-block-size: 0; overflow: auto; padding: 0 var(--im-s-4) var(--im-s-4); }
+.settings-body > .settings-section { display: flex; flex-direction: column; gap: var(--im-s-2); padding-block: var(--im-s-4); border-block-start: 1px solid var(--im-line-soft); }
+.settings-body > .settings-section > * { flex: none; min-inline-size: 0; }
+.settings-body > .settings-section > :is(h2) { margin: 0; }
+.settings-actions { flex: none; flex-wrap: wrap; align-items: center; padding: var(--im-s-3) var(--im-s-4); border-block-start: 1px solid var(--im-line); }
+.settings-actions > .settings-status { flex: 1 1 14rem; margin: 0 auto 0 0; }
+/* A check and its words in one row; the stretch a form gives its fields stops at the box. */
+.settings-body .settings-check { display: flex; align-items: center; gap: var(--im-s-2); }
+.settings-body .settings-check > input[type="checkbox"] { width: var(--im-s-4); flex: none; }
+.settings-inline { flex-wrap: nowrap; }
+.settings-inline > input { flex: 1 1 auto; min-inline-size: 0; }
+.settings-var { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) auto auto; gap: var(--im-s-2); align-items: center; }
+.settings-secret { display: flex; align-items: center; gap: var(--im-s-1); white-space: nowrap; }
+/* The terminal form sits in its section: the padding a form has on a page of its own is the section's. */
+.settings-body .settings-form { padding: 0; overflow: visible; }
+.settings-index > .settings-index-link { line-height: 1.4; }
+
+/* The thread list: a project is a quiet heading with room above it, and a thread shows its actions when it is pointed
+   at, focused or on, so the titles are what the eye finds. */
+.thread-sidebar-group { margin-block-start: var(--im-s-2); }
+.thread-sidebar-group > .thread-sidebar-group-toggle > .thread-sidebar-group-name { color: var(--im-text-2); font-size: var(--im-fs-meta); font-weight: 600; }
+.thread-sidebar-row:not(:hover, :focus-within, [aria-selected="true"]) > :is(.thread-sidebar-add-session, .thread-sidebar-more) { visibility: hidden; }
+
+/* The window's controls in the title bar: New session, the project filter, the status light and More. */
+.titlebar-tools { flex: 0 1 auto; flex-wrap: nowrap; margin: 0; padding: 0; }
+.titlebar-tools > .spring { flex: 0 0 0; }
+.titlebar-tools > .tab-filter { flex-wrap: nowrap; }
+@container im-shell (width < 1200px) { .tab-filter { display: none; } }
+/* Under 620 the window has its own sidebar button and the primary action keeps its icon and its name only. */
+@container im-shell (width < 620px) {
+  .titlebar-threads { display: none; }
+  .titlebar-tools > .titlebar-new > span { font-size: 0; }
+}

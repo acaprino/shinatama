@@ -39,7 +39,7 @@ const size = (bytes: number | null) => bytes === null ? 'Unknown' : bytes < 1024
 export function createSessionsPanel(options: Options) {
   const view = sideSurface('sessions-dialog', 'Sessions', 'Close sessions', 'sessions-title');
 
-  const tools = uiPart('toolbar');
+  const tools = uiPart('toolbar'); tools.classList.add('sessions-tools');
   const search = uiInput('search'); search.maxLength = 128; search.autocomplete = 'off'; search.spellcheck = false;
   search.placeholder = 'Filter · Enter searches text'; search.setAttribute('aria-label', 'Filter sessions, or press Enter to search the text of conversations');
   const scope = uiSelect(); scope.setAttribute('aria-label', 'Which sessions to show');
@@ -47,6 +47,7 @@ export function createSessionsPanel(options: Options) {
   const status = uiPart('status');
 
   const runningHead = uiPart('heading'); const runningCount = uiPart('text'); const runningSummary = uiPart('text');
+  runningHead.classList.add('sessions-heading'); runningCount.classList.add('sessions-count'); runningSummary.classList.add('sessions-note');
   runningHead.append('Running', runningCount, runningSummary);
   const runningEmpty = uiPart('paragraph', 'No session is running.');
   const instances = createInstancesSection({
@@ -55,21 +56,22 @@ export function createSessionsPanel(options: Options) {
   });
 
   const savedHead = uiPart('heading'); const savedCount = uiPart('text'); const savedNote = uiPart('text');
-  const reload = uiButton('Reload'); reload.title = 'Read the archives again';
+  const reload = uiButton('Reload'); reload.classList.add('sessions-quiet'); reload.title = 'Read the archives again';
   const savedLabel = document.createTextNode('Saved');
+  savedHead.classList.add('sessions-heading'); savedCount.classList.add('sessions-count'); savedNote.classList.add('sessions-note');
   savedHead.append(savedLabel, savedCount, savedNote, reload);
-  const savedList = uiPart('list'); savedList.setAttribute('aria-label', 'Saved sessions');
+  const savedList = uiPart('list'); savedList.classList.add('sessions-list'); savedList.setAttribute('aria-label', 'Saved sessions');
   const savedEmpty = uiPart('paragraph');
   // The saved list's loading, empty and error states (Imago's layer), written where the list is: the search field and
   // the running sessions stay usable beside it.
   const savedState = uiPart('stack'); savedState.id = 'sessions-saved-state';
   let savedLoadingShown = false; let cancelSavedLoading = () => {};
   function paintSavedState(state: SectionState | null) { savedState.replaceChildren(...(state ? [stateLayer(state)] : [])); }
-  const more = uiButton('Load older sessions'); more.hidden = true;
+  const more = uiButton('Load older sessions'); more.classList.add('sessions-more'); more.hidden = true;
 
-  const advanced = uiPart('details');
+  const advanced = uiPart('details'); advanced.classList.add('sessions-options');
   const advancedSummary = uiPart('summary', 'Options and archives');
-  const advancedTools = uiPart('toolbar');
+  const advancedTools = uiPart('toolbar'); advancedTools.classList.add('sessions-options-tools');
   const archivesButton = uiButton('Archive browser…'); archivesButton.title = 'Page through one archive, group it by folder, or add a read-only archive';
   const indexButton = uiButton('Search index…'); indexButton.title = 'Index your sessions, filter a search by agent or date, or forget the indexed text';
   const settingsButton = uiButton('Settings…'); settingsButton.title = 'Turn activity titles or search indexing on or off';
@@ -114,16 +116,16 @@ export function createSessionsPanel(options: Options) {
 
   function savedRow({ root, row }: Saved): HTMLLIElement {
     const id = key(root, row.nativeId); const open = expanded === id;
-    const item = uiPart('item'); item.dataset.nativeId = row.nativeId;
+    const item = uiPart('item'); item.classList.add('sessions-row'); item.dataset.nativeId = row.nativeId;
     const head = uiButton(''); head.classList.add('sessions-row-head'); head.type = 'button'; head.setAttribute('aria-expanded', String(open)); head.dataset.key = id;
-    const name = uiPart('text', row.title || 'Untitled session');
-    const meta = uiPart('text', `${agentName(root.harness)} · ${folderName(row.workingDirectory)}`); meta.title = row.workingDirectory ?? '';
-    const time = uiPart('text', when(row.updatedAt)); time.title = row.updatedAt ?? '';
-    head.append(name, time, meta);
+    const name = uiPart('text', row.title || 'Untitled session'); name.classList.add('sessions-row-title');
+    const meta = uiPart('text', `${agentName(root.harness)} · ${folderName(row.workingDirectory)}`); meta.classList.add('sessions-row-meta'); meta.title = row.workingDirectory ?? '';
+    const time = uiPart('text', when(row.updatedAt)); time.classList.add('sessions-row-time'); time.title = row.updatedAt ?? '';
+    head.replaceChildren(name, time, meta);
     head.onclick = () => { expanded = open ? null : id; paintSaved(); savedList.querySelector<HTMLElement>(`[data-key="${CSS.escape(id)}"]`)?.focus(); };
     item.append(head);
     if (open) {
-      const body = uiPart('row');
+      const body = uiPart('row'); body.classList.add('sessions-row-body');
       const facts = uiPart('descriptionList');
       const fact = (label: string, value: string) => { const detail = uiPart('definition', value); detail.title = value; facts.append(uiPart('term', label), detail); };
       fact('ID', row.nativeId); fact('Folder', row.workingDirectory ?? 'Unknown');
@@ -140,16 +142,16 @@ export function createSessionsPanel(options: Options) {
     return item;
   }
   function hitRow(hit: SearchHit): HTMLLIElement {
-    const item = uiPart('item');
+    const item = uiPart('item'); item.classList.add('sessions-row');
     const head = uiButton(''); head.classList.add('sessions-row-head'); head.type = 'button';
     head.disabled = hit.configurationRevision === 0;
     head.title = hit.configurationRevision === 0 ? 'This archive was removed; the text is still searchable.' : 'Open the conversation';
-    const name = uiPart('text', hit.title || hit.nativeId);
-    const meta = uiPart('text', `${agentName(hit.harness)} · ${folderName(hit.workingDirectory)}`); meta.title = hit.workingDirectory ?? '';
-    const time = uiPart('text', when(hit.updatedAt));
-    const snippet = uiPart('text'); renderSnippet(snippet, hit.snippet);
-    head.append(name, time, meta, snippet);
-    if (hit.sourceDeleted) head.append(uiPart('text', 'Source deleted: still searchable, no longer resumable.'));
+    const name = uiPart('text', hit.title || hit.nativeId); name.classList.add('sessions-row-title');
+    const meta = uiPart('text', `${agentName(hit.harness)} · ${folderName(hit.workingDirectory)}`); meta.classList.add('sessions-row-meta'); meta.title = hit.workingDirectory ?? '';
+    const time = uiPart('text', when(hit.updatedAt)); time.classList.add('sessions-row-time');
+    const snippet = uiPart('text'); snippet.classList.add('sessions-row-snippet'); renderSnippet(snippet, hit.snippet);
+    head.replaceChildren(name, time, meta, snippet);
+    if (hit.sourceDeleted) { const note = uiPart('text', 'Source deleted: still searchable, no longer resumable.'); note.classList.add('sessions-row-snippet'); head.append(note); }
     head.onclick = () => options.openDetail({ storeRootId: hit.storeRootId, configurationRevision: hit.configurationRevision }, hit.nativeId);
     item.append(head); return item;
   }

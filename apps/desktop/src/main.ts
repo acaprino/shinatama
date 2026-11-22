@@ -36,6 +36,7 @@ import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
 import './terminal-content.css';
+import './screens.css';
 import { createTeamMap, teamViewId } from './team-map.ts';
 import { classifyTarget, findLinksInRows, hoverText, type CellText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
@@ -1566,7 +1567,7 @@ async function runHop(preview: HopPreview, progress: (message: string) => void, 
   return keep ? 'Hop committed without confirmation.' : 'Hop marked failed; the destination pane stays open.';
 }
 {
-  const button = uiButton('Files', { attrs: { id: 'open-files' } });
+  const button = uiButton('Files', { cls: 'im-btn--ghost', attrs: { id: 'open-files' } });
   button.title = 'Open the project files in a tab of the workspace (nothing is run)';
   button.onclick = () => { void openFilesTab(); };
   document.querySelector('#new-terminal')?.before(button);
@@ -1602,7 +1603,7 @@ const projectsOverview = createProjectsOverview({
 });
 {
   // "Projects" is the menu on the left; this one is the overview of pinned projects.
-  const button = uiButton('Overview', { attrs: { id: 'open-projects' } });
+  const button = uiButton('Overview', { cls: 'im-btn--ghost', attrs: { id: 'open-projects' } });
   button.title = 'Pinned projects, Git status, last thread, new session or worktree';
   button.onclick = () => { void projectsOverview.show(); };
   document.querySelector('#open-files')?.before(button);
@@ -1628,7 +1629,7 @@ const sessionsPanel = createSessionsPanel({
   restoreFocus,
 });
 {
-  const button = uiButton('Sessions', { attrs: { id: 'open-sessions' } });
+  const button = uiButton('Sessions', { cls: 'im-btn--ghost', attrs: { id: 'open-sessions' } });
   button.title = 'Every session: the ones running now and the ones saved';
   button.onclick = () => { void sessionsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
@@ -1646,7 +1647,7 @@ const settingsPanel = createSettingsPanel({
 // never removed, so the terminals keep running.
 const content = $('#desktop-content');
 content.querySelector('.im-panel-body')!.append(settingsPanel.element);
-const viewTabs = createViews($('#app'), content, { workspace: [workspace, content.querySelector<HTMLElement>('.im-panel-tools')!], settings: [settingsPanel.element] });
+const viewTabs = createViews($('#app'), content, { workspace: [workspace], settings: [settingsPanel.element] });
 leaveSettings = () => viewTabs.select('workspace');
 settingsShown = () => viewTabs.current() === 'settings';
 viewTabs.listen((shown, left) => {

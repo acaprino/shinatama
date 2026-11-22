@@ -9,42 +9,37 @@ export function organizeToolbar(): void {
   const more = uiButton('More', { attrs: { id: 'toolbar-more', 'aria-haspopup': 'menu', 'aria-label': 'More options' } });
   toolbar.append(more);
   const secondary = ['find-terminal', 'layout-toggle', 'restore', 'sessions', 'session-search'];
-  const folding = ['open-sessions', 'open-projects', 'open-files'];
-  // The shell's width, not the screen's (the canon's breakpoint of 850): a narrow shell folds the toolbar into More.
+  // The side panels' openers (quiet text buttons) sit in the title bar, after the view tabs, so they take no row above the
+  // terminal. A control that is not there (Leftovers off the desktop) is skipped.
+  const panels = ['open-sessions', 'open-projects', 'open-files', 'leftovers-toggle'];
+  const find = (id: string) => toolbar.querySelector<HTMLButtonElement>('#' + id);
+  const fixed = secondary.flatMap(id => { const control = find(id); return control ? [control] : []; });
+  const opening = panels.flatMap(id => { const control = find(id); return control ? [control] : []; });
   const shell = toolbar.closest<HTMLElement>('.im-shell') ?? document.documentElement;
-  const narrow = { matches: shell.getBoundingClientRect().width < 850 };
+  const tabs = shell.querySelector<HTMLElement>('.im-titlebar .im-tabs');
   // Original buttons retain their handlers and disabled state when their commands move to More.
-  const reserve = (id: string) => {
-    const control = toolbar.querySelector<HTMLButtonElement>('#' + id);
-    if (!control) return [];
-    const home = document.createComment(id);
-    control.before(home);
-    return [{ control, home }];
-  };
-  const fixed = secondary.flatMap(reserve);
-  const responsive = folding.flatMap(reserve);
   const parked = uiPart('body');
   parked.hidden = true;
   toolbar.append(parked);
-  parked.append(...fixed.map(entry => entry.control));
+  parked.append(...fixed);
+  // The shell's width, not the screen's: under 1200 the title bar has no room for the four, and More lists them.
+  const narrow = { matches: shell.getBoundingClientRect().width < 1200 };
   let closeMore: (() => void) | undefined;
-  function fold() {
+  function place() {
     closeMore?.();
-    for (const { home, control } of responsive) {
-      if (narrow.matches) parked.append(control);
-      else home.after(control);
-    }
+    if (narrow.matches || !tabs) parked.append(...opening); else tabs.after(...opening);
   }
   new ResizeObserver(([entry]) => {
-    const matches = entry.contentRect.width < 850;
-    if (matches !== narrow.matches) { narrow.matches = matches; fold(); }
+    const matches = entry.contentRect.width < 1200;
+    if (matches !== narrow.matches) { narrow.matches = matches; place(); }
   }).observe(shell);
-  fold();
+  place();
   more.onclick = () => {
     if (more.getAttribute('aria-expanded') === 'true') { closeMore?.(); return; }
-    const entries = [...(narrow.matches ? responsive : []), ...fixed];
-    closeMore = openMenu(more, entries.filter(({ control }) => !control.hidden).map(({ control }) => ({
-      control, label: control.textContent?.trim() || control.title || control.getAttribute('aria-label') || control.id,
+    const entries = [...(narrow.matches || !tabs ? opening : []), ...fixed];
+    closeMore = openMenu(more, entries.filter(control => !control.hidden).map(control => ({
+      control, label: control.querySelector('span')?.textContent?.trim() || control.textContent?.trim() || control.title || control.getAttribute('aria-label') || control.id,
+      checked: control.hasAttribute('aria-pressed') ? () => control.getAttribute('aria-pressed') === 'true' : undefined,
       disabled: control.disabled ? control.title || 'Unavailable' : undefined,
       run: () => control.click(),
     })), { configure: menu => { menu.id = 'toolbar-more-menu'; } });
@@ -53,7 +48,7 @@ export function organizeToolbar(): void {
 /** Quick filter for the tabs: one chip per project with open tabs. A chip shows only that
  * project's tabs; pressing it again, or "All", shows every tab. Hidden with fewer than two projects. */
 export function createTabFilter(options: { tabs: () => readonly string[]; onChange: (project: string | null) => void }) {
-  const bar = uiPart('row'); bar.id = 'tab-filter'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Show the tabs of one project');
+  const bar = uiPart('row'); bar.id = 'tab-filter'; bar.classList.add('tab-filter'); bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Show the tabs of one project');
   const toolbar = document.querySelector<HTMLElement>('.toolbar')!; toolbar.insertBefore(bar, toolbar.querySelector('.spring'));
   let selected: string | null = null;
   const chip = (text: string, count: number, project: string | null, title: string) => {

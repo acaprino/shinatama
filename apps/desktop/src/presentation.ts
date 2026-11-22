@@ -113,12 +113,14 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   const warnedProfiles = new Set<string>();
   const theme = uiPart('stack');
   const form = uiPart('form');
-  uiTraits(form, 'stack');
+  uiTraits(form, 'stack'); form.classList.add('settings-form');
   function field(host: HTMLElement, label: string, id: string, input: HTMLSelectElement | HTMLInputElement) {
     const row = uiPart('field');
     input.id = id;
     const caption = uiPart('text', label);
-    row.append(caption, labelledBy(caption, input));
+    // A checkbox sits before its words in the label that names it; a select or a number is named by the words above it.
+    if (input instanceof HTMLInputElement && input.type === 'checkbox') { row.classList.add('settings-check'); row.append(input, caption); }
+    else row.append(caption, labelledBy(caption, input));
     host.append(row);
   }
   // The look and the theme are the window's commands (Ctrl+K, Appearance), as in every app; ONI dark's skin is Shinatama's.
