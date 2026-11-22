@@ -98,6 +98,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-verify-release-${{ steps.cargo-key.outputs.toolchain }}-
 
+      # target is restored from the cache: a build that fails would leave the previous commit's program there, and the upload
+      # below (it runs whatever happened) would publish it under this commit's SHA. Only the files that are uploaded.
+      - name: Remove the previous build's files
+        run: |
+          Remove-Item target/debug/shinatama-desktop.exe, target/debug/shinatama.exe, target/debug/shinatama-session-helper.exe, target/release/shinatama-session-helper.exe -Force -ErrorAction SilentlyContinue
+
       - name: Run the shared local and CI verification entrypoint
         run: ./scripts/verify.ps1 -TimeoutMinutes 140
 
