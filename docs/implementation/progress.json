@@ -3214,9 +3214,25 @@
           ]
         },
         "F34.5": {
-          "status": "in_progress",
+          "status": "committed",
+          "commit_sha": "77c1b48d771e98e69aa88a85dabc75dd40b41696",
+          "platforms": [
+            "Windows Server 2025 x64 (GitHub Actions windows-2025, WebView2 runtime 157)",
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-21-F34-imago-desktop.md"
+          ],
+          "checks": [
+            "npm test",
+            "npm run build",
+            "npm run test:imago",
+            "node apps/desktop/tests/sidebar-groups-smoke.mjs",
+            "imago-check",
+            "Verify Windows run 44965147062"
+          ],
           "limits": [
-            "The team map takes the graph editor roles (c0d2c88); team-map-smoke passes on Verify Windows run 44948332289 (7fe3859, 30/30), after 9b5099d kept a tab opened while the window takes its layout over. Imago and imago-shell are pinned to the same commit of Imago develop, not yet to the same release tag, which the owner publishes."
+            "Imago and imago-shell are pinned to the commit of Imago's tag v0.2.0. The canon's remaining parts (other panel states, the toolbar's panels and the session views on the side panel, Files as a workspace tab, Settings as the title bar's last view tab) are not done; see the evidence's Limits."
           ]
         }
       }

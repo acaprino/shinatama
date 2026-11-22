@@ -52,9 +52,26 @@ imago-shell` and the whole gallery) passed on every one of those commits.
 |---|---|
 | The team map takes the graph editor's roles by name (Imago `e368e5c`). Commit `c0d2c88` | done |
 | `team-map-smoke` on Verify Windows, commit `7fe3859` (run 44948332289, 30/30). On the way it found a product defect: after a restart the window takes its layout over and loads it a second time, and that load replaced a tab opened meanwhile (the other thread's team map, opened while the layout was claiming); `9b5099d` keeps it. The smoke also closes a box that lies over a card before pressing it, and measures the arrow port on screen | passed |
-| Imago and imago-shell pinned to the same release tag | open: needs the owner's Imago release |
+| Imago and imago-shell pinned to the same release tag: both at `8418cca`, the commit of Imago's tag `v0.2.0` (`e0d43ce`) | done |
 
-## Limits
+## Imago v0.2.0's canon (2026-11-22)
+
+Branch `feat/imago-canon`, merged into `develop` as `77c1b48`.
+
+| What | Result |
+|---|---|
+| The window is the canon's `im-shell`: title bar with the sidebar toggle, the thread sidebar as Imago's sidebar region (`im-row` options of one listbox, the rail, the fold, `sidebarResize`), the content region (toolbar as its tools row, the tiling workspace as its body), the inspector as the one side panel (Model proxy, the conversation, Leftovers), the footer. `mountApp` attaches the layers, F6, the registry, Ctrl+K and Ctrl+F. Commits `e0d43ce`, `e2a1ce9`, `12d4f5f`, `d55b642` | done |
+| A focused terminal sends Ctrl+K and Ctrl+F to its program; F6 leaves it; the footer's keys come from the registry. Commit `85c2010` | done |
+| Notices are Imago's (`notify`), the open in progress is said in the footer. Commit `af2fc0e` | done |
+| Every destructive confirmation names its verb and object; deleting a closed session, forgetting the index, stopping the Model proxy and restarting ask in Imago's `confirm`, Cancel first; removing a root is at once, with Undo. Commit `03d43bc` | done |
+| ONI has a light theme; the look and the theme are the five Appearance commands; a skin paints ONI dark only. Commit `61c4c30` | done |
+| Icon-only controls are `im-icon-btn` with a tooltip; no hand cursor; the executables' icons are the package's (`shinatama.exe` through `crates/cli/build.rs`). Commits `4e7ce8a`, `d8470f2`, `3020606` | done |
+| The thread sidebar's states are Imago's panel states (empty with Choose projects, loading after 300ms, error with Retry). Commit `f7a347d` | done |
+| A preference save refused as busy by a load still returning is sent again instead of blocking saving (it broke `desktop-smoke`'s skin step). Commit `2c593f9` | done |
+| `imago-check`: no findings (two exceptions with their reasons); it runs in `scripts/verify.ps1`. Commit `b64ccbe` | passed |
+| `npm test` (221), `npm run build`, `npm run test:imago`, `sidebar-groups-smoke` (18 cases), `pane-drag-smoke` on Windows 11 | passed |
+| Verify Windows run 44965147062 on `d4285d3` | passed, 31/31 |
+
 
 - `new-project-smoke` failed about one run in three on the runner, on "Reading project roots…" for good while the same
   command answered in 4 ms. The cause: the browser fires a dialog's close event after it has closed, and under load
@@ -68,3 +85,11 @@ imago-shell` and the whole gallery) passed on every one of those commits.
   checked by `specialist-layout.browser.mjs` only.
 - The Claude Code part of `desktop-smoke` is skipped on the runner, where Claude Code is not installed.
 - `native-picker-smoke` (the Windows folder picker) does not run on the runner.
+- The canon's remaining parts are not done: the panel states of the other panels, the toolbar's panels and the session
+  views on the side panel, Files as a tab of the tiling workspace, Settings as the last view tab of the title bar. The
+  design file has the app pick the look and the theme with the palette's commands only, where the plan's amendment
+  allowed controls in Settings too: Settings has none. The session helper (a bin of `shinatama-engine`) has no icon.
+- `launch-preflight-smoke` raced the window's diagnostic log (`shinatama.log`, written when the start ends); since
+  `d4285d3` the folder is compared without it. `rust-tests` (the contained terminal's synthetic memory fault ended in a
+  stack overflow before its marker), `new-project-smoke` (CDP port occupied at start) and `maintenance-smoke` (no idle
+  tick before its deadline) failed once each on run 44962045846 and passed on the next run, with no change to them.
