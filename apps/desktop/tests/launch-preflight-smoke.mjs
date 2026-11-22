@@ -71,7 +71,10 @@ try {
   const pathKey = value => value.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').toLowerCase();
   assert.equal(pathKey(storage.directory), pathKey(data));
   assert.deepEqual(await invoke('terminal_list'), []);
-  const beforeFiles = (await readdir(data)).sort();
+  // shinatama.log is the diagnostic log (app_log.rs): the window writes "The main window loaded." when its start ends,
+  // which may come after this read. It is neither a launch nor a store, so the folder is compared without it.
+  const stored = async () => (await readdir(data)).filter(name => !/^shinatama\.log(\.1)?$/.test(name)).sort();
+  const beforeFiles = await stored();
 
   for (const action of ['start', 'resume']) {
     for (const program of ['system', 'own']) {
@@ -107,7 +110,7 @@ try {
   }
   evidence.checks.invalidInputRedacted = true;
   assert.deepEqual(await invoke('terminal_list'), []);
-  assert.deepEqual((await readdir(data)).sort(), beforeFiles);
+  assert.deepEqual(await stored(), beforeFiles);
   assert.ok(!(await readdir(fixture)).includes('cli-unused-home'));
   evidence.checks.noLaunchOrStorePreparation = true;
   assert.equal(await page.evaluate(() => new Promise(done => requestAnimationFrame(() => done('responsive')))), 'responsive');
