@@ -72,6 +72,9 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
       PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+      # No incremental state: the cached target stays smaller and the same for every run (the sources are new at every
+      # checkout, so incremental state would never be reused).
+      CARGO_INCREMENTAL: '0'
     defaults:
       run:
         shell: pwsh
@@ -83,10 +86,38 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
+
+      # The dependency build of cargo is reused from the last release: the registry, the git database and target/
+      # (the debug and release builds build-release.bat makes, and target/releases, the pinned releases it downloads,
+      # which fetch-release.ps1 checks against their SHA-256 before it reuses one). Only the project's own crates
+      # compile again. A run restores caches of its own branch and of main only, so this is a cache of main: develop's
+      # are out of reach, and the first release after this is added warms it. The key is taken before the version is
+      # written; a release changes Cargo.lock (the project's own versions), so each one starts from the latest cache
+      # and saves a new one, when the whole run passed. The toolchain leads the key so that another Rust never starts
+      # from the artifacts of the previous one.
+      - name: Cache the cargo dependency build
+        id: cargo-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-${{ hashFiles('rust-toolchain.toml') }}-
+
+      # The trim step drops every program before the save, so none is restored; this makes sure of it: a program of an
+      # earlier build must never be taken for the one this release builds.
+      - name: No program of an earlier build in target
+        run: Remove-Item target/debug/*.exe, target/release/*.exe -Force -ErrorAction SilentlyContinue
 
       - name: Next version
         id: version
@@ -120,6 +151,31 @@ jobs:
             if ($IsWindows) { cmd /c $command } else { bash -c $command }
             if ($LASTEXITCODE) { exit 1 }
           }
+
+      # Before the cache is saved (at the end of the job): the programs and test executables of this workspace (and their
+      # debug symbols, by far the largest part of target/) are linked again at every build, so they are not kept; nor is
+      # the fingerprint of such a unit, so cargo never takes a missing file for a fresh one. Everything a dependency
+      # needs, and target/releases, stays. release/ already holds the programs. Only on a run that will save; a
+      # failure here only makes the cache larger.
+      - name: Trim target before it is cached
+        if: success() && steps.cargo-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          foreach ($profile in 'debug', 'release') {
+            $dir = "target/$profile"
+            if (-not (Test-Path -LiteralPath "$dir/deps")) { continue }
+            Remove-Item "$dir/incremental" -Recurse -Force -ErrorAction SilentlyContinue
+            Get-ChildItem $dir -File | Where-Object Extension -in '.exe', '.pdb' | Remove-Item -Force
+            foreach ($exe in @(Get-ChildItem "$dir/deps" -File | Where-Object Extension -eq '.exe')) {
+              Remove-Item "$dir/deps/$($exe.BaseName).pdb" -Force -ErrorAction SilentlyContinue
+              Remove-Item -LiteralPath $exe.FullName -Force
+              if ($exe.BaseName -match '-([0-9a-f]{16})$') {
+                Get-ChildItem "$dir/.fingerprint" -Directory -Filter "*-$($Matches[1])" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+              }
+            }
+          }
+          $bytes = (Get-ChildItem target -Recurse -File -Force | Measure-Object Length -Sum).Sum
+          Write-Host ('target to cache: {0:N0} MB' -f ($bytes / 1MB))
 
       - name: Package
         run: |

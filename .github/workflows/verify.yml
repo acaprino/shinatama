@@ -1,8 +1,11 @@
 name: Verify Windows
 
+# One run per commit: the push to develop. The release pull request (develop to main) carries the commit that run
+# already verified, and the Release workflow builds on main; a pull_request run (or one on main) would repeat all of
+# it. A short branch is verified when it is merged into develop; Run workflow verifies one on demand, with a cold cache.
 on:
   push:
-  pull_request:
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -16,13 +19,17 @@ jobs:
   windows:
     name: Build and verify Windows x64
     runs-on: windows-2025
-    # Every check runs even after one fails (scripts/verify.ps1), and the workspace compiles from nothing.
+    # Every check runs even after one fails (scripts/verify.ps1), and a run with no cargo cache compiles the workspace
+    # from nothing.
     timeout-minutes: 150
     defaults:
       run:
         shell: pwsh
     env:
       CARGO_TERM_COLOR: always
+      # No incremental state: a cached target stays smaller and the same for every run (this workspace's sources are
+      # new at every checkout, so incremental state would never be reused).
+      CARGO_INCREMENTAL: '0'
 
     steps:
       # Full history is required to validate real commit SHAs in progress.json.
@@ -47,6 +54,33 @@ jobs:
       # rustup resolves and installs the channel/components in rust-toolchain.toml.
       - name: Set up pinned Rust toolchain
         run: rustup show active-toolchain
+
+      # The dependency build of cargo is reused from the last run on develop: the registry, the git database and
+      # target/ (the debug build of clippy, tests and the desktop, and the release build of the session helper, in
+      # one directory). Only this workspace's own crates compile again, as their sources are new at every checkout.
+      # A run restores caches of its own branch and of main only, so these are develop's. The cache is saved when the
+      # whole run passed (the action's post step), from a run that found no exact match; the trim step below keeps it
+      # small. The toolchain leads the key so that another Rust never starts from the artifacts of the previous one;
+      # a changed Cargo.lock starts from the latest cache and compiles what changed. verify/P14/target builds in
+      # seconds and is not cached.
+      - name: Cache the cargo dependency build
+        id: cargo-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-verify-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-verify-${{ hashFiles('rust-toolchain.toml') }}-
+
+      # The trim step drops every program before the save, so none is restored; this makes sure of it. The upload of
+      # the executables below runs whatever happened, and a program left over from an earlier commit would go out
+      # under this commit's SHA when its build fails.
+      - name: No program of an earlier run in target
+        run: Remove-Item target/debug/*.exe, target/release/*.exe -Force -ErrorAction SilentlyContinue
 
       - name: Run the shared local and CI verification entrypoint
         run: ./scripts/verify.ps1 -TimeoutMinutes 140
@@ -89,3 +123,27 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+
+      # Before the cache is saved: the programs and test executables of this workspace (and their debug symbols, by far
+      # the largest part of target/) are linked again at every run, so they are not kept; nor is the fingerprint of
+      # such a unit, so cargo never takes a missing file for a fresh one. Everything a dependency needs stays. Only
+      # on a run that will save (it passed, and no exact cache was found); a failure here only makes the cache larger.
+      - name: Trim target before it is cached
+        if: success() && steps.cargo-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          foreach ($profile in 'debug', 'release') {
+            $dir = "target/$profile"
+            if (-not (Test-Path -LiteralPath "$dir/deps")) { continue }
+            Remove-Item "$dir/incremental" -Recurse -Force -ErrorAction SilentlyContinue
+            Get-ChildItem $dir -File | Where-Object Extension -in '.exe', '.pdb' | Remove-Item -Force
+            foreach ($exe in @(Get-ChildItem "$dir/deps" -File | Where-Object Extension -eq '.exe')) {
+              Remove-Item "$dir/deps/$($exe.BaseName).pdb" -Force -ErrorAction SilentlyContinue
+              Remove-Item -LiteralPath $exe.FullName -Force
+              if ($exe.BaseName -match '-([0-9a-f]{16})$') {
+                Get-ChildItem "$dir/.fingerprint" -Directory -Filter "*-$($Matches[1])" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+              }
+            }
+          }
+          $bytes = (Get-ChildItem target -Recurse -File -Force | Measure-Object Length -Sum).Sum
+          Write-Host ('target to cache: {0:N0} MB' -f ($bytes / 1MB))
