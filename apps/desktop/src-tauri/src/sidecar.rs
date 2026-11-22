@@ -77,6 +77,8 @@ pub struct Status {
     pub fault: Option<String>,
     /// Free space of the data disk; None until the first sample.
     pub disk: Option<DiskStatus>,
+    /// The proxy archive after the last cleanup run; None before one ran.
+    pub archive: Option<ArchiveStatus>,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,6 +108,7 @@ fn phase_name(phase: Phase) -> &'static str {
         Phase::Ready => "ready",
         Phase::Busy => "busy",
         Phase::Draining => "draining",
+        Phase::Maintaining => "maintaining",
         Phase::Degraded => "degraded",
         Phase::Recovering => "recovering",
         Phase::Failed => "failed",
@@ -116,14 +119,30 @@ fn phase_name(phase: Phase) -> &'static str {
 /// is not something the supervisor can know (the proxy's own saves may be failing).
 fn reason_message(phase: Phase, reason: Reason) -> Option<&'static str> {
     match reason {
-        Reason::AdmissionDeferred => Some("Waiting for resources. The proxy will retry automatically; existing sessions keep their limits."),
-        Reason::StartupRefused if phase == Phase::Recovering => Some("The proxy could not start. Recovery will retry automatically."),
-        Reason::StartupRefused => Some("The proxy launch configuration is unavailable; retry Start after correcting the installation."),
-        Reason::ProcessExited => Some("The proxy exited. Recovering automatically on the same address."),
-        Reason::CleanupUncertain if phase == Phase::Recovering => Some("Waiting to confirm cleanup before restarting the proxy. Its reservation remains held."),
-        Reason::CleanupUncertain => Some("Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start."),
-        Reason::ResourceLimit => Some("The proxy reached its resource limit. Recovery will retry with fresh resource checks."),
-        Reason::SupervisorFault => Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again."),
+        Reason::AdmissionDeferred => Some(
+            "Waiting for resources. The proxy will retry automatically; existing sessions keep their limits.",
+        ),
+        Reason::StartupRefused if phase == Phase::Recovering => {
+            Some("The proxy could not start. Recovery will retry automatically.")
+        }
+        Reason::StartupRefused => Some(
+            "The proxy launch configuration is unavailable; retry Start after correcting the installation.",
+        ),
+        Reason::ProcessExited => {
+            Some("The proxy exited. Recovering automatically on the same address.")
+        }
+        Reason::CleanupUncertain if phase == Phase::Recovering => Some(
+            "Waiting to confirm cleanup before restarting the proxy. Its reservation remains held.",
+        ),
+        Reason::CleanupUncertain => Some(
+            "Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start.",
+        ),
+        Reason::ResourceLimit => Some(
+            "The proxy reached its resource limit. Recovery will retry with fresh resource checks.",
+        ),
+        Reason::SupervisorFault => Some(
+            "The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again.",
+        ),
         _ => None,
     }
 }
@@ -136,6 +155,7 @@ fn state_words(phase: &str, healthy: bool) -> &'static str {
         "preparing" => "being prepared",
         "starting" => "starting",
         "draining" => "stopping",
+        "maintaining" => "cleaning its archive",
         "degraded" => "temporarily unavailable",
         "recovering" => "recovering",
         "failed" => "stopped after a failure",
@@ -174,14 +194,18 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
     };
     if let Some(message) = facts.message {
         // A stalled supervisor's message is what it said last, not what is happening now.
-        text.push_str(if facts.stalled.is_some() { " It last said: " } else { " " });
+        text.push_str(if facts.stalled.is_some() {
+            " It last said: "
+        } else {
+            " "
+        });
         text.push_str(message);
     }
     if let Some((at, code, detail)) = &facts.exit {
         match detail.as_deref().map(|said| said.trim_end_matches('.')) {
-            Some(said) if !said.is_empty() => {
-                text.push_str(&format!(" Its process ended at {at} with code {code}: {said}."))
-            }
+            Some(said) if !said.is_empty() => text.push_str(&format!(
+                " Its process ended at {at} with code {code}: {said}."
+            )),
             _ => text.push_str(&format!(" Its process ended at {at} with code {code}.")),
         }
     }
@@ -200,7 +224,11 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
 fn clock(unix_ms: i64) -> String {
     chrono::DateTime::from_timestamp_millis(unix_ms).map_or_else(
         || "an unknown time".to_owned(),
-        |at| at.with_timezone(&chrono::Local).format("%H:%M:%S").to_string(),
+        |at| {
+            at.with_timezone(&chrono::Local)
+                .format("%H:%M:%S")
+                .to_string()
+        },
     )
 }
 /// [`ProxyExit`] as the panel reads it.
@@ -241,7 +269,7 @@ impl ExitLog {
             self.last = Some(key);
             self.streak = 1;
         }
-        if self.streak > 5 && self.streak % 20 != 0 {
+        if self.streak > 5 && !self.streak.is_multiple_of(20) {
             return None;
         }
         let said = match &exit.detail {
@@ -305,18 +333,202 @@ pub(crate) fn start_at_launch(controller: &Arc<Controller>) {
                     crate::app_log::write("proxy", &format!("Ready {elapsed} ms after launch."));
                     return;
                 }
-                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining") && elapsed > 10_000 {
-                    crate::app_log::write("proxy", &format!("Not ready {elapsed} ms after launch: {} ({}).",
-                        status.phase, status.message.unwrap_or("no message")));
+                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining")
+                    && elapsed > 10_000
+                {
+                    crate::app_log::write(
+                        "proxy",
+                        &format!(
+                            "Not ready {elapsed} ms after launch: {} ({}).",
+                            status.phase,
+                            status.message.unwrap_or("no message")
+                        ),
+                    );
                     return;
                 }
                 if std::time::Instant::now() >= deadline {
-                    crate::app_log::write("proxy", &format!("Still {} 3 minutes after launch.", status.phase));
+                    crate::app_log::write(
+                        "proxy",
+                        &format!("Still {} 3 minutes after launch.", status.phase),
+                    );
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(250));
             }
         });
+}
+/// How long no agent session is open before the proxy's archive is cleaned
+/// (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
+pub(crate) const IDLE_BEFORE_CLEANUP: Duration = Duration::from_secs(600);
+/// Whether an idle cleanup is due: no agent session is open (known, not guessed), and either a
+/// forget asked for it or none has been open for [`IDLE_BEFORE_CLEANUP`].
+pub(crate) fn idle_run_due(
+    live_agent_sessions: Option<usize>,
+    idle_since: Option<std::time::Instant>,
+    now: std::time::Instant,
+    due_now: bool,
+) -> bool {
+    live_agent_sessions == Some(0)
+        && (due_now
+            || idle_since
+                .is_some_and(|since| now.saturating_duration_since(since) >= IDLE_BEFORE_CLEANUP))
+}
+/// Opens in progress: an open that passed the proxy check has no live terminal yet, and the
+/// idle cleanup must not stop the proxy under it.
+#[derive(Clone, Default)]
+pub(crate) struct Opening(Arc<std::sync::atomic::AtomicUsize>);
+pub(crate) struct OpeningGuard(Arc<std::sync::atomic::AtomicUsize>);
+impl Opening {
+    pub(crate) fn enter(&self) -> OpeningGuard {
+        self.0.fetch_add(1, Ordering::AcqRel);
+        OpeningGuard(Arc::clone(&self.0))
+    }
+    pub(crate) fn count(&self) -> usize {
+        self.0.load(Ordering::Acquire)
+    }
+}
+impl Drop for OpeningGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+/// What the proxy owner asks before it stops an idle proxy for a cleanup, and between the run's
+/// commands: the live agent sessions and the opens in progress. An unknown count is activity.
+/// How many live sessions there are, once the agents controller can say.
+type LiveCount = Box<dyn Fn() -> Option<usize> + Send + Sync>;
+
+#[derive(Clone, Default)]
+pub(crate) struct SessionActivity {
+    opening: Opening,
+    live: Arc<OnceLock<LiveCount>>,
+}
+impl SessionActivity {
+    pub(crate) fn set_live(&self, live: Box<dyn Fn() -> Option<usize> + Send + Sync>) {
+        let _ = self.live.set(live);
+    }
+    pub(crate) fn busy(&self) -> Option<usize> {
+        busy_sessions(
+            self.live.get().and_then(|live| live()),
+            self.opening.count(),
+        )
+    }
+    pub(crate) fn active(&self) -> bool {
+        self.busy() != Some(0)
+    }
+}
+/// Whether the idle cleanup is asked for (again): an owner that skipped a run (requests in
+/// flight, a drain) is asked once more after another idle period, a forget asks at once.
+pub(crate) fn send_due(
+    last_sent: Option<std::time::Instant>,
+    now: std::time::Instant,
+    due_now: bool,
+) -> bool {
+    due_now
+        || last_sent.is_none_or(|sent| now.saturating_duration_since(sent) >= IDLE_BEFORE_CLEANUP)
+}
+/// The agent sessions the idle rule counts: the live ones and the opens in progress.
+pub(crate) fn busy_sessions(live_agent_sessions: Option<usize>, opening: usize) -> Option<usize> {
+    live_agent_sessions.map(|live| live + opening)
+}
+/// The line `shinatama.log` gets for a run of the archive cleanup.
+pub(crate) fn report_line(report: &shinatama_engine::sidecar_archive::Report) -> String {
+    use shinatama_engine::sidecar_archive::Stop;
+    if report.stop == Stop::Unreadable {
+        return "nothing removed: the archive or Shinatama's threads could not be read.".into();
+    }
+    let mut line = format!(
+        "removed {} sessions ({} MB) in {} s",
+        report.removed,
+        report.released_bytes / 1_000_000,
+        report.elapsed.as_secs()
+    );
+    if report.failed > 0 {
+        line.push_str(&format!("; {} could not be removed", report.failed));
+    }
+    line.push_str(&format!("; {} left; ", report.left));
+    match report.file_bytes_after {
+        Some(bytes) => line.push_str(&format!("archive now {:.1} MB", bytes as f64 / 1e6)),
+        None => line.push_str("archive size unknown"),
+    }
+    line.push_str(match report.stop {
+        Stop::Budget => "; the rest goes in the next run.",
+        Stop::Cancelled => "; stopped for an open.",
+        Stop::Done | Stop::Unreadable => ".",
+    });
+    line
+}
+/// What the panel shows of the proxy's archive: its size after the last cleanup run.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStatus {
+    pub file_bytes: Option<u64>,
+    pub last_run_unix_ms: Option<i64>,
+    pub last_removed: usize,
+    pub last_left: usize,
+}
+/// The last run, written by the owner's provider and read by `Controller::status`.
+pub(crate) type ArchiveRecord = Arc<Mutex<Option<ArchiveStatus>>>;
+pub(crate) fn archive_status(report: &shinatama_engine::sidecar_archive::Report) -> ArchiveStatus {
+    ArchiveStatus {
+        file_bytes: report.file_bytes_after,
+        last_run_unix_ms: now_ms(),
+        last_removed: report.removed,
+        last_left: report.left,
+    }
+}
+/// Every 30 s: when no agent session has been open for ten minutes, or a forget asked for it,
+/// and the proxy is ready, its owner cleans the archive and starts the proxy again. Once per
+/// idle period; an agent session that opens starts a new one.
+pub(crate) fn watch_idle(
+    controller: &Arc<Controller>,
+    live_agent_sessions: impl Fn() -> Option<usize> + Send + Sync + 'static,
+) {
+    let owner = Arc::clone(controller);
+    // The owner asks the same count before it stops the proxy, and between the run's commands.
+    owner.activity.set_live(Box::new(live_agent_sessions));
+    let _ = std::thread::Builder::new()
+        .name("proxy-archive-idle".into())
+        .spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(30));
+                let live = owner.activity.busy();
+                let now = std::time::Instant::now();
+                let due = {
+                    let Ok(mut idle) = owner.idle.lock() else {
+                        return;
+                    };
+                    if live != Some(0) {
+                        *idle = IdleState::default();
+                        false
+                    } else {
+                        let since = *idle.since.get_or_insert(now);
+                        idle_run_due(live, Some(since), now, idle.due_now)
+                            && send_due(idle.last_sent, now, idle.due_now)
+                    }
+                };
+                if !due {
+                    continue;
+                }
+                let status = owner.status();
+                if status.phase != "ready" || !status.healthy {
+                    continue;
+                }
+                if owner.maintain(None, true).is_ok()
+                    && let Ok(mut idle) = owner.idle.lock()
+                {
+                    idle.last_sent = Some(now);
+                    idle.due_now = false;
+                }
+            }
+        });
+}
+/// When the idle cleanup is due: see [`watch_idle`].
+#[derive(Default)]
+struct IdleState {
+    since: Option<std::time::Instant>,
+    due_now: bool,
+    /// When the owner was last asked; it may have skipped the run (requests in flight, a drain).
+    last_sent: Option<std::time::Instant>,
 }
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
@@ -365,9 +577,10 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
     ) {
         if read != baseline {
             let show = |value: &Option<T>| {
-                value
-                    .as_ref()
-                    .map_or_else(|| "not reported".to_owned(), |value| bounded_value(value.to_string()))
+                value.as_ref().map_or_else(
+                    || "not reported".to_owned(),
+                    |value| bounded_value(value.to_string()),
+                )
             };
             out.push(ConfigDifference {
                 setting,
@@ -376,18 +589,73 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
             });
         }
     }
-    check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
-    check(&mut out, "Proxy messages in the conversation", &resolved.visibility_markers, &baseline.visibility_markers);
+    check(
+        &mut out,
+        "Prompt rewrite",
+        &resolved.prompt_rewrite_mode,
+        &baseline.prompt_rewrite_mode,
+    );
+    check(
+        &mut out,
+        "Proxy messages in the conversation",
+        &resolved.visibility_markers,
+        &baseline.visibility_markers,
+    );
     check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
-    check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
-    check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
-    check(&mut out, "Large-result storage", &resolved.ccr_enabled, &baseline.ccr_enabled);
-    check(&mut out, "Large-result storage minimum tool tokens", &resolved.ccr_min_tool_tokens, &baseline.ccr_min_tool_tokens);
-    check(&mut out, "Adaptive pressure", &resolved.adaptive_enabled, &baseline.adaptive_enabled);
-    check(&mut out, "Adaptive pressure maximum tokens", &resolved.adaptive_max_tokens, &baseline.adaptive_max_tokens);
-    check(&mut out, "Output steering", &resolved.steering_enabled, &baseline.steering_enabled);
-    check(&mut out, "Verbosity level", &resolved.verbosity_level, &baseline.verbosity_level);
-    check(&mut out, "Effort routing", &resolved.effort_routing, &baseline.effort_routing);
+    check(
+        &mut out,
+        "Absorb",
+        &resolved.absorb_enabled,
+        &baseline.absorb_enabled,
+    );
+    check(
+        &mut out,
+        "Absorb minimum tool tokens",
+        &resolved.absorb_min_tool_tokens,
+        &baseline.absorb_min_tool_tokens,
+    );
+    check(
+        &mut out,
+        "Large-result storage",
+        &resolved.ccr_enabled,
+        &baseline.ccr_enabled,
+    );
+    check(
+        &mut out,
+        "Large-result storage minimum tool tokens",
+        &resolved.ccr_min_tool_tokens,
+        &baseline.ccr_min_tool_tokens,
+    );
+    check(
+        &mut out,
+        "Adaptive pressure",
+        &resolved.adaptive_enabled,
+        &baseline.adaptive_enabled,
+    );
+    check(
+        &mut out,
+        "Adaptive pressure maximum tokens",
+        &resolved.adaptive_max_tokens,
+        &baseline.adaptive_max_tokens,
+    );
+    check(
+        &mut out,
+        "Output steering",
+        &resolved.steering_enabled,
+        &baseline.steering_enabled,
+    );
+    check(
+        &mut out,
+        "Verbosity level",
+        &resolved.verbosity_level,
+        &baseline.verbosity_level,
+    );
+    check(
+        &mut out,
+        "Effort routing",
+        &resolved.effort_routing,
+        &baseline.effort_routing,
+    );
     out
 }
 pub struct Controller {
@@ -406,6 +674,10 @@ pub struct Controller {
     /// True while a stall has been logged and the supervisor has not reported again.
     stall_logged: AtomicBool,
     disk: OnceLock<Arc<DiskWatch>>,
+    /// The last run of the archive cleanup.
+    archive: ArchiveRecord,
+    idle: Mutex<IdleState>,
+    activity: SessionActivity,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -422,6 +694,57 @@ impl Controller {
             watching: AtomicBool::new(false),
             stall_logged: AtomicBool::new(false),
             disk: OnceLock::new(),
+            archive: ArchiveRecord::default(),
+            idle: Mutex::new(IdleState::default()),
+            activity: SessionActivity::default(),
+        }
+    }
+    /// Held by an open from its start to its end: the idle cleanup counts it as a live session.
+    pub(crate) fn opening(&self) -> OpeningGuard {
+        self.activity.opening.enter()
+    }
+    /// Asks the owner to clean the proxy's archive (`Command::Maintain`).
+    pub fn maintain(&self, budget: Option<Duration>, restart: bool) -> Result<(), &'static str> {
+        self.supervisor
+            .get()
+            .ok_or("The Model proxy owner is unavailable.")?
+            .request(Command::Maintain { budget, restart })
+            .map_err(|_| "The proxy owner is busy; its archive is cleaned at the next run.")
+    }
+    /// After a forget: the idle check cleans the archive at once when no agent session is open.
+    pub fn maintain_soon(&self) {
+        if let Ok(mut idle) = self.idle.lock() {
+            idle.due_now = true;
+        }
+    }
+    /// The close worker's run, once the proxy has stopped: returns when the owner has run it
+    /// and reports a stopped state again, or after `budget` and 5 s more.
+    pub fn maintain_and_wait(&self, budget: Duration) {
+        if self.maintain(Some(budget), false).is_err() {
+            return;
+        }
+        let began = std::time::Instant::now();
+        let deadline = began + budget + Duration::from_secs(5);
+        let mut seen = false;
+        while std::time::Instant::now() < deadline {
+            match self
+                .supervisor
+                .get()
+                .and_then(SidecarSupervisor::status)
+                .map(|snapshot| snapshot.phase)
+            {
+                Some(Phase::Maintaining) => seen = true,
+                Some(Phase::Stopped | Phase::Retired | Phase::Failed)
+                    if seen || began.elapsed() > Duration::from_secs(1) =>
+                {
+                    // Seen running, or never seen in a second: a run with nothing to read
+                    // passes between two polls.
+                    return;
+                }
+                None => return,
+                _ => {}
+            }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
     /// The data disk's free-space reading, shown in the status and in refusals.
@@ -459,14 +782,17 @@ impl Controller {
             healthy: status.healthy,
             stalled: status.stalled.then(|| {
                 (
-                    status.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    status
+                        .observed_at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     status.last_phase.unwrap_or("unavailable"),
                 )
             }),
             message: status.message,
             exit: status.last_exit.as_ref().map(|exit| {
                 (
-                    exit.at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    exit.at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     exit.code,
                     exit.detail.clone(),
                 )
@@ -481,13 +807,20 @@ impl Controller {
             snapshot.map(|snapshot| {
                 format!(
                     "The supervisor has not reported for 15 s (last report at {}: {}, {:?}).",
-                    snapshot.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    snapshot
+                        .observed_at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     phase_name(snapshot.phase),
                     snapshot.reason
                 )
             })
         } else if !stalled && fresh && self.stall_logged.swap(false, Ordering::AcqRel) {
-            snapshot.map(|snapshot| format!("The supervisor reports again ({}).", phase_name(snapshot.phase)))
+            snapshot.map(|snapshot| {
+                format!(
+                    "The supervisor reports again ({}).",
+                    phase_name(snapshot.phase)
+                )
+            })
         } else {
             None
         };
@@ -528,16 +861,24 @@ impl Controller {
         } else {
             "stopped"
         };
-        let message = self.failure.try_lock().ok().and_then(|value| *value).or_else(|| {
-            observation
-                .as_ref()
-                .and_then(|snapshot| reason_message(snapshot.phase, snapshot.reason))
-        });
+        let message = self
+            .failure
+            .try_lock()
+            .ok()
+            .and_then(|value| *value)
+            .or_else(|| {
+                observation
+                    .as_ref()
+                    .and_then(|snapshot| reason_message(snapshot.phase, snapshot.reason))
+            });
         // Silent for 15 s while it should be working: its buttons no longer act, only a restart.
         let is_stalled = !self.preparing.load(Ordering::Acquire)
-            && observation.as_ref().zip(now_ms()).is_some_and(|(snapshot, now)| {
-                stalled(snapshot.observed_at_unix_ms, now, snapshot.phase)
-            });
+            && observation
+                .as_ref()
+                .zip(now_ms())
+                .is_some_and(|(snapshot, now)| {
+                    stalled(snapshot.observed_at_unix_ms, now, snapshot.phase)
+                });
         self.note_stall(is_stalled, fresh, observation.as_ref());
         let resolved = observation
             .as_ref()
@@ -575,8 +916,11 @@ impl Controller {
                 .as_ref()
                 .filter(|_| is_stalled)
                 .map(|snapshot| phase_name(snapshot.phase)),
-            fault: observation.as_ref().and_then(|snapshot| snapshot.fault.clone()),
+            fault: observation
+                .as_ref()
+                .and_then(|snapshot| snapshot.fault.clone()),
             disk: self.disk_status(),
+            archive: self.archive.lock().ok().and_then(|value| value.clone()),
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
@@ -721,10 +1065,11 @@ impl Controller {
                 _ => 0,
             };
             if attempts >= RESOLVED_READ_ATTEMPTS
-                || self
-                    .resolved
-                    .lock()
-                    .is_ok_and(|value| value.as_ref().is_some_and(|(read_for, r)| *read_for == pid && r.is_some()))
+                || self.resolved.lock().is_ok_and(|value| {
+                    value
+                        .as_ref()
+                        .is_some_and(|(read_for, r)| *read_for == pid && r.is_some())
+                })
             {
                 current = Some((pid, RESOLVED_READ_ATTEMPTS));
                 continue;
@@ -900,7 +1245,12 @@ impl Controller {
         let identity = recipe.summary();
         let provider = self
             .runtime
-            .sidecar_provider(lock, state.location.clone())
+            .sidecar_provider(
+                lock,
+                state.location.clone(),
+                self.archive.clone(),
+                self.activity.clone(),
+            )
             .map_err(|_| "Proxy resource admission is unavailable.")?;
         self.runtime.wait_for_interactive_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
         // A competing bind is handled by exact child/health identity checks and
@@ -921,6 +1271,8 @@ impl Controller {
                 cleanup_timeout: Duration::from_secs(3),
                 drain_timeout: Duration::from_secs(30),
                 reservation_lease: Duration::from_secs(300),
+                maintenance_at_start: Duration::from_secs(10),
+                maintenance_command_timeout: Duration::from_secs(120),
             },
             provider,
         )
@@ -1013,11 +1365,11 @@ fn resources_root() -> Result<PathBuf, &'static str> {
     }
     #[cfg(debug_assertions)]
     {
-        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(3)
             .map(|root| root.join("sidecar"))
-            .ok_or("The development resource directory is unavailable.");
+            .ok_or("The development resource directory is unavailable.")
     }
     #[cfg(not(debug_assertions))]
     Err("The proxy resources are missing from this application package.")
@@ -1038,6 +1390,148 @@ mod tests {
     use super::*;
     use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn idle_runs_after_ten_minutes_without_live_sessions() {
+        let now = std::time::Instant::now() + Duration::from_secs(1000);
+        let ago = |seconds| Some(now - Duration::from_secs(seconds));
+        assert!(!idle_run_due(Some(0), ago(599), now, false));
+        assert!(idle_run_due(Some(0), ago(600), now, false));
+        assert!(!idle_run_due(Some(1), ago(900), now, false));
+        assert!(
+            !idle_run_due(None, ago(900), now, false),
+            "an unknown count is not idle"
+        );
+        assert!(
+            idle_run_due(Some(0), ago(1), now, true),
+            "a forget makes it due now"
+        );
+        assert!(!idle_run_due(Some(0), None, now, false));
+        assert!(
+            !idle_run_due(Some(2), ago(1), now, true),
+            "not even a forget with an agent open"
+        );
+    }
+
+    #[test]
+    fn a_session_that_opens_or_is_live_is_activity() {
+        let activity = SessionActivity::default();
+        assert_eq!(activity.busy(), None, "no count yet");
+        assert!(activity.active(), "an unknown count is activity");
+        activity.set_live(Box::new(|| Some(0)));
+        assert!(!activity.active());
+        let guard = activity.opening.enter();
+        assert_eq!(activity.busy(), Some(1));
+        assert!(activity.active(), "an open in progress");
+        drop(guard);
+        assert!(!activity.active());
+    }
+
+    #[test]
+    fn a_skipped_idle_run_is_asked_again_after_another_idle_period() {
+        let now = std::time::Instant::now() + Duration::from_secs(2000);
+        assert!(send_due(None, now, false));
+        assert!(!send_due(Some(now - Duration::from_secs(599)), now, false));
+        assert!(send_due(Some(now - Duration::from_secs(600)), now, false));
+        assert!(
+            send_due(Some(now - Duration::from_secs(1)), now, true),
+            "a forget asks at once"
+        );
+    }
+
+    #[test]
+    fn an_open_in_progress_is_not_idle() {
+        let opening = Opening::default();
+        let now = std::time::Instant::now() + Duration::from_secs(1000);
+        let idle = Some(now - Duration::from_secs(900));
+        {
+            let _first = opening.enter();
+            let _second = opening.enter();
+            assert_eq!(opening.count(), 2);
+            assert!(!idle_run_due(
+                busy_sessions(Some(0), opening.count()),
+                idle,
+                now,
+                true
+            ));
+        }
+        assert_eq!(
+            opening.count(),
+            0,
+            "an open that ends, by any path, no longer counts"
+        );
+        assert!(idle_run_due(
+            busy_sessions(Some(0), opening.count()),
+            idle,
+            now,
+            false
+        ));
+        assert_eq!(
+            busy_sessions(None, 1),
+            None,
+            "an unknown count stays unknown"
+        );
+    }
+
+    #[test]
+    fn the_log_line_says_what_a_run_did() {
+        use shinatama_engine::sidecar_archive::{Report, Stop};
+        let done = Report {
+            removed: 487,
+            failed: 0,
+            left: 0,
+            released_bytes: 1_642_000_000,
+            compacted: true,
+            file_bytes_before: Some(2_451_185_664),
+            file_bytes_after: Some(18_731_008),
+            elapsed: Duration::from_secs(1396),
+            stop: Stop::Done,
+        };
+        assert_eq!(
+            report_line(&done),
+            "removed 487 sessions (1642 MB) in 1396 s; 0 left; archive now 18.7 MB."
+        );
+        let stopped = Report {
+            removed: 3,
+            left: 484,
+            stop: Stop::Cancelled,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&stopped).ends_with("; stopped for an open."),
+            "{}",
+            report_line(&stopped)
+        );
+        let budget = Report {
+            left: 10,
+            stop: Stop::Budget,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&budget)
+                .ends_with("; 10 left; archive now 18.7 MB; the rest goes in the next run."),
+            "{}",
+            report_line(&budget)
+        );
+        let failed = Report {
+            failed: 2,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&failed).contains("; 2 could not be removed"),
+            "{}",
+            report_line(&failed)
+        );
+        let unreadable = Report {
+            removed: 0,
+            stop: Stop::Unreadable,
+            ..done
+        };
+        assert_eq!(
+            report_line(&unreadable),
+            "nothing removed: the archive or Shinatama's threads could not be read."
+        );
+    }
 
     #[test]
     fn a_supervisor_silent_for_more_than_fifteen_seconds_is_stalled() {
@@ -1110,7 +1604,9 @@ mod tests {
         }
         assert_eq!(
             reason_message(Phase::Failed, Reason::SupervisorFault),
-            Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again.")
+            Some(
+                "The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again."
+            )
         );
     }
 
@@ -1208,14 +1704,23 @@ mod tests {
         resolved.visibility_markers = None;
         let found = config_differences(Some(&resolved));
         let line = |setting: &str| {
-            let item = found.iter().find(|item| item.setting == setting).expect(setting);
+            let item = found
+                .iter()
+                .find(|item| item.setting == setting)
+                .expect(setting);
             (item.read.as_str(), item.baseline.as_str())
         };
         assert_eq!(found.len(), 4);
         assert_eq!(line("Verbosity level"), ("3", "2"));
         assert_eq!(line("Effort routing"), ("true", "false"));
-        assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
-        assert_eq!(line("Proxy messages in the conversation"), ("not reported", "false"));
+        assert_eq!(
+            line("Large-result storage minimum tool tokens"),
+            ("not reported", "4000")
+        );
+        assert_eq!(
+            line("Proxy messages in the conversation"),
+            ("not reported", "false")
+        );
     }
 
     #[test]
@@ -1232,7 +1737,10 @@ mod tests {
         assert!(found[0].read.ends_with('\u{2026}'));
         assert!(found[0].read.starts_with("\u{e9}\u{e9}"));
         resolved.prompt_rewrite_mode = Some("x".repeat(DIFFERENCE_TEXT_LIMIT));
-        assert_eq!(config_differences(Some(&resolved))[0].read.len(), DIFFERENCE_TEXT_LIMIT);
+        assert_eq!(
+            config_differences(Some(&resolved))[0].read.len(),
+            DIFFERENCE_TEXT_LIMIT
+        );
     }
 
     #[test]

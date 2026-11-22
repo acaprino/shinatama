@@ -14,8 +14,8 @@ try {
   const page = await browser.newPage({ viewport: { width: 1200, height: 760 } });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:1438/tests/pane-drag.html');
-  const tab = id => page.locator(`.wm-tab[data-view-id="${id}"]`);
-  const paneOf = id => page.locator(`.wm-pane:has(.wm-tab[data-view-id="${id}"])`);
+  const tab = id => page.locator(`.im-tile-tab[data-view-id="${id}"]`);
+  const paneOf = id => page.locator(`.im-pane:has(.im-tile-tab[data-view-id="${id}"])`);
   const panes = () => page.evaluate(() => window.__panes());
   await expect(tab('c')).toBeVisible();
   await expect(page.locator('.wm-more, .wm-controls')).toHaveCount(0);
@@ -29,8 +29,8 @@ try {
   await dragTab(page, tab('c'), paneOf('c'), 'right');
   await expect.poll(panes).toEqual([['a', 'b'], ['c']]);
   expect(await page.evaluate(() => window.__split())).toBe('columns');
-  await expect(page.locator('.wm-drop-preview')).toBeHidden();
-  await expect(page.locator('.wm-drag-ghost')).toBeHidden();
+  await expect(page.locator('.im-drop-preview')).toBeHidden();
+  await expect(page.locator('.im-drag-ghost')).toBeHidden();
   passed.push('drag to the right side splits into two columns');
 
   await dragTab(page, tab('b'), paneOf('a'), 'bottom');
@@ -45,7 +45,7 @@ try {
   const from = await tab('b').boundingBox(); const target = await tab('c').boundingBox();
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
   await page.mouse.move(target.x + 4, target.y + target.height / 2, { steps: 10 });
-  await expect(page.locator('.wm-drop-marker')).toBeVisible();
+  await expect(page.locator('.im-drop-marker')).toBeVisible();
   await page.mouse.up();
   await expect.poll(panes).toEqual([['a'], ['b', 'c']]);
   passed.push('drop on the tab strip reorders, with an insertion mark');
@@ -53,10 +53,10 @@ try {
   const before = await panes(); const box = await tab('b').boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
   await page.mouse.move(box.x - 300, box.y + 300, { steps: 10 });
-  await expect(page.locator('.wm-drop-preview')).toBeVisible();
+  await expect(page.locator('.im-drop-preview')).toBeVisible();
   await page.keyboard.press('Escape'); await page.mouse.up();
   expect(await panes()).toEqual(before);
-  await expect(page.locator('.wm-drop-preview')).toBeHidden();
+  await expect(page.locator('.im-drop-preview')).toBeHidden();
   passed.push('Escape cancels a drag');
 
   await tab('c').focus(); await page.keyboard.press('Alt+Shift+ArrowUp');
@@ -65,6 +65,45 @@ try {
   await expect.poll(async () => (await panes()).flat().sort()).toEqual(['a', 'b', 'c']);
   expect((await panes()).length).toBe(2);
   passed.push('Alt+Shift+arrow splits a tab off, or moves a pane\'s only tab to the pane on that side');
+
+  for (const id of ['a', 'b', 'c']) {
+    await tab(id).click();
+    expect(await page.evaluate(id => {
+      const original = window.__bindings.get(id);
+      const selected = document.querySelector(`.im-tile-tab[data-view-id="${id}"]`);
+      return selected.closest('.im-pane').querySelector('.im-tile-body').contains(original) && !original.hidden;
+    }, id)).toBe(true);
+  }
+  passed.push('all three original live DOM bindings survive moves, parking and reactivation');
+
+  await page.evaluate(() => window.__threeColumns());
+  const handles = page.getByRole('separator');
+  await expect(handles).toHaveCount(2);
+  await handles.nth(1).focus();
+  await page.keyboard.press('ArrowRight');
+  const weights = () => page.evaluate(() => window.__weights());
+  const adjusted = await weights();
+  expect(adjusted[0]).toBe(1); expect(adjusted[1]).toBeCloseTo(1.1); expect(adjusted[2]).toBeCloseTo(0.9);
+  await page.keyboard.press('Home');
+  expect(await weights()).toEqual([1, 1, 1]);
+  const handle = await handles.first().boundingBox();
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 75, y, { steps: 5 });
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  expect(await weights()).toEqual([1, 1, 1]);
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 75, y, { steps: 5 }); await page.mouse.up();
+  const resized = await weights();
+  expect(resized[0]).toBeGreaterThan(1); expect(resized[1]).toBeLessThan(1); expect(resized[2]).toBe(1);
+  passed.push('three-way split resizes only adjacent children by keyboard and pointer and restores on Escape');
+
+  await page.evaluate(() => window.__filter('b'));
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByText('No b tabs here')).toHaveCount(2);
+  expect(await panes()).toEqual([['a'], ['b'], ['c']]);
+  await page.evaluate(() => window.__filter(null));
+  await expect(page.getByRole('tab')).toHaveCount(3);
+  passed.push('filtering changes the tab strip while preserving the layout');
 
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));

@@ -96,7 +96,6 @@ pub fn openable(url: &str) -> bool {
     lower.starts_with("http://") || lower.starts_with("https://") || lower == "about:blank"
 }
 
-
 impl Browser {
     #[cfg(windows)]
     pub async fn start(exe: &Path) -> Result<Self, BrowserError> {
@@ -166,7 +165,13 @@ impl Browser {
     }
 
     fn session(&self, page: PageId) -> Result<String, BrowserError> {
-        self.sessions.lock().unwrap().by_page.get(&page).cloned().ok_or(BrowserError::UnknownPage)
+        self.sessions
+            .lock()
+            .unwrap()
+            .by_page
+            .get(&page)
+            .cloned()
+            .ok_or(BrowserError::UnknownPage)
     }
 
     fn lane(&self, page: PageId) -> Arc<Mutex<()>> {
@@ -189,9 +194,16 @@ impl Browser {
         })
     }
 
-    pub async fn open(&self, url: &str, controller: Controller, local_root: Option<PathBuf>) -> Result<PageId, BrowserError> {
+    pub async fn open(
+        &self,
+        url: &str,
+        controller: Controller,
+        local_root: Option<PathBuf>,
+    ) -> Result<PageId, BrowserError> {
         if !openable(url) {
-            return Err(BrowserError::Refused("only http, https and local HTML documents open in the browser"));
+            return Err(BrowserError::Refused(
+                "only http, https and local HTML documents open in the browser",
+            ));
         }
         let (id, discarded) = self.pages.lock().unwrap().open(url, controller, local_root);
         if let Some(old) = discarded {
@@ -207,11 +219,31 @@ impl Browser {
     }
 
     async fn attach(&self, id: PageId, url: &str) -> Result<(), BrowserError> {
-        let created = self.cdp.call(None, "Target.createTarget", json!({ "url": "about:blank" })).await?;
-        let target = created["targetId"].as_str().ok_or(BrowserError::Refused("no target id"))?.to_owned();
-        self.sessions.lock().unwrap().targets.insert(id, target.clone());
-        let attached = self.cdp.call(None, "Target.attachToTarget", json!({ "targetId": target, "flatten": true })).await?;
-        let session = attached["sessionId"].as_str().ok_or(BrowserError::Refused("no session id"))?.to_owned();
+        let created = self
+            .cdp
+            .call(None, "Target.createTarget", json!({ "url": "about:blank" }))
+            .await?;
+        let target = created["targetId"]
+            .as_str()
+            .ok_or(BrowserError::Refused("no target id"))?
+            .to_owned();
+        self.sessions
+            .lock()
+            .unwrap()
+            .targets
+            .insert(id, target.clone());
+        let attached = self
+            .cdp
+            .call(
+                None,
+                "Target.attachToTarget",
+                json!({ "targetId": target, "flatten": true }),
+            )
+            .await?;
+        let session = attached["sessionId"]
+            .as_str()
+            .ok_or(BrowserError::Refused("no session id"))?
+            .to_owned();
         {
             let mut s = self.sessions.lock().unwrap();
             s.by_page.insert(id, session.clone());
@@ -224,8 +256,15 @@ impl Browser {
         if let Some((width, height, dpr)) = viewport {
             self.metrics(session, width, height, dpr).await?;
         }
-        self.cdp.call(session, "Page.navigate", json!({ "url": url })).await?;
-        let visible = self.pages.lock().unwrap().get(id).is_some_and(|p| p.visible);
+        self.cdp
+            .call(session, "Page.navigate", json!({ "url": url }))
+            .await?;
+        let visible = self
+            .pages
+            .lock()
+            .unwrap()
+            .get(id)
+            .is_some_and(|p| p.visible);
         if visible {
             self.screencast(id, true).await?;
         }
@@ -245,7 +284,10 @@ impl Browser {
         // the live-page limit detaches it.
         let target = self.sessions.lock().unwrap().targets.remove(&id);
         if let Some(target) = target {
-            let _ = self.cdp.call(None, "Target.closeTarget", json!({ "targetId": target })).await;
+            let _ = self
+                .cdp
+                .call(None, "Target.closeTarget", json!({ "targetId": target }))
+                .await;
         }
         drop(session);
     }
@@ -254,24 +296,51 @@ impl Browser {
         self.sessions.lock().unwrap().sinks.insert(page, sink);
     }
 
-    pub async fn navigate(&self, page: PageId, action: &str, url: Option<&str>) -> Result<(), BrowserError> {
+    pub async fn navigate(
+        &self,
+        page: PageId,
+        action: &str,
+        url: Option<&str>,
+    ) -> Result<(), BrowserError> {
         let session = self.session(page)?;
         let session = Some(session.as_str());
         match (action, url) {
             ("go", Some(url)) if openable(url) => {
-                self.cdp.call(session, "Page.navigate", json!({ "url": url })).await?;
+                self.cdp
+                    .call(session, "Page.navigate", json!({ "url": url }))
+                    .await?;
             }
-            ("go", _) => return Err(BrowserError::Refused("only http, https and local HTML documents open in the browser")),
+            ("go", _) => {
+                return Err(BrowserError::Refused(
+                    "only http, https and local HTML documents open in the browser",
+                ));
+            }
             ("reload", _) => {
                 self.cdp.call(session, "Page.reload", json!({})).await?;
             }
             ("back" | "forward", _) => {
-                let history = self.cdp.call(session, "Page.getNavigationHistory", json!({})).await?;
+                let history = self
+                    .cdp
+                    .call(session, "Page.getNavigationHistory", json!({}))
+                    .await?;
                 let current = history["currentIndex"].as_i64().unwrap_or(0);
-                let target = if action == "back" { current - 1 } else { current + 1 };
-                let entry = history["entries"].as_array().and_then(|e| e.get(usize::try_from(target).ok()?)).cloned();
+                let target = if action == "back" {
+                    current - 1
+                } else {
+                    current + 1
+                };
+                let entry = history["entries"]
+                    .as_array()
+                    .and_then(|e| e.get(usize::try_from(target).ok()?))
+                    .cloned();
                 if let Some(id) = entry.and_then(|e| e["id"].as_i64()) {
-                    self.cdp.call(session, "Page.navigateToHistoryEntry", json!({ "entryId": id })).await?;
+                    self.cdp
+                        .call(
+                            session,
+                            "Page.navigateToHistoryEntry",
+                            json!({ "entryId": id }),
+                        )
+                        .await?;
                 }
             }
             _ => return Err(BrowserError::Refused("unknown navigation")),
@@ -300,33 +369,75 @@ impl Browser {
     async fn capture(&self, session: &str) -> Result<Vec<u8>, BrowserError> {
         let shot = self
             .cdp
-            .call(Some(session), "Page.captureScreenshot", json!({ "format": "jpeg", "quality": JPEG_QUALITY }))
+            .call(
+                Some(session),
+                "Page.captureScreenshot",
+                json!({ "format": "jpeg", "quality": JPEG_QUALITY }),
+            )
             .await?;
         decode(&shot["data"])
     }
 
     pub async fn screenshot_png(&self, page: PageId) -> Result<Vec<u8>, BrowserError> {
         let session = self.session(page)?;
-        let shot = self.cdp.call(Some(&session), "Page.captureScreenshot", json!({ "format": "png" })).await?;
+        let shot = self
+            .cdp
+            .call(
+                Some(&session),
+                "Page.captureScreenshot",
+                json!({ "format": "png" }),
+            )
+            .await?;
         decode(&shot["data"])
     }
 
-    async fn metrics(&self, session: Option<&str>, width: u32, height: u32, dpr: f64) -> Result<(), BrowserError> {
+    async fn metrics(
+        &self,
+        session: Option<&str>,
+        width: u32,
+        height: u32,
+        dpr: f64,
+    ) -> Result<(), BrowserError> {
         self.cdp
-            .call(session, "Emulation.setDeviceMetricsOverride", json!({
-                "width": width, "height": height, "deviceScaleFactor": dpr, "mobile": false,
-            }))
+            .call(
+                session,
+                "Emulation.setDeviceMetricsOverride",
+                json!({
+                    "width": width, "height": height, "deviceScaleFactor": dpr, "mobile": false,
+                }),
+            )
             .await?;
         Ok(())
     }
 
-    pub async fn resize(&self, page: PageId, width: u32, height: u32, dpr: f64) -> Result<(), BrowserError> {
+    pub async fn resize(
+        &self,
+        page: PageId,
+        width: u32,
+        height: u32,
+        dpr: f64,
+    ) -> Result<(), BrowserError> {
         let (width, height) = (width.clamp(64, 8192), height.clamp(64, 8192));
-        let dpr = if dpr.is_finite() { dpr.clamp(0.5, 4.0) } else { 1.0 };
-        self.sessions.lock().unwrap().viewport.insert(page, (width, height, dpr));
-        let Ok(session) = self.session(page) else { return Ok(()) };
+        let dpr = if dpr.is_finite() {
+            dpr.clamp(0.5, 4.0)
+        } else {
+            1.0
+        };
+        self.sessions
+            .lock()
+            .unwrap()
+            .viewport
+            .insert(page, (width, height, dpr));
+        let Ok(session) = self.session(page) else {
+            return Ok(());
+        };
         self.metrics(Some(&session), width, height, dpr).await?;
-        let visible = self.pages.lock().unwrap().get(page).is_some_and(|p| p.visible);
+        let visible = self
+            .pages
+            .lock()
+            .unwrap()
+            .get(page)
+            .is_some_and(|p| p.visible);
         if visible {
             self.screencast(page, true).await?;
         }
@@ -336,7 +447,14 @@ impl Browser {
     async fn screencast(&self, page: PageId, on: bool) -> Result<(), BrowserError> {
         let session = self.session(page)?;
         if on {
-            let (width, height, dpr) = self.sessions.lock().unwrap().viewport.get(&page).copied().unwrap_or((1280, 800, 1.0));
+            let (width, height, dpr) = self
+                .sessions
+                .lock()
+                .unwrap()
+                .viewport
+                .get(&page)
+                .copied()
+                .unwrap_or((1280, 800, 1.0));
             self.cdp
                 .call(Some(&session), "Page.startScreencast", json!({
                     "format": "jpeg", "quality": JPEG_QUALITY,
@@ -348,20 +466,36 @@ impl Browser {
                 sink(frame);
             }
         } else {
-            self.cdp.call(Some(&session), "Page.stopScreencast", json!({})).await?;
+            self.cdp
+                .call(Some(&session), "Page.stopScreencast", json!({}))
+                .await?;
         }
         Ok(())
     }
 
     pub async fn set_visible(&self, page: PageId, visible: bool) -> Result<(), BrowserError> {
         if visible {
-            let reviving = matches!(self.pages.lock().unwrap().get(page).map(|p| &p.state), Some(PageState::Discarded));
-            let discarded = self.pages.lock().unwrap().shown(page).map_err(|_| BrowserError::UnknownPage)?;
+            let reviving = matches!(
+                self.pages.lock().unwrap().get(page).map(|p| &p.state),
+                Some(PageState::Discarded)
+            );
+            let discarded = self
+                .pages
+                .lock()
+                .unwrap()
+                .shown(page)
+                .map_err(|_| BrowserError::UnknownPage)?;
             if let Some(old) = discarded {
                 self.detach(old).await;
             }
             if reviving {
-                let url = self.pages.lock().unwrap().get(page).map(|p| p.url.clone()).unwrap_or_default();
+                let url = self
+                    .pages
+                    .lock()
+                    .unwrap()
+                    .get(page)
+                    .map(|p| p.url.clone())
+                    .unwrap_or_default();
                 let attached = self.attach(page, &url).await;
                 if attached.is_err() {
                     self.detach(page).await;
@@ -388,16 +522,28 @@ impl Browser {
     }
 
     pub fn take_control(&self, page: PageId) -> Result<(), BrowserError> {
-        self.pages.lock().unwrap().take_control(page).map_err(|_| BrowserError::UnknownPage)
+        self.pages
+            .lock()
+            .unwrap()
+            .take_control(page)
+            .map_err(|_| BrowserError::UnknownPage)
     }
 
     pub fn give_back(&self, page: PageId) -> Result<(), BrowserError> {
-        self.pages.lock().unwrap().give_back(page).map_err(|_| BrowserError::Refused("this page was not opened by an agent"))
+        self.pages
+            .lock()
+            .unwrap()
+            .give_back(page)
+            .map_err(|_| BrowserError::Refused("this page was not opened by an agent"))
     }
 
     /// The agent instance that opened the page, if an agent did.
     pub fn opened_by(&self, page: PageId) -> Option<String> {
-        self.pages.lock().unwrap().get(page).and_then(|p| p.agent.clone())
+        self.pages
+            .lock()
+            .unwrap()
+            .get(page)
+            .and_then(|p| p.agent.clone())
     }
 
     pub fn agent_may_act(&self, page: PageId, instance: &str) -> bool {
@@ -408,25 +554,43 @@ impl Browser {
         let session = self.session(page)?;
         let result = self
             .cdp
-            .call(Some(&session), "Runtime.evaluate", json!({ "expression": expression, "returnByValue": true, "awaitPromise": true }))
+            .call(
+                Some(&session),
+                "Runtime.evaluate",
+                json!({ "expression": expression, "returnByValue": true, "awaitPromise": true }),
+            )
             .await?;
         Ok(result["result"]["value"].clone())
     }
 
-    pub async fn call(&self, page: PageId, method: &str, params: Value) -> Result<Value, BrowserError> {
+    pub async fn call(
+        &self,
+        page: PageId,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, BrowserError> {
         let session = self.session(page)?;
         Ok(self.cdp.call(Some(&session), method, params).await?)
     }
 }
 
 fn decode(data: &Value) -> Result<Vec<u8>, BrowserError> {
-    let text = data.as_str().ok_or(BrowserError::Refused("no image data"))?;
-    base64::engine::general_purpose::STANDARD.decode(text).map_err(|_| BrowserError::Refused("bad image data"))
+    let text = data
+        .as_str()
+        .ok_or(BrowserError::Refused("no image data"))?;
+    base64::engine::general_purpose::STANDARD
+        .decode(text)
+        .map_err(|_| BrowserError::Refused("bad image data"))
 }
 
 /// Bounded title, control characters dropped.
 fn clean_title(raw: &str) -> String {
-    raw.chars().filter(|c| !c.is_control()).take(256).collect::<String>().trim().to_owned()
+    raw.chars()
+        .filter(|c| !c.is_control())
+        .take(256)
+        .collect::<String>()
+        .trim()
+        .to_owned()
 }
 
 /// Reads the page's URL and title after a load: titles change without a CDP
@@ -434,26 +598,51 @@ fn clean_title(raw: &str) -> String {
 fn refresh_location(cdp: Arc<Cdp>, pages: Arc<StdMutex<PageSet>>, page: PageId, session: String) {
     tokio::spawn(async move {
         let read = cdp
-            .call(Some(&session), "Runtime.evaluate", json!({ "expression": "[location.href, document.title]", "returnByValue": true }))
+            .call(
+                Some(&session),
+                "Runtime.evaluate",
+                json!({ "expression": "[location.href, document.title]", "returnByValue": true }),
+            )
             .await;
         if let Ok(result) = read
-            && let (Some(url), Some(title)) = (result["result"]["value"][0].as_str(), result["result"]["value"][1].as_str())
+            && let (Some(url), Some(title)) = (
+                result["result"]["value"][0].as_str(),
+                result["result"]["value"][1].as_str(),
+            )
         {
-            pages.lock().unwrap().set_location(page, url, &clean_title(title));
+            pages
+                .lock()
+                .unwrap()
+                .set_location(page, url, &clean_title(title));
         }
     });
 }
 
-async fn handle_event(cdp: &Arc<Cdp>, pages: &Arc<StdMutex<PageSet>>, sessions: &StdMutex<Sessions>, event: CdpEvent) {
-    let Some(session) = event.session.clone() else { return };
-    let Some(page) = sessions.lock().unwrap().by_session.get(&session).copied() else { return };
+async fn handle_event(
+    cdp: &Arc<Cdp>,
+    pages: &Arc<StdMutex<PageSet>>,
+    sessions: &StdMutex<Sessions>,
+    event: CdpEvent,
+) {
+    let Some(session) = event.session.clone() else {
+        return;
+    };
+    let Some(page) = sessions.lock().unwrap().by_session.get(&session).copied() else {
+        return;
+    };
     match event.method.as_str() {
         "Page.screencastFrame" => {
             // The ack is not awaited here: one slow reply must not hold every page's events.
             let ack = event.params["sessionId"].clone();
             let (acker, ack_session) = (Arc::clone(cdp), session.clone());
             tokio::spawn(async move {
-                let _ = acker.call(Some(&ack_session), "Page.screencastFrameAck", json!({ "sessionId": ack })).await;
+                let _ = acker
+                    .call(
+                        Some(&ack_session),
+                        "Page.screencastFrameAck",
+                        json!({ "sessionId": ack }),
+                    )
+                    .await;
             });
             let sink = sessions.lock().unwrap().sinks.get(&page).cloned();
             if let (Some(sink), Ok(frame)) = (sink, decode(&event.params["data"])) {
@@ -461,7 +650,10 @@ async fn handle_event(cdp: &Arc<Cdp>, pages: &Arc<StdMutex<PageSet>>, sessions: 
             }
         }
         "Page.frameNavigated" if event.params["frame"]["parentId"].is_null() => {
-            let url = event.params["frame"]["url"].as_str().unwrap_or_default().to_owned();
+            let url = event.params["frame"]["url"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
             pages.lock().unwrap().set_location(page, &url, "");
             refresh_location(Arc::clone(cdp), Arc::clone(pages), page, session);
         }
@@ -497,8 +689,13 @@ mod tests {
                 let request: Value = serde_json::from_str(&text).unwrap();
                 let method = request["method"].as_str().unwrap().to_owned();
                 let detail = match method.as_str() {
-                    "Input.dispatchKeyEvent" => format!("{method}:{}", request["params"]["key"].as_str().unwrap()),
-                    "Target.closeTarget" => format!("{method}:{}", request["params"]["targetId"].as_str().unwrap()),
+                    "Input.dispatchKeyEvent" => {
+                        format!("{method}:{}", request["params"]["key"].as_str().unwrap())
+                    }
+                    "Target.closeTarget" => format!(
+                        "{method}:{}",
+                        request["params"]["targetId"].as_str().unwrap()
+                    ),
                     _ => method.clone(),
                 };
                 record.lock().unwrap().push(detail);
@@ -507,7 +704,9 @@ mod tests {
                         targets += 1;
                         json!({ "targetId": format!("T{targets}") })
                     }
-                    "Target.attachToTarget" => json!({ "sessionId": format!("S-{}", request["params"]["targetId"].as_str().unwrap()) }),
+                    "Target.attachToTarget" => {
+                        json!({ "sessionId": format!("S-{}", request["params"]["targetId"].as_str().unwrap()) })
+                    }
                     "Page.navigate" if request["params"]["url"] == "https://fails.example/" => {
                         sink.send(Message::text(json!({ "id": request["id"], "error": { "code": -32000, "message": "net error" } }).to_string())).await.unwrap();
                         continue;
@@ -521,10 +720,16 @@ mod tests {
                     }
                     _ => json!({}),
                 };
-                sink.send(Message::text(json!({ "id": request["id"], "result": result }).to_string())).await.unwrap();
+                sink.send(Message::text(
+                    json!({ "id": request["id"], "result": result }).to_string(),
+                ))
+                .await
+                .unwrap();
             }
         });
-        let cdp = Cdp::connect(client, &[0; 32], "/devtools/browser/x").await.unwrap();
+        let cdp = Cdp::connect(client, &[0; 32], "/devtools/browser/x")
+            .await
+            .unwrap();
         (Browser::with(cdp, None), log)
     }
 
@@ -532,17 +737,40 @@ mod tests {
     async fn a_page_discarded_by_the_live_limit_closes_its_target() {
         let (browser, log) = fake().await;
         browser.pages.lock().unwrap().set_max_live(1);
-        let first = browser.open("https://a.example/", Controller::User, None).await.unwrap();
-        browser.open("https://b.example/", Controller::User, None).await.unwrap();
-        assert!(log.lock().unwrap().contains(&"Target.closeTarget:T1".to_owned()), "{:?}", log.lock().unwrap());
+        let first = browser
+            .open("https://a.example/", Controller::User, None)
+            .await
+            .unwrap();
+        browser
+            .open("https://b.example/", Controller::User, None)
+            .await
+            .unwrap();
+        assert!(
+            log.lock()
+                .unwrap()
+                .contains(&"Target.closeTarget:T1".to_owned()),
+            "{:?}",
+            log.lock().unwrap()
+        );
         assert!(!browser.info(first).unwrap().live);
     }
 
     #[tokio::test]
     async fn a_failed_open_closes_the_target_it_created() {
         let (browser, log) = fake().await;
-        assert!(browser.open("https://fails.example/", Controller::User, None).await.is_err());
-        assert!(log.lock().unwrap().contains(&"Target.closeTarget:T1".to_owned()), "{:?}", log.lock().unwrap());
+        assert!(
+            browser
+                .open("https://fails.example/", Controller::User, None)
+                .await
+                .is_err()
+        );
+        assert!(
+            log.lock()
+                .unwrap()
+                .contains(&"Target.closeTarget:T1".to_owned()),
+            "{:?}",
+            log.lock().unwrap()
+        );
         assert_eq!(browser.page_count(), 0);
         assert!(browser.sessions.lock().unwrap().by_session.is_empty());
     }
@@ -564,18 +792,30 @@ mod tests {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
         };
-        tokio::time::timeout(std::time::Duration::from_secs(2), dead).await.expect("the browser must show dead");
+        tokio::time::timeout(std::time::Duration::from_secs(2), dead)
+            .await
+            .expect("the browser must show dead");
     }
 
     fn key(k: &str) -> InputEvent {
-        InputEvent::Key { kind: KeyKind::Down, key: k.into(), code: String::new(), text: Some(k.into()), modifiers: 0, key_code: 0 }
+        InputEvent::Key {
+            kind: KeyKind::Down,
+            key: k.into(),
+            code: String::new(),
+            text: Some(k.into()),
+            modifiers: 0,
+            key_code: 0,
+        }
     }
 
     #[tokio::test]
     async fn input_batches_keep_order_under_capture() {
         let (browser, log) = fake().await;
         let browser = Arc::new(browser);
-        let page = browser.open("https://example.com/", Controller::User, None).await.unwrap();
+        let page = browser
+            .open("https://example.com/", Controller::User, None)
+            .await
+            .unwrap();
         let frames: Arc<StdMutex<usize>> = Arc::default();
         let counted = Arc::clone(&frames);
         browser.set_sink(page, Arc::new(move |_| *counted.lock().unwrap() += 1));
@@ -602,16 +842,38 @@ mod tests {
     #[tokio::test]
     async fn open_attaches_a_flat_session_and_navigates() {
         let (browser, log) = fake().await;
-        let page = browser.open("https://example.com/", Controller::User, None).await.unwrap();
-        assert_eq!(*log.lock().unwrap(), ["Target.createTarget", "Target.attachToTarget", "Page.enable", "Page.navigate"]);
+        let page = browser
+            .open("https://example.com/", Controller::User, None)
+            .await
+            .unwrap();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "Target.createTarget",
+                "Target.attachToTarget",
+                "Page.enable",
+                "Page.navigate"
+            ]
+        );
         assert_eq!(browser.info(page).unwrap().controller, "user");
     }
 
     #[tokio::test]
     async fn other_schemes_never_reach_the_engine() {
         let (browser, log) = fake().await;
-        for url in ["mailto:a@b.c", "javascript:alert(1)", "vscode://x", "chrome://settings"] {
-            assert!(matches!(browser.open(url, Controller::User, None).await, Err(BrowserError::Refused(_))), "{url}");
+        for url in [
+            "mailto:a@b.c",
+            "javascript:alert(1)",
+            "vscode://x",
+            "chrome://settings",
+        ] {
+            assert!(
+                matches!(
+                    browser.open(url, Controller::User, None).await,
+                    Err(BrowserError::Refused(_))
+                ),
+                "{url}"
+            );
         }
         assert!(log.lock().unwrap().is_empty());
     }
@@ -619,9 +881,20 @@ mod tests {
     #[tokio::test]
     async fn bad_mouse_values_are_skipped_not_sent() {
         let (browser, log) = fake().await;
-        let page = browser.open("https://example.com/", Controller::User, None).await.unwrap();
+        let page = browser
+            .open("https://example.com/", Controller::User, None)
+            .await
+            .unwrap();
         log.lock().unwrap().clear();
-        let bad = InputEvent::Mouse { kind: MouseKind::Moved, x: f64::INFINITY, y: 0.0, button: "none".into(), buttons: 0, modifiers: 0, click_count: 0 };
+        let bad = InputEvent::Mouse {
+            kind: MouseKind::Moved,
+            x: f64::INFINITY,
+            y: 0.0,
+            button: "none".into(),
+            buttons: 0,
+            modifiers: 0,
+            click_count: 0,
+        };
         browser.input(page, &[bad]).await.unwrap();
         assert_eq!(*log.lock().unwrap(), ["Page.captureScreenshot"]);
     }

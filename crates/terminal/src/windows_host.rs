@@ -387,10 +387,10 @@ impl NativeLifecycleGate {
 impl Session {
     fn error(&self, text: &str) {
         self.resource_reason(TerminalResourceReason::LocalFailure);
-        if let Ok(mut error) = self.error.lock() {
-            if error.is_none() {
-                *error = Some(text.chars().take(1024).collect());
-            }
+        if let Ok(mut error) = self.error.lock()
+            && error.is_none()
+        {
+            *error = Some(text.chars().take(1024).collect());
         }
     }
     fn resource_reason(&self, reason: TerminalResourceReason) {
@@ -763,13 +763,12 @@ impl WindowsTerminalHost {
             .context("Terminal no longer exists")
     }
     fn remove_released(&self, id: &str) {
-        if let Ok(mut sessions) = self.sessions.lock() {
-            if sessions
+        if let Ok(mut sessions) = self.sessions.lock()
+            && sessions
                 .get(id)
                 .is_some_and(|session| session.phase.load(Ordering::Acquire) == RELEASED)
-            {
-                sessions.remove(id);
-            }
+        {
+            sessions.remove(id);
         }
     }
     /// Retained identity includes ended terminals until explicitly removed.
@@ -1298,10 +1297,7 @@ fn owner_worker(
         Ok(workload) => workload,
         Err(error) => {
             session.resource_reason(TerminalResourceReason::AdmissionRefused);
-            let _ = started.try_send(Err(format!(
-                "{}: {error}",
-                crate::ADMISSION_REFUSED
-            )));
+            let _ = started.try_send(Err(format!("{}: {error}", crate::ADMISSION_REFUSED)));
             session.finish(true);
             return;
         }
@@ -1527,14 +1523,13 @@ fn owner_worker(
             ._native
             .as_ref()
             .and_then(|native| native.lifecycle.as_ref())
+            && let Err(error) = lifecycle.before_run(&session.info.id, key, workload.ticket())
         {
-            if let Err(error) = lifecycle.before_run(&session.info.id, key, workload.ticket()) {
-                const MESSAGE: &str =
-                    "The session could not be saved before startup. No agent was allowed to run.";
-                session.error(MESSAGE);
-                let _ = started.try_send(Err(MESSAGE.into()));
-                return Err(error);
-            }
+            const MESSAGE: &str =
+                "The session could not be saved before startup. No agent was allowed to run.";
+            session.error(MESSAGE);
+            let _ = started.try_send(Err(MESSAGE.into()));
+            return Err(error);
         }
         session.send(HostCommand::ResumeShell, 0)?;
         Ok((helper.process, events_rx))
@@ -1633,11 +1628,8 @@ fn owner_worker(
         native.permit.finish_trial(&workload);
     }
     for thread in io_threads {
-        if thread.is_finished() {
-            if thread.join().is_err() {
-                session
-                    .error("A terminal I/O worker ended unexpectedly; its resources were closed");
-            }
+        if thread.is_finished() && thread.join().is_err() {
+            session.error("A terminal I/O worker ended unexpectedly; its resources were closed");
         }
     }
     if !native_released {
@@ -1943,8 +1935,7 @@ mod tests {
             .collect();
         let error = over_bound
             .validate()
-            .err()
-            .expect("over-bound arguments must refuse");
+            .expect_err("over-bound arguments must refuse");
         assert_eq!(error.to_string(), "Too many shell arguments");
         // The contained command-line builder enforces the same shared bound.
         let executable = Path::new(r"C:\synthetic\codex.exe");

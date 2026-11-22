@@ -2,15 +2,15 @@
 //! Reader::list materializes a Vec at this pin: ONLY the contained helper calls it.
 //! Explicit detail/confirmed RAW share this worker; no ambient roots or writes.
 #[cfg(windows)]
+use crate::export_frames::{Event, FrameParser, FrameWriter, Progress};
+#[cfg(windows)]
 use crate::session_detail::{DetailReply, DetailRequest, TrustedRootSnapshot};
+#[cfg(windows)]
+use crate::session_export::{ExportFinal, ExportReply, ExportRequest};
 #[cfg(windows)]
 use crate::session_find::{FindIssue, FindReply, FindRequest};
 #[cfg(windows)]
 use crate::session_raw::{MAX_RAW_BYTES, RawIssue, RawReply, RawRequest};
-#[cfg(windows)]
-use crate::export_frames::{Event, FrameParser, FrameWriter, Progress};
-#[cfg(windows)]
-use crate::session_export::{ExportFinal, ExportReply, ExportRequest};
 use mukade::{HarnessId, reader::SessionInfo, roots::StoreRoots};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -431,9 +431,7 @@ impl PreparedSessionList {
             SessionPayload::Detail(_)
             | SessionPayload::Raw(_)
             | SessionPayload::Find(_)
-            | SessionPayload::Export(_) => {
-                Err(SessionReadIssue::InvalidRequest)
-            }
+            | SessionPayload::Export(_) => Err(SessionReadIssue::InvalidRequest),
         }
     }
     /// The final frame of an export, checked against the request and the body that arrived.
@@ -460,7 +458,11 @@ impl PreparedSessionList {
             return Err(SessionReadIssue::WorkerUnavailable);
         }
         let export = last.export;
-        let pinned = request.detail.cursor.as_ref().map(|cursor| cursor.fingerprint.as_str());
+        let pinned = request
+            .detail
+            .cursor
+            .as_ref()
+            .map(|cursor| cursor.fingerprint.as_str());
         if export.root != self.selector()
             || export.native_id != request.detail.native_id
             || export.payload.is_some() == export.issue.is_some()
@@ -767,13 +769,17 @@ fn session_file_bytes(root: &StoreRootRecord, native_id: &str) -> u64 {
     let mut seen = 0usize;
     let mut pending = vec![(PathBuf::from(&root.resolved_path), 0usize)];
     while let Some((directory, depth)) = pending.pop() {
-        let Ok(entries) = fs::read_dir(&directory) else { continue };
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
         for entry in entries.flatten() {
             seen += 1;
             if seen > MAX_ENTRIES {
                 return largest;
             }
-            let Ok(metadata) = fs::symlink_metadata(entry.path()) else { continue };
+            let Ok(metadata) = fs::symlink_metadata(entry.path()) else {
+                continue;
+            };
             if metadata.file_attributes() & REPARSE_POINT != 0 {
                 continue;
             }
@@ -781,8 +787,7 @@ fn session_file_bytes(root: &StoreRootRecord, native_id: &str) -> u64 {
                 if depth < MAX_DEPTH {
                     pending.push((entry.path(), depth + 1));
                 }
-            } else if metadata.is_file()
-                && entry.file_name().to_string_lossy().contains(native_id)
+            } else if metadata.is_file() && entry.file_name().to_string_lossy().contains(native_id)
             {
                 largest = largest.max(metadata.len());
             }
@@ -981,8 +986,8 @@ mod namespace {
                 }
             };
             // The deepest directory whose entries are pinned: `projects` is 0, a project 1.
-            let deepest = (scope == Scope::SessionFiles && harness == HarnessId::ClaudeCode)
-                .then_some(1);
+            let deepest =
+                (scope == Scope::SessionFiles && harness == HarnessId::ClaudeCode).then_some(1);
             let mut pending = Vec::new();
             for subtree in subtrees {
                 let child = path.join(subtree);
@@ -1045,7 +1050,8 @@ mod namespace {
                 if selected.is_none_or(|selected| selected == path) {
                     before == after
                 } else {
-                    before.volume == after.volume && before.id == after.id
+                    before.volume == after.volume
+                        && before.id == after.id
                         && before.attributes == after.attributes
                 }
             };
@@ -1273,9 +1279,13 @@ pub fn helper_main() {
             let stdout = std::io::stdout();
             let mut frames = FrameWriter::new(stdout.lock());
             let reply = match TrustedRootSnapshot::from_record(&request.root, &find.detail.root) {
-                Ok(snapshot) => crate::session_find::read_find_progress(&snapshot, find, &mut |entries, hits| {
-                    let _ = frames.progress(entries as u64, hits as u64);
-                }),
+                Ok(snapshot) => crate::session_find::read_find_progress(
+                    &snapshot,
+                    find,
+                    &mut |entries, hits| {
+                        let _ = frames.progress(entries as u64, hits as u64);
+                    },
+                ),
                 Err(issue) => FindReply::refuse(find, FindIssue::Detail(issue)),
             };
             let wire = WorkerReply {
@@ -1514,7 +1524,13 @@ mod execution {
             private_working_directory: &StorageLocation,
             workload: PreparedWorkload,
         ) -> SessionListRead {
-            self.run_contained_with(database, helper_executable, private_working_directory, workload, None)
+            self.run_contained_with(
+                database,
+                helper_executable,
+                private_working_directory,
+                workload,
+                None,
+            )
         }
         /// An export: every body frame the worker writes goes to `sink` as it arrives, and the
         /// reply (`export()`) is the final frame, checked against the request and the bytes the
@@ -1531,9 +1547,18 @@ mod execution {
         ) -> SessionListRead {
             let mut progress = |_: Progress| {};
             let never = || false;
-            let hooks = Framed { body: sink, progress: &mut progress, cancel: &never };
-            let read = self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks));
-            read
+            let hooks = Framed {
+                body: sink,
+                progress: &mut progress,
+                cancel: &never,
+            };
+            self.run_contained_with(
+                database,
+                helper_executable,
+                private_working_directory,
+                workload,
+                Some(hooks),
+            )
         }
         /// A search or an export with its progress and its cancel: `hooks.progress` gets every
         /// progress frame (at most four a second), and `hooks.cancel` is asked on every turn of
@@ -1547,8 +1572,15 @@ mod execution {
             workload: PreparedWorkload,
             hooks: Framed<'_>,
         ) -> SessionListRead {
-            self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks))
+            self.run_contained_with(
+                database,
+                helper_executable,
+                private_working_directory,
+                workload,
+                Some(hooks),
+            )
         }
+        #[allow(clippy::type_complexity)]
         fn run_contained_with(
             &self,
             database: &Database,
@@ -1567,6 +1599,7 @@ mod execution {
             let mut no_body = |_: &[u8]| Ok(());
             let mut no_progress = |_: Progress| {};
             let never = || false;
+            #[allow(clippy::type_complexity)]
             let (body, progress, cancel): (
                 &mut dyn FnMut(&[u8]) -> std::io::Result<()>,
                 &mut dyn FnMut(Progress),
@@ -1616,7 +1649,8 @@ mod execution {
             };
             // The lease outlasts the wall by the 5 s the 10 s wall always had.
             let lease_ms = i64::try_from(self.wall.as_millis()).unwrap_or(0) + 5_000;
-            let mut owned = match spawn_contained(command, workload, database, now, now + lease_ms) {
+            let mut owned = match spawn_contained(command, workload, database, now, now + lease_ms)
+            {
                 Ok(owned) => owned,
                 Err(failure) => {
                     return failed(
@@ -1634,7 +1668,11 @@ mod execution {
             }
             drop(owned.stdin);
             // A framed export has no total: the parser holds one frame and the sink the rest.
-            let limit = if framed { usize::MAX } else { self.reply_limit() };
+            let limit = if framed {
+                usize::MAX
+            } else {
+                self.reply_limit()
+            };
             let mut parser = FrameParser::new();
             let mut last_sample = Instant::now();
             let mut output = Vec::with_capacity(MAX_REPLY_BYTES);
@@ -1749,7 +1787,9 @@ mod execution {
             let released = matches!(
                 // A flat second, whatever is left of the wall: a read that ends near its wall (a
                 // long export) must not turn into an unconfirmed cleanup for want of time.
-                owned.process.finish_cleanup(database, Duration::from_secs(1)),
+                owned
+                    .process
+                    .finish_cleanup(database, Duration::from_secs(1)),
                 Ok(CleanupStatus::Released { .. })
             );
             if !released {
@@ -1838,13 +1878,28 @@ mod tests {
         const MIB: u64 = 1024 * 1024;
         assert_eq!(worker_wall_for(0), SESSION_WALL);
         assert_eq!(worker_wall_for(2 * MIB - 1), SESSION_WALL);
-        assert_eq!(worker_wall_for(2 * MIB), SESSION_WALL + Duration::from_secs(1));
+        assert_eq!(
+            worker_wall_for(2 * MIB),
+            SESSION_WALL + Duration::from_secs(1)
+        );
         // The Claude sessions whose Resume was refused at a flat 10 s on 2026-11-18.
-        assert_eq!(worker_wall_for(5_700_000), SESSION_WALL + Duration::from_secs(2));
-        assert_eq!(worker_wall_for(23_049_796), SESSION_WALL + Duration::from_secs(10));
-        assert_eq!(worker_wall_for(28_208_575), SESSION_WALL + Duration::from_secs(13));
+        assert_eq!(
+            worker_wall_for(5_700_000),
+            SESSION_WALL + Duration::from_secs(2)
+        );
+        assert_eq!(
+            worker_wall_for(23_049_796),
+            SESSION_WALL + Duration::from_secs(10)
+        );
+        assert_eq!(
+            worker_wall_for(28_208_575),
+            SESSION_WALL + Duration::from_secs(13)
+        );
         assert_eq!(worker_wall_for(180 * MIB), WORKER_WALL_MAX);
-        assert_eq!(worker_wall_for(179 * MIB), SESSION_WALL + Duration::from_secs(89));
+        assert_eq!(
+            worker_wall_for(179 * MIB),
+            SESSION_WALL + Duration::from_secs(89)
+        );
         assert_eq!(worker_wall_for(u64::MAX), WORKER_WALL_MAX);
     }
     #[test]
@@ -1889,7 +1944,9 @@ mod tests {
         })
         .unwrap();
         location.prepare_private_directory().unwrap();
-        let subagents = location.directory().join("projects/project/session/subagents");
+        let subagents = location
+            .directory()
+            .join("projects/project/session/subagents");
         fs::create_dir_all(&subagents).unwrap();
         let transcript = subagents.join("agent-a1.jsonl");
         let later = subagents.join("agent-b2.jsonl");
@@ -1943,7 +2000,11 @@ mod tests {
         let project = location.directory().join("projects/project");
         let workflow = project.join("session/subagents/workflows/wf");
         fs::create_dir_all(&workflow).unwrap();
-        fs::write(project.join("session.jsonl"), b"{\"sessionId\":\"session\"}\n").unwrap();
+        fs::write(
+            project.join("session.jsonl"),
+            b"{\"sessionId\":\"session\"}\n",
+        )
+        .unwrap();
         for index in 0..4_200 {
             fs::write(workflow.join(format!("agent-a{index}.jsonl")), b"{}\n").unwrap();
         }

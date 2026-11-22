@@ -1,7 +1,8 @@
+import { keyedList, LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiSelect, uiTextarea, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { closeSidePanel, openSidePanel, sideView } from './side-panel.ts';
 // ADR-0057: the conversation of a thread whose sessions talk to each other. A side panel beside the
 // terminals, not a dialog: the user can watch the sessions work while they read. It reads the room
 // without consuming anything a session has not read, and writes only as the user's own member.
-import './thread-chat.css';
 import { confirmsField } from './desktop-shell-model.ts';
 import { eventLine, isUserLine, mergeEvents, parseSnapshot, type ChatEvent, type ChatSession, type ChatSnapshot, type ChatThread } from './thread-chat-model.ts';
 export { laterEvent } from './thread-chat-model.ts';
@@ -22,9 +23,6 @@ type Options = {
 
 const POLL_MS = 3000;
 const MAX_TEXT = 16 * 1024;
-const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
-  const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
-};
 const message = (error: unknown) => typeof error === 'string' ? error : (error as { message?: string } | null)?.message ?? 'The conversation could not be read.';
 
 const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
@@ -35,107 +33,137 @@ const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
 };
 
 export function createThreadChat(options: Options) {
-  const panel = el('aside'); panel.id = 'thread-chat-panel'; panel.hidden = true; panel.setAttribute('aria-labelledby', 'thread-chat-title');
-  const heading = el('div', 'thread-chat-heading');
-  const title = el('h1', undefined, 'Conversation'); title.id = 'thread-chat-title'; title.tabIndex = -1;
-  const close = el('button', 'thread-chat-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Close the conversation');
-  heading.append(title, close);
-  const thread = el('p', 'thread-chat-thread');
-  const status = el('p', 'thread-chat-status'); status.setAttribute('role', 'status');
-  const sessionsHead = el('h2', undefined, 'Sessions');
-  const sessions = el('ul', 'thread-chat-sessions'); sessions.setAttribute('aria-label', 'Sessions of the thread');
-  const logHead = el('div', 'thread-chat-log-head');
-  const logTitle = el('h2', undefined, 'Messages');
-  const filterLabel = el('label', 'thread-chat-filter'); const filter = el('select'); filter.id = 'thread-chat-filter';
-  for (const [value, text] of [['all', 'Everything'], ['messages', 'Messages only']] as const) { const option = el('option', undefined, text); option.value = value; filter.append(option); }
+  // A view of the window's side panel: the terminals stay live beside it.
+  const view = sideView('thread-chat-panel', 'Conversation', 'Close the conversation', 'thread-chat-title');
+  const panel = view.root; const close = view.close; const title = view.header.querySelector<HTMLElement>('#thread-chat-title')!;
+  const thread = uiPart('paragraph');
+  const status = uiPart('status'); status.setAttribute('role', 'status');
+  const sessionsHead = uiPart('heading', 'Sessions');
+  const sessions = uiTraits(uiPart('list'), 'summaryList'); sessions.setAttribute('aria-label', 'Sessions of the thread');
+  const logHead = uiPart('row');
+  const logTitle = uiPart('heading', 'Messages');
+  const filterLabel = uiPart('label'); const filter = uiSelect(); filter.id = 'thread-chat-filter';
+  for (const [value, text] of [['all', 'Everything'], ['messages', 'Messages only']] as const) { const option = uiOption(value, text); filter.append(option); }
   filterLabel.append('Show ', filter);
   logHead.append(logTitle, filterLabel);
-  const log = el('ol', 'thread-chat-log'); log.setAttribute('aria-label', 'Conversation of the thread'); log.tabIndex = 0;
-  const empty = el('p', 'thread-chat-empty', 'Nothing written yet. Ask a session to talk to another one, or write to them below.');
-  const form = el('form', 'thread-chat-compose');
-  const toLabel = el('label', undefined, 'To'); toLabel.htmlFor = 'thread-chat-to';
-  const to = el('select'); to.id = 'thread-chat-to';
-  const textLabel = el('label', undefined, 'Message'); textLabel.htmlFor = 'thread-chat-text';
-  const text = el('textarea'); text.id = 'thread-chat-text'; text.rows = 3; text.maxLength = MAX_TEXT;
+  const log = uiTraits(uiPart('orderedList'), 'conversation'); log.setAttribute('aria-label', 'Conversation of the thread'); log.tabIndex = 0;
+  const empty = uiPart('paragraph', 'Nothing written yet. Ask a session to talk to another one, or write to them below.');
+  const form = uiPart('form');
+  const toLabel = uiPart('label', 'To'); toLabel.htmlFor = 'thread-chat-to';
+  const to = uiSelect(); to.id = 'thread-chat-to';
+  const textLabel = uiPart('label', 'Message'); textLabel.htmlFor = 'thread-chat-text';
+  const text = uiTextarea(); text.id = 'thread-chat-text'; text.rows = 3; text.maxLength = MAX_TEXT;
   text.placeholder = 'Write to a session. Refer to files by path.';
-  const hint = el('p', 'hint thread-chat-hint', 'You write as "user". A session reads it at once if it is waiting after a turn, else at its next turn. Ctrl+Enter sends.');
+  const hint = uiPart('hint', 'You write as "user". A session reads it at once if it is waiting after a turn, else at its next turn. Ctrl+Enter sends.');
   hint.id = 'thread-chat-hint'; text.setAttribute('aria-describedby', hint.id);
-  const send = el('button', 'primary', 'Send'); send.type = 'submit';
-  const actions = el('div', 'thread-chat-actions'); actions.append(send);
+  const send = uiButton('Send', { primary: true }); send.type = 'submit';
+  const actions = uiPart('actions'); actions.append(send);
   form.append(toLabel, to, textLabel, text, hint, actions);
-  panel.append(heading, thread, status, sessionsHead, sessions, logHead, log, empty, form);
-  document.querySelector('#app')?.append(panel);
+  view.body.append(thread, status, sessionsHead, sessions, logHead, log, empty);
+  view.foot.append(form);
 
   let current: ChatThread | null = null; let snapshot: ChatSnapshot | null = null; let events: ChatEvent[] = [];
-  let timer = 0; let reading = false; let sending = false; let generation = 0; let toChosen = false;
+  let timer = 0; let reading: number | null = null; let sending = false; let generation = 0; let toChosen = false;
+  let lastSeenEvent: string | null = null;
+  // The room's first read: the bars after 300 ms, the sentence and Retry when it fails with nothing to show. A poll that
+  // fails once the room is on screen stays a status line.
+  let cancelLoading: (() => void) | null = null;
+  function readSettled() { cancelLoading?.(); cancelLoading = null; setPanelState(panel, { kind: 'ready' }); }
+  function readFailed(reason: string) {
+    cancelLoading?.(); cancelLoading = null;
+    if (snapshot) { setStatus(reason, 'error'); return; }
+    setStatus('');
+    setPanelState(panel, { kind: 'error', text: reason, retry: { label: 'Retry', run: () => { void read(); } } });
+  }
 
-  function setStatus(text: string, tone: 'info' | 'error' = 'info') { status.textContent = text; status.dataset.tone = tone; }
+  const paintText = (element: HTMLElement, value: string) => {
+    if (element.textContent !== value) element.textContent = value;
+  };
+  function setStatus(value: string, tone: 'info' | 'error' = 'info') {
+    paintText(status, value); status.dataset.tone = tone; uiTone(status, tone === 'error' ? 'err' : null);
+  }
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+  const paintSessions = keyedList<ChatSession>(sessions, session => session.sessionId, session => {
+    const element = uiTraits(uiPart('item'), 'stack');
+    const name = uiPart('strong');
+    const member = uiPart('text');
+    const state = uiTraits(uiPart('text'), 'muted');
+    const show = uiButton('Show'); show.title = "Show this session's tab";
+    show.onclick = () => options.focusSession(session.sessionId);
+    element.append(name, member, state, show);
+    return { element, update(row) {
+      const agent = row.harness ? options.harnessLabel(row.harness) : 'Session';
+      paintText(name, row.title && row.title !== agent ? `${row.title} · ${agent}` : agent);
+      paintText(member, row.memberName ? '@' + row.memberName : '');
+      const wakes = row.wakes ? ` · woken ${row.wakes}×` : '';
+      paintText(state, `${row.state.replace('_', ' ')} · ${CONNECTION_TEXT[row.connection]}${wakes}`);
+      if (element.dataset.connection !== row.connection) element.dataset.connection = row.connection;
+    } };
+  });
+  const paintRecipients = keyedList<[string, string]>(to, ([value]) => value, ([value, label]) => {
+    const element = uiOption(value, label);
+    return { element, update: ([, nextLabel]) => paintText(element, nextLabel) };
+  });
 
   function renderSessions() {
     const rows = snapshot?.sessions ?? [];
-    sessions.replaceChildren(...rows.map(session => {
-      const item = el('li', 'thread-chat-session'); item.dataset.connection = session.connection;
-      const agent = session.harness ? options.harnessLabel(session.harness) : 'Session';
-      const name = el('span', 'thread-chat-session-name', session.title && session.title !== agent ? `${session.title} · ${agent}` : agent);
-      const member = el('span', 'thread-chat-session-member', session.memberName ? `@${session.memberName}` : '');
-      const state = el('span', 'thread-chat-session-state', `${session.state.replace('_', ' ')} · ${CONNECTION_TEXT[session.connection]}`);
-      if (session.wakes) state.textContent += ` · woken ${session.wakes}×`;
-      const show = el('button', undefined, 'Show'); show.type = 'button'; show.title = 'Show this session\'s tab';
-      show.onclick = () => options.focusSession(session.sessionId);
-      item.append(name, member, state, show); return item;
-    }));
+    paintSessions(rows);
     // The recipients: the sessions' members first, then any other member of the room.
     const chosen = to.value;
     const names = new Map<string, string>();
     for (const session of rows) if (session.memberName) names.set(session.memberName, `${session.memberName} · ${session.harness ? options.harnessLabel(session.harness) : 'session'}`);
     for (const member of snapshot?.members ?? []) if (member.active && !member.user && !names.has(member.name)) names.set(member.name, member.name);
     const choices: [string, string][] = [...names.entries(), ['', 'Whole room (wakes no one)']];
-    to.replaceChildren(...choices.map(([value, label]) => { const option = el('option', undefined, label); option.value = value; return option; }));
+    paintRecipients(choices);
     // The first session is the default; a choice the user made is kept while it is offered.
-    to.value = toChosen && choices.some(([value]) => value === chosen) ? chosen : choices[0][0];
+    const selected = toChosen && (chosen === '' || names.has(chosen)) ? chosen : choices[0][0];
+    if (to.value !== selected) to.value = selected;
   }
+  const paintEvents = keyedList<ChatEvent>(log, event => event.eventId, event => {
+    const line = eventLine(event); const item = uiPart('item', undefined, 'thread-chat-event'); item.dataset.kind = line.kind;
+    const time = uiPart('time'); time.dateTime = event.timestamp;
+    const at = new Date(event.timestamp); time.textContent = Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const who = uiPart('text', line.who); if (isUserLine(event)) who.dataset.user = '';
+    const what = uiTraits(uiPart('paragraph', line.what), 'wrap');
+    if (line.tag) { const tag = uiTraits(uiPart('text', line.tag, 'thread-chat-tag'), 'chip'); who.append(' ', tag); }
+    item.append(time, who, what); return { element: item };
+  });
   function renderLog() {
     const keep = atBottom();
     const shown = filter.value === 'messages' ? events.filter(event => event.kind === 'message') : events;
-    log.replaceChildren(...shown.map(event => {
-      const line = eventLine(event); const item = el('li', 'thread-chat-event'); item.dataset.kind = line.kind;
-      const time = el('time', 'thread-chat-time'); time.dateTime = event.timestamp;
-      const at = new Date(event.timestamp); time.textContent = Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const who = el('span', 'thread-chat-who', line.who); if (isUserLine(event)) who.dataset.user = '';
-      const what = el('p', 'thread-chat-text', line.what);
-      if (line.tag) { const tag = el('span', 'thread-chat-tag', line.tag); who.append(' ', tag); }
-      item.append(time, who, what); return item;
-    }));
+    paintEvents(shown);
     empty.hidden = shown.length > 0;
     // New lines scroll into view only for a reader already at the end.
     if (keep) log.scrollTop = log.scrollHeight;
   }
   function render() {
     if (!current) return;
-    thread.textContent = options.title(current);
-    const tone = options.tone(current); if (tone) panel.style.setProperty('--thread-tone', tone); else panel.style.removeProperty('--thread-tone');
+    paintText(thread, options.title(current));
     renderSessions(); renderLog();
     send.disabled = sending || !snapshot?.enabled; to.disabled = text.disabled = !snapshot?.enabled;
   }
 
   async function read() {
-    if (!current || reading || document.hidden) return;
-    const at = generation; const scope = current; reading = true;
+    if (!current || reading === generation || document.hidden) return;
+    const at = generation; const scope = current; reading = at;
     try {
       const since = events.at(-1)?.timestamp ?? null;
       const value = parseSnapshot(await options.invoke<unknown>('thread_chat_snapshot', { request: { worksetId: scope.id, since } }));
       if (at !== generation) return;
-      if (!value) { setStatus('The conversation could not be read.', 'error'); return; }
-      snapshot = value;
+      if (!value) { readFailed('The conversation could not be read.'); return; }
+      snapshot = value; readSettled();
       if (!value.enabled) { events = []; setStatus('This thread\'s sessions do not talk to each other. Turn it on in the thread\'s settings (⋯).'); render(); return; }
       events = mergeEvents(events, value.events);
       setStatus('');
       render();
-      const latest = events.at(-1); if (latest) options.seen(scope.id, latest.eventId, latest.timestamp);
+      const latest = events.at(-1);
+      if (latest && latest.eventId !== lastSeenEvent) {
+        lastSeenEvent = latest.eventId;
+        options.seen(scope.id, latest.eventId, latest.timestamp);
+      }
     } catch (error) {
-      if (at === generation) setStatus(message(error), 'error');
-    } finally { reading = false; }
+      if (at === generation) readFailed(message(error));
+    } finally { if (reading === at) reading = null; }
   }
   function schedule() {
     window.clearInterval(timer);
@@ -153,7 +181,7 @@ export function createThreadChat(options: Options) {
         await options.invoke('thread_chat_send', { request: { worksetId: scope.id, recipients: to.value ? [to.value] : [], text: body } });
         if (current === scope) { text.value = ''; setStatus(to.value ? `Sent to ${to.value}.` : 'Sent to the room.'); }
         await read();
-      } catch (error) { setStatus(message(error), 'error'); }
+      } catch (error) { if (current === scope) setStatus(message(error), 'error'); }
       finally { sending = false; render(); if (current === scope) text.focus(); }
     })();
   };
@@ -164,21 +192,32 @@ export function createThreadChat(options: Options) {
   filter.onchange = renderLog;
   to.onchange = () => { toChosen = true; };
   close.onclick = () => hide();
-  panel.onkeydown = event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); hide(); } };
   const visibility = () => { if (!document.hidden && current) void read(); };
   document.addEventListener('visibilitychange', visibility);
 
+  function clearRoom() {
+    snapshot = null; events = []; toChosen = false; lastSeenEvent = null;
+    paintSessions([]); paintRecipients([]); paintEvents([]);
+  }
+  /** The view left the side panel (its ×, Escape, another view): the room is no longer read. */
+  function left() {
+    if (!current) return;
+    generation++; current = null; clearRoom(); window.clearInterval(timer); readSettled();
+  }
   function hide() {
-    if (panel.hidden) return;
-    generation++; current = null; snapshot = null; events = []; window.clearInterval(timer);
-    panel.hidden = true; options.restoreFocus?.();
+    if (!current) return;
+    closeSidePanel(panel); left(); options.restoreFocus?.();
   }
   return {
     element: panel,
     /** Opens the conversation of this thread, or brings it forward if it is already open. */
     open(scope: ChatThread) {
-      if (current?.id !== scope.id) { generation++; current = { ...scope }; snapshot = null; events = []; toChosen = false; log.replaceChildren(); setStatus('Reading the room…'); }
-      panel.hidden = false; render(); title.focus(); schedule(); void read();
+      if (current?.id !== scope.id) {
+        generation++; current = { ...scope }; clearRoom(); setStatus('Reading the room…'); readSettled();
+        const at = generation;
+        cancelLoading = showAfter(LOADING_DELAY_MS, () => { cancelLoading = null; if (at === generation && !snapshot) setPanelState(panel, { kind: 'loading', rows: 3 }); });
+      }
+      openSidePanel(panel, { onLeave: left }); render(); title.focus(); schedule(); void read();
     },
     hide,
     current: (): string | null => current?.id ?? null,

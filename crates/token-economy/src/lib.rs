@@ -41,7 +41,8 @@ impl Usage {
 }
 
 fn number(object: &serde_json::Map<String, Value>, keys: &[&str]) -> Option<u64> {
-    keys.iter().find_map(|k| object.get(*k).and_then(Value::as_u64))
+    keys.iter()
+        .find_map(|k| object.get(*k).and_then(Value::as_u64))
 }
 
 /// Usage from one usage-shaped object, with the provider semantics detected from its keys.
@@ -57,7 +58,10 @@ pub fn usage_from_object(object: &serde_json::Map<String, Value>) -> Option<Usag
         });
     }
     // Anthropic: input_tokens excludes cache reads and writes.
-    if object.contains_key("cache_read_input_tokens") || object.contains_key("cache_creation_input_tokens") || object.contains_key("input_tokens") {
+    if object.contains_key("cache_read_input_tokens")
+        || object.contains_key("cache_creation_input_tokens")
+        || object.contains_key("input_tokens")
+    {
         return Some(Usage {
             input: number(object, &["input_tokens"]).unwrap_or(0),
             cache_read: number(object, &["cache_read_input_tokens"]).unwrap_or(0),
@@ -66,7 +70,9 @@ pub fn usage_from_object(object: &serde_json::Map<String, Value>) -> Option<Usag
         });
     }
     // Pi-style camelCase.
-    if object.contains_key("input") && (object.contains_key("output") || object.contains_key("cacheRead")) {
+    if object.contains_key("input")
+        && (object.contains_key("output") || object.contains_key("cacheRead"))
+    {
         return Some(Usage {
             input: number(object, &["input"]).unwrap_or(0),
             cache_read: number(object, &["cacheRead"]).unwrap_or(0),
@@ -81,7 +87,11 @@ pub fn usage_from_object(object: &serde_json::Map<String, Value>) -> Option<Usag
 /// message's usage on every content-block record of that message).
 pub fn usage_in_record(record: &Value) -> Option<(Option<String>, Usage)> {
     // Codex: {"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{...}}}}
-    if let Some(info) = record.get("payload").filter(|p| p.get("type").and_then(Value::as_str) == Some("token_count")).and_then(|p| p.get("info")) {
+    if let Some(info) = record
+        .get("payload")
+        .filter(|p| p.get("type").and_then(Value::as_str) == Some("token_count"))
+        .and_then(|p| p.get("info"))
+    {
         let last = info.get("last_token_usage")?.as_object()?;
         let total = info.get("total_token_usage").map(|t| t.to_string());
         return usage_from_object(last).map(|u| (total, u));
@@ -124,11 +134,18 @@ pub struct SessionLedger {
 pub enum LedgerEvent<'a> {
     UserTurn,
     /// A model step with its native records.
-    Step { records: &'a [Value] },
-    ToolCall { name: &'a str, input: &'a Value },
+    Step {
+        records: &'a [Value],
+    },
+    ToolCall {
+        name: &'a str,
+        input: &'a Value,
+    },
     Compaction,
     /// Any other record (Codex token_count events arrive as metadata).
-    Other { records: &'a [Value] },
+    Other {
+        records: &'a [Value],
+    },
 }
 
 pub fn build<'a>(events: impl IntoIterator<Item = LedgerEvent<'a>>) -> SessionLedger {
@@ -141,7 +158,10 @@ pub fn build<'a>(events: impl IntoIterator<Item = LedgerEvent<'a>>) -> SessionLe
     let mut user_turns = 0usize;
     let current = |turns: &mut Vec<TurnUsage>| -> usize {
         if turns.is_empty() {
-            turns.push(TurnUsage { turn: 0, ..TurnUsage::default() });
+            turns.push(TurnUsage {
+                turn: 0,
+                ..TurnUsage::default()
+            });
         }
         turns.len() - 1
     };
@@ -149,7 +169,10 @@ pub fn build<'a>(events: impl IntoIterator<Item = LedgerEvent<'a>>) -> SessionLe
         match event {
             LedgerEvent::UserTurn => {
                 user_turns += 1;
-                turns.push(TurnUsage { turn: user_turns, ..TurnUsage::default() });
+                turns.push(TurnUsage {
+                    turn: user_turns,
+                    ..TurnUsage::default()
+                });
             }
             LedgerEvent::Step { records } | LedgerEvent::Other { records } => {
                 let step = matches!(event, LedgerEvent::Step { .. });
@@ -219,27 +242,79 @@ mod tests {
     #[test]
     fn normalizes_anthropic_openai_and_pi_usage() {
         let claude = json!({"message":{"id":"m1","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":300,"output_tokens":7}}});
-        assert_eq!(usage_in_record(&claude).unwrap(), (Some("m1".into()), Usage { input: 2, cache_read: 300, cache_write: 100, output: 7 }));
+        assert_eq!(
+            usage_in_record(&claude).unwrap(),
+            (
+                Some("m1".into()),
+                Usage {
+                    input: 2,
+                    cache_read: 300,
+                    cache_write: 100,
+                    output: 7
+                }
+            )
+        );
         let codex = json!({"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1},"last_token_usage":{"input_tokens":36429,"cached_input_tokens":13440,"cache_write_input_tokens":0,"output_tokens":206}}}});
-        assert_eq!(usage_in_record(&codex).unwrap().1, Usage { input: 22989, cache_read: 13440, cache_write: 0, output: 206 });
+        assert_eq!(
+            usage_in_record(&codex).unwrap().1,
+            Usage {
+                input: 22989,
+                cache_read: 13440,
+                cache_write: 0,
+                output: 206
+            }
+        );
         let pi = json!({"message":{"usage":{"input":10,"output":3,"cacheRead":5,"cacheWrite":1}}});
-        assert_eq!(usage_in_record(&pi).unwrap().1, Usage { input: 10, cache_read: 5, cache_write: 1, output: 3 });
+        assert_eq!(
+            usage_in_record(&pi).unwrap().1,
+            Usage {
+                input: 10,
+                cache_read: 5,
+                cache_write: 1,
+                output: 3
+            }
+        );
         assert!(usage_in_record(&json!({"message":{"role":"user"}})).is_none());
         assert!(usage_in_record(&json!({"payload":{"type":"token_count","info":null}})).is_none());
     }
 
     #[test]
     fn builds_per_turn_totals_with_duplicates_dropped() {
-        let a = [json!({"message":{"id":"m1","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":5}}}), json!({"message":{"id":"m1","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":5}}})];
-        let b = [json!({"message":{"id":"m2","usage":{"input_tokens":20,"cache_read_input_tokens":80,"output_tokens":1}}})];
+        let a = [
+            json!({"message":{"id":"m1","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":5}}}),
+            json!({"message":{"id":"m1","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":5}}}),
+        ];
+        let b = [
+            json!({"message":{"id":"m2","usage":{"input_tokens":20,"cache_read_input_tokens":80,"output_tokens":1}}}),
+        ];
         let none = [json!({"message":{"role":"assistant"}})];
-        let ledger = build([LedgerEvent::UserTurn, LedgerEvent::Step { records: &a }, LedgerEvent::UserTurn, LedgerEvent::Step { records: &b }, LedgerEvent::Step { records: &none }]);
+        let ledger = build([
+            LedgerEvent::UserTurn,
+            LedgerEvent::Step { records: &a },
+            LedgerEvent::UserTurn,
+            LedgerEvent::Step { records: &b },
+            LedgerEvent::Step { records: &none },
+        ]);
         assert_eq!(ledger.turns, 2);
         assert_eq!(ledger.requests, 2, "the repeated message id counts once");
-        assert_eq!(ledger.total, Usage { input: 30, cache_read: 170, cache_write: 0, output: 6 });
+        assert_eq!(
+            ledger.total,
+            Usage {
+                input: 30,
+                cache_read: 170,
+                cache_write: 0,
+                output: 6
+            }
+        );
         assert_eq!(ledger.hit_rate_permille, Some(850));
-        assert_eq!((ledger.per_turn[0].turn, ledger.per_turn[0].usage.input), (1, 10));
-        assert_eq!((ledger.per_turn[1].turn, ledger.per_turn[1].usage.input), (2, 20));
+        assert_eq!(
+            (ledger.per_turn[0].turn, ledger.per_turn[0].usage.input),
+            (1, 10)
+        );
+        assert_eq!(
+            (ledger.per_turn[1].turn, ledger.per_turn[1].usage.input),
+            (2, 20)
+        );
         assert_eq!(ledger.records_without_usage, 1);
     }
 
@@ -249,12 +324,24 @@ mod tests {
         let other = json!({"path":"b.rs"});
         let ledger = build([
             LedgerEvent::UserTurn,
-            LedgerEvent::ToolCall { name: "Read", input: &read },
+            LedgerEvent::ToolCall {
+                name: "Read",
+                input: &read,
+            },
             LedgerEvent::Compaction,
-            LedgerEvent::ToolCall { name: "Read", input: &read },
-            LedgerEvent::ToolCall { name: "Read", input: &other },
+            LedgerEvent::ToolCall {
+                name: "Read",
+                input: &read,
+            },
+            LedgerEvent::ToolCall {
+                name: "Read",
+                input: &other,
+            },
             LedgerEvent::Compaction,
-            LedgerEvent::ToolCall { name: "Read", input: &other },
+            LedgerEvent::ToolCall {
+                name: "Read",
+                input: &other,
+            },
         ]);
         assert_eq!(ledger.compactions, 2);
         assert_eq!(ledger.tool_calls, 4);

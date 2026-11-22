@@ -18,13 +18,17 @@ use std::sync::{Arc, OnceLock};
 use tauri::{Manager, State, WebviewWindow};
 
 fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as i64)
 }
 
 struct HostRuntime<'a>(&'a Host);
 impl RecoveryRuntime for HostRuntime<'_> {
     fn destination_alive(&mut self, hop: &HopRecord) -> bool {
-        hop.destination_instance.as_deref().is_some_and(|id| self.0.info(id).is_ok())
+        hop.destination_instance
+            .as_deref()
+            .is_some_and(|id| self.0.info(id).is_ok())
     }
     fn kill_destination(&mut self, instance: &str) {
         let _ = self.0.stop(instance);
@@ -60,7 +64,11 @@ fn journal(window: &WebviewWindow) -> Result<&'static HopJournal, String> {
 /// the same session never run at once (I1).
 fn source_key(kept: &KeptPreview) -> String {
     let mut hash = Sha256::new();
-    for part in [kept.source_root.store_root_id.as_str(), kept.source_agent.as_str(), kept.source_native_id.as_str()] {
+    for part in [
+        kept.source_root.store_root_id.as_str(),
+        kept.source_agent.as_str(),
+        kept.source_native_id.as_str(),
+    ] {
         hash.update((part.len() as u64).to_le_bytes());
         hash.update(part.as_bytes());
     }
@@ -87,10 +95,17 @@ pub struct Launched {
 /// PLANNED -> PREVIEWED -> CONFIRMED (the user pressed Hop) -> PREPARING, then the destination
 /// opens. Nothing reaches it until `hop_deliver`.
 #[tauri::command]
-pub async fn hop_launch(window: WebviewWindow, host: State<'_, Host>, request: LaunchRequest) -> Result<Launched, String> {
+pub async fn hop_launch(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    request: LaunchRequest,
+) -> Result<Launched, String> {
     crate::local(&window)?;
-    let kept = kept_preview(&request.hop_id).ok_or("This preview is no longer available; prepare it again.")?;
-    let cwd = kept.cwd.clone().ok_or("The session's project folder is not available here, so the destination cannot open in it.")?;
+    let kept = kept_preview(&request.hop_id)
+        .ok_or("This preview is no longer available; prepare it again.")?;
+    let cwd = kept.cwd.clone().ok_or(
+        "The session's project folder is not available here, so the destination cannot open in it.",
+    )?;
     let preview = &kept.preview;
     if !verify_send(preview, preview.bootstrap.as_bytes()) {
         return Err("The seed file changed after the preview; prepare it again.".into());
@@ -112,58 +127,142 @@ pub async fn hop_launch(window: WebviewWindow, host: State<'_, Host>, request: L
         seed_path: preview.seed_path.clone(),
     };
     let mut hop = journal.plan(&plan, now_ms()).map_err(|e| e.to_string())?;
-    for next in [HopState::Previewed, HopState::Confirmed, HopState::Preparing] {
-        hop = journal.transition(&hop.plan.id, hop.state, hop.revision, next, None, now_ms()).map_err(|e| e.to_string())?;
+    for next in [
+        HopState::Previewed,
+        HopState::Confirmed,
+        HopState::Preparing,
+    ] {
+        hop = journal
+            .transition(&hop.plan.id, hop.state, hop.revision, next, None, now_ms())
+            .map_err(|e| e.to_string())?;
     }
-    journal.record_effect(&hop.plan.id, "spawn_attempted", Some(&preview.destination), now_ms()).map_err(|e| e.to_string())?;
+    journal
+        .record_effect(
+            &hop.plan.id,
+            "spawn_attempted",
+            Some(&preview.destination),
+            now_ms(),
+        )
+        .map_err(|e| e.to_string())?;
     let owner = crate::ready::<agents::Controller>(&window)?;
     // Claude Code takes request headers from its environment, so the bootstrap that `hop_deliver` will paste is
     // declared to the model proxy by the hash of its text; the proxy then leaves that one message untouched
     // (SC9). The other harnesses cannot carry a header at launch: docs/notes/2026-11-13-control-marker-feasibility.md.
     let opened = if preview.destination == "claude_code" {
         let (name, value) = control_header(ControlKind::Bootstrap, &preview.bootstrap);
-        owner.open_handoff(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols, format!("{name}: {value}")).await
+        owner
+            .open_handoff(
+                &preview.destination,
+                host.inner().clone(),
+                cwd,
+                request.rows,
+                request.cols,
+                format!("{name}: {value}"),
+            )
+            .await
     } else {
-        owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols, None).await
+        owner
+            .open(
+                &preview.destination,
+                host.inner().clone(),
+                cwd,
+                request.rows,
+                request.cols,
+                None,
+            )
+            .await
     };
     let started = match opened {
         Ok(started) => started,
         Err(message) => {
-            let _ = journal.transition(&hop.plan.id, hop.state, hop.revision, HopState::Failed, Some(message), now_ms());
+            let _ = journal.transition(
+                &hop.plan.id,
+                hop.state,
+                hop.revision,
+                HopState::Failed,
+                Some(message),
+                now_ms(),
+            );
             return Err(format!("{message} The source session is untouched."));
         }
     };
     journal
-        .set_destination_with_thread(&hop.plan.id, Some(&started.session.id), None, Some(&started.thread_id), now_ms())
+        .set_destination_with_thread(
+            &hop.plan.id,
+            Some(&started.session.id),
+            None,
+            Some(&started.thread_id),
+            now_ms(),
+        )
         .map_err(|e| e.to_string())?;
-    journal.record_effect(&hop.plan.id, "spawn_observed", Some(&started.session.id), now_ms()).map_err(|e| e.to_string())?;
-    Ok(Launched { hop_id: hop.plan.id, nonce: preview.nonce.clone(), started })
+    journal
+        .record_effect(
+            &hop.plan.id,
+            "spawn_observed",
+            Some(&started.session.id),
+            now_ms(),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(Launched {
+        hop_id: hop.plan.id,
+        nonce: preview.nonce.clone(),
+        started,
+    })
 }
 
 /// Delivers the exact previewed bootstrap into the destination's input as one bracketed paste.
 #[tauri::command]
-pub async fn hop_deliver(window: WebviewWindow, host: State<'_, Host>, hop_id: String) -> Result<(), String> {
+pub async fn hop_deliver(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    hop_id: String,
+) -> Result<(), String> {
     crate::local(&window)?;
     let journal = journal(&window)?;
-    let hop = journal.hop(&hop_id).map_err(|e| e.to_string())?.ok_or("The hop is not in the journal.")?;
+    let hop = journal
+        .hop(&hop_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("The hop is not in the journal.")?;
     if hop.state != HopState::Preparing {
         return Err("The hop is not waiting for delivery.".into());
     }
     let kept = kept_preview(&hop_id).ok_or("This preview is no longer available.")?;
-    let instance = hop.destination_instance.as_deref().ok_or("The destination was not recorded.")?;
+    let instance = hop
+        .destination_instance
+        .as_deref()
+        .ok_or("The destination was not recorded.")?;
     let preview = &kept.preview;
-    if preview.bootstrap_sha256 != hop.plan.bootstrap_sha256 || !verify_send(preview, preview.bootstrap.as_bytes()) {
-        let _ = journal.transition(&hop_id, hop.state, hop.revision, HopState::Aborted, Some("snapshot changed before delivery"), now_ms());
+    if preview.bootstrap_sha256 != hop.plan.bootstrap_sha256
+        || !verify_send(preview, preview.bootstrap.as_bytes())
+    {
+        let _ = journal.transition(
+            &hop_id,
+            hop.state,
+            hop.revision,
+            HopState::Aborted,
+            Some("snapshot changed before delivery"),
+            now_ms(),
+        );
         return Err("The seed changed after the preview; nothing was sent.".into());
     }
-    journal.record_effect(&hop_id, "seed_delivery", Some("paste"), now_ms()).map_err(|e| e.to_string())?;
+    journal
+        .record_effect(&hop_id, "seed_delivery", Some("paste"), now_ms())
+        .map_err(|e| e.to_string())?;
     let mut bytes = b"\x1b[200~".to_vec();
     bytes.extend_from_slice(preview.bootstrap.as_bytes());
     bytes.extend_from_slice(b"\x1b[201~");
     host.write(instance, bytes).map_err(|e| e.to_string())?;
     std::thread::sleep(std::time::Duration::from_millis(150));
-    host.write(instance, b"\r".to_vec()).map_err(|e| e.to_string())?;
-    journal.record_effect(&hop_id, "seed_delivered", Some(&preview.bootstrap_sha256), now_ms()).map_err(|e| e.to_string())
+    host.write(instance, b"\r".to_vec())
+        .map_err(|e| e.to_string())?;
+    journal
+        .record_effect(
+            &hop_id,
+            "seed_delivered",
+            Some(&preview.bootstrap_sha256),
+            now_ms(),
+        )
+        .map_err(|e| e.to_string())
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -186,10 +285,17 @@ pub struct Finished {
 /// READY -> SWITCHING -> COMMITTED for a fork from history: there is no live source to end or
 /// close. FAILED leaves the destination pane open so its last output stays visible (R44).
 #[tauri::command]
-pub async fn hop_finish(window: WebviewWindow, hop_id: String, outcome: FinishOutcome) -> Result<Finished, String> {
+pub async fn hop_finish(
+    window: WebviewWindow,
+    hop_id: String,
+    outcome: FinishOutcome,
+) -> Result<Finished, String> {
     crate::local(&window)?;
     let journal = journal(&window)?;
-    let hop = journal.hop(&hop_id).map_err(|e| e.to_string())?.ok_or("The hop is not in the journal.")?;
+    let hop = journal
+        .hop(&hop_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("The hop is not in the journal.")?;
     if hop.state != HopState::Preparing {
         return Err("The hop is not waiting for its receipt.".into());
     }
@@ -198,16 +304,38 @@ pub async fn hop_finish(window: WebviewWindow, hop_id: String, outcome: FinishOu
         return Err("The seed was not delivered.".into());
     }
     if outcome == FinishOutcome::Fail {
-        let failed = journal.transition(&hop_id, hop.state, hop.revision, HopState::Failed, Some("no receipt; user cancelled"), now_ms()).map_err(|e| e.to_string())?;
-        return Ok(Finished { state: failed.state });
+        let failed = journal
+            .transition(
+                &hop_id,
+                hop.state,
+                hop.revision,
+                HopState::Failed,
+                Some("no receipt; user cancelled"),
+                now_ms(),
+            )
+            .map_err(|e| e.to_string())?;
+        return Ok(Finished {
+            state: failed.state,
+        });
     }
     let detail = match outcome {
         FinishOutcome::Receipt => "receipt seen; paste channel, first-entry hash not verified",
         _ => "user switched without receipt; paste channel",
     };
-    let mut hop = journal.transition(&hop_id, hop.state, hop.revision, HopState::Ready, Some(detail), now_ms()).map_err(|e| e.to_string())?;
+    let mut hop = journal
+        .transition(
+            &hop_id,
+            hop.state,
+            hop.revision,
+            HopState::Ready,
+            Some(detail),
+            now_ms(),
+        )
+        .map_err(|e| e.to_string())?;
     for next in [HopState::Switching, HopState::Committed] {
-        hop = journal.transition(&hop_id, hop.state, hop.revision, next, None, now_ms()).map_err(|e| e.to_string())?;
+        hop = journal
+            .transition(&hop_id, hop.state, hop.revision, next, None, now_ms())
+            .map_err(|e| e.to_string())?;
     }
     Ok(Finished { state: hop.state })
 }
@@ -257,7 +385,10 @@ pub async fn hops_recent(window: WebviewWindow) -> Result<Vec<HopLine>, String> 
 pub async fn hop_status(window: WebviewWindow, hop_id: String) -> Result<JournalView, String> {
     crate::local(&window)?;
     let journal = journal(&window)?;
-    let record = journal.hop(&hop_id).map_err(|e| e.to_string())?.ok_or("The hop is not in the journal.")?;
+    let record = journal
+        .hop(&hop_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("The hop is not in the journal.")?;
     let events = journal.events(&hop_id).map_err(|e| e.to_string())?;
     Ok(JournalView { record, events })
 }

@@ -55,7 +55,7 @@ const instanceSettings = async () => {
 };
 async function openSettings() {
   await page.locator('#toolbar-more').click();
-  await page.locator('#open-settings').click();
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#settings-status')).toContainText('New sessions start with');
 }
@@ -88,22 +88,21 @@ try {
   page.setDefaultTimeout(15000); owned = true;
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
 
-  // 1. One Settings entry in the "⋯" menu, and nothing else there that is a preference.
+  // 1. One Settings entry: the last view tab of the title bar, and nothing in the "⋯" menu that is a preference.
   await page.locator('#toolbar-more').click();
   const menu = (await page.locator('#toolbar-more-menu > *').allTextContents()).map(text => text.trim());
-  expect(menu.filter(text => /appearance|theme|alerts/i.test(text))).toEqual([]);
-  expect(menu.filter(text => text === 'Settings')).toHaveLength(1);
-  expect(menu.at(-1)).toBe('Settings');
+  expect(menu.filter(text => /appearance|theme|alerts|settings/i.test(text))).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.locator('#toolbar-more-menu')).toBeHidden();
-  console.log('ok  the menu has one Settings entry and no separate appearance, theme or alerts entry');
+  expect(await page.locator('.im-titlebar .im-tab').last().innerText()).toBe('Settings');
+  console.log('ok  Settings is the title bar\'s last tab, and the menu has no appearance, theme, alerts or settings entry');
 
   // 2. The drawer opens with full access on; its index reaches every section, in order.
   await openSettings();
   await expect(page.locator('#settings-full-access')).toBeChecked();
-  const sections = ['appearance', 'agents', 'models', 'memory', 'alerts', 'github', 'variables', 'sessions'];
+  const sections = ['appearance', 'agents', 'models', 'memory', 'alerts', 'github', 'variables', 'sessions', 'plugins'];
   const links = page.locator('#settings-dialog .settings-index-link');
-  await expect(links).toHaveText(['Appearance', 'Agents', 'Models', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions']);
+  await expect(links).toHaveText(['Appearance', 'Agents', 'Models', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions', 'Plugins']);
   for (const [index, id] of sections.entries()) {
     await links.nth(index).click();
     await expect(page.locator(`#settings-section-${id}-title`)).toBeFocused();

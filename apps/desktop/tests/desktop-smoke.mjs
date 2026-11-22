@@ -2,12 +2,15 @@
 // Run only after the coordinated desktop/helper build.
 import { chromium, expect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, opendir, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, mkdtemp, opendir, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
 import { dragTab, startSession } from './session-flow.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
@@ -28,6 +31,8 @@ const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shina
 });
 let diagnostics = '';
 app.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-32768); });
+let started = '';
+app.stdout.on('data', chunk => { started = (started + chunk).slice(-32768); });
 let browser, nativeHandle, page, scope;
 function nativeWindowState(restore = false) {
   return JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File',
@@ -55,11 +60,12 @@ async function checkScratchNames(directory) {
   }
   return counts;
 }
+let lastConnectError = 'none';
 try {
   for (let attempt = 0; attempt < 60; attempt++) {
     if (app.exitCode !== null) throw new Error('Desktop exited: ' + app.exitCode + '\n' + diagnostics);
     try { browser = await chromium.connectOverCDP('http://127.0.0.1:' + port, { timeout: 1000 }); break; }
-    catch { await delay(500); }
+    catch (error) { lastConnectError = String(error?.message ?? error).slice(0, 2048); await delay(500); }
   }
   if (!browser) throw new Error('WebView2 unavailable.\n' + diagnostics);
   const context = browser.contexts()[0];
@@ -83,7 +89,7 @@ try {
     catch (error) { if (error.message.startsWith('presentation_load: busy:')) return null; throw error; }
   };
   const ids = () => ipc('terminal_list').then(sessions => sessions.map(session => session.id).sort());
-  const pane = id => page.locator('.wm-pane:has([data-view-id="' + id + '"])');
+  const pane = id => page.locator('.im-pane:has([data-view-id="' + id + '"])');
   const shell = async id => {
     await expect(pane(id).locator('.xterm-accessibility')).toContainText('PS ', { timeout: 30000 });
   };
@@ -91,7 +97,7 @@ try {
   // one choice starts exactly one PowerShell (ADR-0039 v2).
   const openShell = async trigger => { await (await startSession(page, { project: projectPath, harness: 'powershell', trigger })).done(30000); };
   // Panes are arranged by dragging a tab with the mouse onto a side of a pane.
-  const tab = id => page.locator('.wm-tab[data-view-id="' + id + '"]');
+  const tab = id => page.locator('.im-tile-tab[data-view-id="' + id + '"]');
   const type = async (id, command) => {
     await pane(id).locator('.xterm-helper-textarea').focus();
     await page.keyboard.type(command); await page.keyboard.press('Enter');
@@ -118,7 +124,7 @@ try {
     return ipc(scope.projectId ? 'workspace_load' : 'global_workspace_load', { request: scope });
   };
   await expect.poll(async () => (await saved())?.ownership, { timeout: 15000 }).toBe('ours');
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await expect(page.locator('.im-pane')).toHaveCount(1);
   expect(await ids()).toEqual([]);
 
   const agentOnly = process.env.SHINATAMA_SMOKE_FIRST_AGENT_ONLY === '1';
@@ -153,14 +159,22 @@ try {
   await type(first, "Write-Output ('SHINATAMA_' + 'DESKTOP_OK')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
-  // Theme and terminal appearance live in the Appearance section of Settings (the last entry of the
-  // toolbar's "⋯" menu); every change applies at once and the drawer stays open.
-  await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
+  // The look and the theme are the window's Appearance commands (Ctrl+K); ONI dark's skin and the terminal appearance
+  // live in the Appearance section of Settings (the title bar's last tab). Every change applies at once
+  // and the view stays open.
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#toolbar-more-menu')).toBeHidden();
-  await page.getByLabel('Theme', { exact: true }).selectOption('section9');
+  await page.locator('#project').focus(); await page.keyboard.press('Control+k');
+  const commands = page.getByRole('dialog', { name: 'Type a command' });
+  await commands.getByRole('combobox').fill('ONI look');
+  await commands.getByRole('option').filter({ hasText: 'ONI look' }).first().click();
+  await expect(commands).toBeHidden();
+  // ONI with the Windows theme is dark, so the skin applies.
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'oni');
+  await page.getByLabel('ONI skin', { exact: true }).selectOption('section9');
   await expect.poll(async () => (await appearance())?.settings.skin).toBe('section9');
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#78e2dc');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--im-accent').trim())).toBe('#78e2dc');
   expect(await ids()).toEqual(beforeAppearance);
   await page.locator('#presentation-follow').check();
   await expect.poll(async () => (await appearance())?.settings.followSkin).toBe(true);
@@ -180,16 +194,16 @@ try {
   await openShell(page.locator('#new-terminal'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(2);
   const second = (await ids()).find(id => id !== first); await shell(second);
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await expect(page.locator('.im-pane')).toHaveCount(1);
   await dragTab(page, tab(second), pane(second), 'right');
-  await expect(page.locator('.wm-pane')).toHaveCount(2);
+  await expect(page.locator('.im-pane')).toHaveCount(2);
   const pair = await ids();
 
-  await openShell(pane(second).locator('.wm-add'));
+  await openShell(pane(second).locator('.im-add'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(3);
   const third = (await ids()).find(id => !pair.includes(id)); await shell(third);
   await dragTab(page, tab(third), pane(third), 'bottom');
-  await expect(page.locator('.wm-pane')).toHaveCount(3);
+  await expect(page.locator('.im-pane')).toHaveCount(3);
   const runtimeIds = await ids();
   const separator = page.getByRole('separator').first();
   const beforeResize = await separator.getAttribute('aria-valuenow');
@@ -201,7 +215,7 @@ try {
   await type(first, "Write-Output ('HEALTHY_' + 'AFTER_DRAG')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('HEALTHY_AFTER_DRAG');
   expect(await ids()).toEqual(runtimeIds);
-  const expectedActive = await page.locator('.wm-pane').evaluateAll(panes => Object.fromEntries(
+  const expectedActive = await page.locator('.im-pane').evaluateAll(panes => Object.fromEntries(
     panes.map(pane => [pane.dataset.groupId, pane.querySelector('[role="tab"][aria-selected="true"]')?.dataset.viewId ?? null])));
   await expect.poll(async () => {
     const record = await saved(); if (!record) return false;
@@ -214,7 +228,7 @@ try {
   const beforeReload = shape(persisted.root);
   await page.reload();
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  await expect(page.locator('.wm-pane')).toHaveCount(3);
+  await expect(page.locator('.im-pane')).toHaveCount(3);
   await expect(page.locator('#presentation-skin')).toHaveValue('section9');
   expect((await ipc('presentation_load')).settings.followSkin).toBe(true);
   expect(await ids()).toEqual(runtimeIds);
@@ -242,11 +256,21 @@ try {
     return status.phase;
   }, { timeout: 45000 }).toBe('ready');
   const agentOpen = await startSession(page, { project: projectPath, harness: 'claude_code' });
+  // A machine without Claude Code (a GitHub runner) skips the agent part and says so; any other
+  // refusal still fails, and so does a missing Claude Code in the first-agent-only run.
+  let claudeMissing = false;
   await expect.poll(async () => {
     const refused = await agentOpen.refusal();
+    if (refused && !agentOnly && /harness is not installed/i.test(refused)) { claudeMissing = true; return false; }
     if (refused) throw new Error('Agent open refused: ' + refused.slice(0, 300) + ' ' + JSON.stringify(await ipc('agent_status')));
     return agentOpen.pending();
   }, { timeout: 120000 }).toBe(false);
+  if (claudeMissing) {
+    console.log('SKIP: Claude Code is not installed here; the isolated Claude check and the TUI startup/stop did not run.');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#new-session-dialog')).toBeHidden();
+    await expect(page.locator('#session-menu')).toBeHidden();
+  } else {
   await expect.poll(() => checkScratchNames(storage.directory), {
     timeout: 5000, intervals: [50, 100, 200],
     message: 'A successful open must leave no released version-probe or TUI-canary scratch.',
@@ -281,21 +305,21 @@ try {
   expect(durableThreads.rows.find(row => row.id === threadId).status).toBe('recorded_open');
   await ipc('terminal_stop', { id: native });
   await expect(pane(native).locator('.exit-banner')).toBeVisible({ timeout: 15000 });
-  await expect(page.locator('#notice[data-tone="error"]')).toBeHidden();
+  await expect(page.locator('.im-notice[data-im-tone="err"]')).toHaveCount(0);
   await pane(native).getByRole('button', { name: 'Close terminal', exact: true }).click();
   await expect.poll(ids).toHaveLength(healthyCount);
   if (agentOnly) {
     const separator = sidebar.getByRole('separator', {name:'Thread sidebar width'});
     await separator.focus(); await separator.press('ArrowRight');
-    await expect(separator).toHaveAttribute('aria-valuenow','280');
+    await expect(separator).toHaveAttribute('aria-valuenow','272');
     await sidebar.getByRole('button',{name:'Collapse threads',exact:true}).click();
     await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings,{timeout:10000})
-      .toEqual({version:1,width:280,collapsed:true});
+      .toEqual({version:1,width:272,collapsed:true});
     await page.reload();
     await expect(page.locator('#runtime-status')).toContainText('Local runtime');
     await expect(sidebar).toHaveClass(/is-collapsed/);
     await sidebar.getByRole('button',{name:'Expand threads',exact:true}).click();
-    await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','280');
+    await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','272');
     await expect(sidebar.locator('.thread-sidebar-group[data-project-id="'+project.id+'"]')).toBeVisible({timeout:10000});
     await expect(sidebar.locator('button.thread-sidebar-anchor')).toHaveCount(1);
     expect(await ids()).toEqual([]);
@@ -303,36 +327,57 @@ try {
     await page.screenshot({path:resolve(output,'c25-thread-sidebar.png'),timeout:3000});
     console.log('PASS: durable real-start thread, read-only selection, sidebar width/collapse saved and restored; no auto-resume.');
   }
+  } // the agent part, when Claude Code is installed
 
   if (healthyCount > 0) {
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
-    await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
     expect((await ids()).length).toBe(healthyCount);
   }
   const closed = page.waitForEvent('close', { timeout: 30000 });
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (healthyCount > 0) await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+  if (healthyCount > 0) await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closed;
   expect(errors).toEqual([]);
-  console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; isolated Claude check and original TUI startup/stop; canonical instance/thread references; confirmed save/close.');
+  console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; '
+    + (claudeMissing ? 'Claude Code not installed, its check skipped; ' : 'isolated Claude check and original TUI startup/stop; canonical instance/thread references; ') + 'confirmed save/close.');
 } catch (error) {
+  if (!browser) {
+    // The app ran but its WebView never answered: what the app logged in this run's synthetic home,
+    // and which of its processes exist, say where the start stopped.
+    try {
+      const log = await readFile(resolve(fixture, 'data', 'shinatama.log'), 'utf8').catch(reason => 'no shinatama.log: ' + reason.message);
+      console.error('Start diagnostic, app log:\n' + log.slice(-8192));
+      console.error('Start diagnostic, app exit code: ' + app.exitCode + ', stdout: ' + started.slice(-4096));
+      console.error('Start diagnostic, processes:\n' + execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'shinatama|msedgewebview2' } | ForEach-Object { '{0} {1} parent={2}' -f $_.ProcessId, $_.Name, $_.ParentProcessId }"],
+      { encoding: 'utf8', windowsHide: true, timeout: 20000 }));
+      // Whether the debugging port reached WebView2, is open, and what Playwright refused.
+      console.error('Start diagnostic, last CDP connect error (port ' + port + '): ' + lastConnectError);
+      console.error('Start diagnostic, /json/version: ' + await fetch('http://127.0.0.1:' + port + '/json/version', { signal: AbortSignal.timeout(3000) })
+        .then(async response => response.status + ' ' + (await response.text()).slice(0, 1024)).catch(reason => 'unreachable: ' + reason.message));
+      console.error('Start diagnostic, WebView2 browser arguments:\n' + execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -notmatch '--type=' } | ForEach-Object { $_.CommandLine }"],
+      { encoding: 'utf8', windowsHide: true, timeout: 20000 }).slice(0, 4096));
+    } catch (diagnosticError) { console.error('Start diagnostic failed:', diagnosticError.message); }
+  }
   if (page && !page.isClosed()) {
     try {
       const snapshot = await Promise.race([
         page.evaluate(async scope => ({
           resourceControl: await window.__TAURI_INTERNALS__.invoke('resources_telemetry', { telemetry: {} }),
-          notice: document.querySelector('#notice')?.textContent?.slice(0, 2048),
+          notice: [...document.querySelectorAll('.im-notice')].map(node => node.textContent).join(' | ').slice(0, 2048),
           modelProxy: document.querySelector('#model-proxy-panel')?.textContent?.slice(0, 2048),
           agentCheckup: document.querySelector('#agent-setup-dialog')?.textContent?.slice(0, 4096),
           sidecarStatus: await window.__TAURI_INTERNALS__.invoke('sidecar_status'),
           agentStatus: await window.__TAURI_INTERNALS__.invoke('agent_status'),
-          panes: [...document.querySelectorAll('.wm-pane')].slice(0, 16).map(pane => ({
+          panes: [...document.querySelectorAll('.im-pane')].slice(0, 16).map(pane => ({
             groupId: pane.dataset.groupId, hidden: pane.hidden,
             tabs: [...pane.querySelectorAll('[data-view-id]')].map(tab => ({ id: tab.dataset.viewId, active: tab.getAttribute('aria-selected') })),
-            bodyChildren: [...pane.querySelector('.wm-body').children].map(child => ({ tag: child.tagName, class: child.className, hidden: child.hidden, inputs: child.querySelectorAll('.xterm-helper-textarea').length })),
+            bodyChildren: [...pane.querySelector('.im-tile-body').children].map(child => ({ tag: child.tagName, class: child.className, hidden: child.hidden, inputs: child.querySelectorAll('.xterm-helper-textarea').length })),
           })),
           bindingsInDocument: [...document.querySelectorAll('.terminal-view')].slice(0, 16).map(view => ({
-            groupId: view.closest('.wm-pane')?.dataset.groupId ?? null, parent: view.parentElement?.className,
+            groupId: view.closest('.im-pane')?.dataset.groupId ?? null, parent: view.parentElement?.className,
             hidden: view.hidden, inputs: view.querySelectorAll('.xterm-helper-textarea').length,
           })),
           nativeSessions: await window.__TAURI_INTERNALS__.invoke('terminal_list'),

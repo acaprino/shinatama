@@ -1,8 +1,8 @@
-import { openModal, topModal } from './modal.ts';
+import { hasModal, LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
 import { nextCapabilityLines, parseCapabilities, type CapabilityState } from './sidecar-status.ts';
-import './session-detail.css';
 
 export type DetailCursor = { offset: number; fingerprint: string };
 export type DetailRequest = { root: SessionRootSelector; nativeId: string; cursor: DetailCursor | null; limit: 50 };
@@ -111,39 +111,37 @@ function decode(value: unknown, request: DetailRequest): DetailPage {
 
 /** No startup read, HTML, images, URL navigation, transcript cache or launch action. */
 export function createSessionDetail(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'session-detail-dialog'; dialog.setAttribute('aria-labelledby', 'session-detail-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-detail-title'; title.textContent = 'Session detail';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close session detail'); heading.append(title, closeButton);
+  const view = sideSurface('session-detail-dialog', 'Session detail', 'Close session detail', 'session-detail-title');
+  const closeButton = view.closeButton;
   if (options.back) {
-    const back = document.createElement('button'); back.type = 'button'; back.className = 'dialog-back'; back.textContent = `‹ ${options.back.label}`;
-    back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { dialog.close(); options.back!.open(); }; heading.prepend(back);
+    const back = uiButton(`‹ ${options.back.label}`);
+    back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { view.close(); options.back!.open(); }; view.header.prepend(back);
   }
-  const source = document.createElement('p'); source.className = 'hint session-detail-source';
-  const status = document.createElement('p'); status.id = 'session-detail-status'; status.setAttribute('role', 'status');
-  const tools = document.createElement('div'); tools.className = 'session-detail-tools';
-  const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload detail'; tools.append(reload);
-  const find = document.createElement('button'); find.type = 'button'; find.textContent = 'Find in conversation';
+  const source = uiPart('hint');
+  const status = uiPart('status'); status.id = 'session-detail-status'; status.setAttribute('role', 'status');
+  const tools = uiPart('toolbar');
+  const reload = uiButton('Reload detail'); tools.append(reload);
+  const find = uiButton('Find in conversation');
   if (options.openFind) tools.append(find);
-  const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'Export…';
+  const exportButton = uiButton('Export…');
   if (options.openExport) tools.append(exportButton);
-  const hopButton = document.createElement('button'); hopButton.type = 'button'; hopButton.textContent = 'Hop…';
+  const hopButton = uiButton('Hop…');
   if (options.openHop) tools.append(hopButton);
   const panels = new Map<string, HTMLElement>(); let activeTab = 'transcript';
   for (const name of ['overview', 'transcript', 'lineage']) {
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = name[0].toUpperCase() + name.slice(1);
+    const button = uiButton(name[0].toUpperCase() + name.slice(1));
     button.onclick = () => { activeTab = name; render(); }; tools.append(button);
-    const panel = document.createElement('section'); panel.setAttribute('aria-label', button.textContent); panels.set(name, panel);
+    const panel = uiPart('region'); panel.setAttribute('aria-label', button.textContent); panels.set(name, panel);
   }
-  const overview = document.createElement('dl'); overview.className = 'session-detail-overview'; panels.get('overview')!.append(overview);
-  const events = document.createElement('div'); events.className = 'session-detail-events'; panels.get('transcript')!.append(events);
-  const lineage = document.createElement('div'); lineage.className = 'session-lineage'; panels.get('lineage')!.append(lineage);
-  const pager = document.createElement('div'); pager.className = 'session-detail-pagination';
-  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
-  const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pager.append(previous, position, next);
-  const notices = document.createElement('ul'); notices.className = 'session-detail-notices';
-  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'RAW requires an explicit privacy confirmation. Export redacts secrets and never includes reasoning. Attachment files stay closed.';
-  dialog.append(heading, source, status, tools, ...panels.values(), pager, notices, unavailable); (document.querySelector('#app') ?? document.body).append(dialog);
+  const overview = uiPart('descriptionList'); overview.classList.add('session-detail-overview'); panels.get('overview')!.append(overview);
+  const events = uiTraits(uiPart('stack'), 'scroll', 'bounded'); events.classList.add('session-detail-events'); panels.get('transcript')!.append(events);
+  const lineage = uiTraits(uiPart('stack'), 'scroll', 'bounded'); panels.get('lineage')!.append(lineage);
+  const pager = uiPart('actions'); pager.classList.add('session-detail-pagination');
+  const previous = uiButton('Previous');
+  const position = uiPart('text'); const next = uiButton('Next'); pager.append(previous, position, next);
+  const notices = uiPart('list');
+  const unavailable = uiPart('hint', 'RAW requires an explicit privacy confirmation. Export redacts secrets and never includes reasoning. Attachment files stay closed.');
+  view.body.append(source, status, tools, ...panels.values(), pager, notices, unavailable);
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
   let busy = false; let generation = 0; let destroyed = false; let failed = false; let message = 'Choose a session explicitly.';
@@ -156,9 +154,9 @@ export function createSessionDetail(options: Options) {
   function paintProxy() {
     if (!proxyLines || !page) { proxyKey?.remove(); proxyItem?.remove(); proxyKey = proxyItem = null; return; }
     if (!proxyKey || !proxyItem || !proxyItem.isConnected) {
-      proxyKey = document.createElement('dt'); proxyKey.textContent = 'Model proxy'; proxyItem = document.createElement('dd'); overview.append(proxyKey, proxyItem);
+      proxyKey = uiPart('term', 'Model proxy'); proxyItem = uiPart('definition'); overview.append(proxyKey, proxyItem);
     }
-    proxyItem.replaceChildren(...proxyLines.map(text => { const line = document.createElement('span'); line.className = 'session-detail-proxy-line'; line.textContent = text; return line; }));
+    proxyItem.replaceChildren(...proxyLines.map(text => uiPart('paragraph', text)));
   }
   const onVisible = () => { if (!document.hidden) void readProxy(); };
   function stopProxyReads() {
@@ -166,7 +164,7 @@ export function createSessionDetail(options: Options) {
     document.removeEventListener('visibilitychange', onVisible); paintProxy();
   }
   async function readProxy() {
-    if (destroyed || !options.capabilities || !current || !dialog.open || document.hidden || proxyInFlight === proxyGeneration) return;
+    if (destroyed || !options.capabilities || !current || !view.isOpen() || document.hidden || proxyInFlight === proxyGeneration) return;
     const at = proxyGeneration; const id = current.nativeId; proxyInFlight = at;
     let read: CapabilityState; let timer = 0;
     try {
@@ -174,7 +172,7 @@ export function createSessionDetail(options: Options) {
       read = parseCapabilities(await Promise.race([options.capabilities(id), expired]));
     } catch { read = { state: 'unavailable' }; } finally { window.clearTimeout(timer); }
     if (proxyInFlight === at) proxyInFlight = -1;
-    if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !dialog.open) return;
+    if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !view.isOpen()) return;
     const lines = nextCapabilityLines(proxyLines, read);
     if (lines) { proxyLines = lines; paintProxy(); }
   }
@@ -184,15 +182,24 @@ export function createSessionDetail(options: Options) {
     proxyTimer = window.setInterval(() => { void readProxy(); }, CAPABILITY_POLL_MS); void readProxy();
   }
   function field(label: string, value: string | number | null) {
-    const key = document.createElement('dt'); key.textContent = label; const item = document.createElement('dd'); item.textContent = value === null || value === '' ? 'Unknown' : String(value); overview.append(key, item);
+    const key = uiPart('term', label); const item = uiPart('definition', value === null || value === '' ? 'Unknown' : String(value)); overview.append(key, item);
+  }
+  // The first read of a session, and a read that failed with nothing to show, are the panel's states: the bars once the
+  // read lasts past 300 ms, the sentence with Retry on failure. A later page keeps the page on screen.
+  let loadingShown = false;
+  function paintState() {
+    setPanelState(view.root, !page && busy && loadingShown ? { kind: 'loading', rows: 4 }
+      : !page && failed && current ? { kind: 'error', text: message, retry: { label: 'Retry', run: () => { void load(null, 'reload'); } } }
+      : { kind: 'ready' });
   }
   function render() {
-    if (destroyed) return; dialog.setAttribute('aria-busy', String(busy));
+    if (destroyed) return; view.root.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
     find.disabled = busy || !page; exportButton.disabled = busy || !page; hopButton.disabled = busy || !page;
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
     status.textContent = busy ? 'Reading bounded session detail…' : message; status.dataset.state = failed ? 'error' : 'ready';
     for (const [name, panel] of panels) panel.hidden = name !== activeTab;
+    paintState();
     overview.replaceChildren(); events.replaceChildren(); notices.replaceChildren();
     if (page) {
       const shownPage=page;
@@ -210,70 +217,70 @@ export function createSessionDetail(options: Options) {
       } else field('Token usage', ledger?.recordsWithoutUsage ? 'This agent did not record usage in the session.' : 'No model requests recorded.');
       proxyKey = proxyItem = null; paintProxy();
       for (const event of page.events) {
-        const article = document.createElement('article'); const label = document.createElement('h2'); label.textContent = KINDS[event.kind];
-        const provenance = document.createElement('small'); provenance.textContent = `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`;
-        const body = document.createElement('pre'); body.textContent = event.text || '(No visible text recorded)';
+        const article = uiPart('article'); const label = uiPart('heading', KINDS[event.kind]);
+        const provenance = uiPart('hint', `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`);
+        const body = uiPart('pre', event.text || '(No visible text recorded)');
         let content: HTMLElement = article;
         if (event.kind === 'tool_call' || event.kind === 'tool_result') {
-          const disclosure = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = KINDS[event.kind];
+          const disclosure = uiPart('details'); const summary = uiPart('summary', KINDS[event.kind]);
           disclosure.open = cursor !== null && event.ordinal === cursor.offset;
           disclosure.append(summary); article.append(disclosure); content = disclosure;
         } else content.append(label);
         content.append(provenance, body);
         if(options.openRaw){
-          const raw=document.createElement('button'); raw.type='button'; raw.textContent='RAW entry'; raw.disabled=busy;
+          const raw=uiButton('RAW entry'); raw.disabled=busy;
           raw.onclick=()=>{if(!busy&&page===shownPage)options.openRaw?.({root:{...shownPage.root},nativeId:shownPage.nativeId,entryOrdinal:event.entryOrdinal,fingerprint:shownPage.fingerprint});};
           content.append(raw);
         }
-        if (event.truncated || event.payloadOmitted) { const note = document.createElement('p'); note.className = 'hint'; note.textContent = event.truncated ? 'Displayed text is truncated at its fixed limit.' : 'Sensitive or raw payload is omitted.'; content.append(note); }
+        if (event.truncated || event.payloadOmitted) { const note = uiPart('hint', event.truncated ? 'Displayed text is truncated at its fixed limit.' : 'Sensitive or raw payload is omitted.'); content.append(note); }
         events.append(article);
       }
-      for (const notice of page.notices) { const item = document.createElement('li'); item.textContent = notice; notices.append(item); }
+      for (const notice of page.notices) { const item = uiPart('item', notice); notices.append(item); }
     }
     lineage.replaceChildren();
-    const parent=document.createElement('p'); parent.textContent=`Parent session ID: ${page?.overview.parentNativeId ?? 'Unknown'}`; lineage.append(parent);
+    const parent=uiPart('paragraph'); parent.textContent=`Parent session ID: ${page?.overview.parentNativeId ?? 'Unknown'}`; lineage.append(parent);
     if(page){
       const report=page.lineage;
       const addBranch=(label:string,items:LineageNode[],state:LineageState)=>{
-        const heading=document.createElement('h2'); heading.textContent=`${label} · ${lineageStates[state]}`;
-        const list=document.createElement('ul');
+        const heading=uiPart('heading'); heading.textContent=`${label} · ${lineageStates[state]}`;
+        const list=uiPart('list');
         for(const node of items){
-          const item=document.createElement('li'); const button=document.createElement('button'); button.type='button'; button.textContent=node.nativeId;
+          const item=uiPart('item'); const button=uiButton(node.nativeId);
           button.disabled=busy||!node.canSelect; button.title=lineageStates[node.state];
           button.onclick=()=>{if(!busy&&current&&page?.lineage===report)show({...current.root},node.nativeId);};
-          const note=document.createElement('span'); note.textContent=` · ${lineageStates[node.state]}`; item.append(button,note); list.append(item);
+          const note=uiPart('text'); note.textContent=` · ${lineageStates[node.state]}`; item.append(button,note); list.append(item);
         }
         lineage.append(heading,list);
       };
       addBranch('Ancestors',report.ancestors,report.ancestorState); addBranch('Direct children',report.children,report.childrenState);
-      const count=document.createElement('p'); count.className='hint'; count.textContent=`Direct children recorded: ${report.totalDirectChildren??'Unknown'}. Links open read-only detail in this archive.`; lineage.append(count);
+      const count=uiPart('hint'); count.textContent=`Direct children recorded: ${report.totalDirectChildren??'Unknown'}. Links open read-only detail in this archive.`; lineage.append(count);
     }
     position.textContent = page ? `${page.totalEvents ? (cursor?.offset ?? 0) + 1 : 0}–${(cursor?.offset ?? 0) + page.events.length} of ${page.totalEvents} events${!history.length && (cursor?.offset ?? 0) > 0 ? ' · Reload for first page' : ''}` : 'No detail loaded';
   }
   async function load(requested: DetailCursor | null, direction: 'reload' | 'next' | 'previous') {
     if (busy || !current) return;
     const at = generation; const request: DetailRequest = { root: { ...current.root }, nativeId: current.nativeId, cursor: requested, limit: 50 };
-    busy = true; failed = false; render();
+    busy = true; failed = false; loadingShown = false; render();
+    const cancelLoading = showAfter(LOADING_DELAY_MS, () => { if (busy && !page && at === generation) { loadingShown = true; render(); } });
     try {
       const received = await options.read(request);
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !view.isOpen()) return;
       const value = decode(received, request);
       if (direction === 'reload') history = []; else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); } else history.pop();
       page = value; cursor = requested; message = page.totalEvents ? 'Read-only projection. Raw and omitted payloads are not requested.' : 'No canonical events were returned.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) { page = null; cursor = null; history = []; failed = true;
+      if (!destroyed && at === generation && view.isOpen()) { page = null; cursor = null; history = []; failed = true;
         const code = error instanceof Error ? error.message : typeof error === 'string' ? error : record(error) ? error.issue ?? error.code : null;
         message = typeof code === 'string' && Object.hasOwn(ERRORS, code) ? ERRORS[code] : 'Session detail could not be loaded. Retry explicitly.'; options.reportError(message); }
-    } finally { busy = false; if (!destroyed && at !== generation && dialog.open) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
+    } finally { cancelLoading(); loadingShown = false; busy = false; if (!destroyed && at !== generation && view.isOpen()) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
   }
-  function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (dialog.open) dialog.close(); }
+  function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (view.isOpen()) view.close(); }
   function show(root: SessionRootSelector, id: string, jump: DetailCursor | null = null) {
     if (destroyed || !rootValue(root) || !nativeId(id) || (jump && (!integer(jump.offset) || !digest(jump.fingerprint)))) { if (!destroyed) options.reportError('This session selector cannot be read safely.'); return false; }
-    const other = topModal();
-    if (!dialog.open && other && other.id !== 'session-library-dialog') return false;
+    if (!view.isOpen() && hasModal()) return false;
     generation++; current = { root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, nativeId: id };
     page = null; cursor = null; history = []; failed = false; activeTab = 'transcript'; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Reading the selected session…';
-    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); startProxyReads(); if (!busy) void load(jump, 'reload'); return true;
+    render(); if (!view.isOpen()) view.open(); closeButton.focus(); startProxyReads(); if (!busy) void load(jump, 'reload'); return true;
   }
   find.onclick = () => {
     if (!busy && page) options.openFind?.({ root: { ...page.root }, nativeId: page.nativeId,
@@ -287,6 +294,6 @@ export function createSessionDetail(options: Options) {
   };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
-  render(); return { show, close, destroy: () => { destroyed = true; close(); dialog.remove(); } };
+  view.onClose(() => { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (!sidePanelOpen()) options.restoreFocus?.(); });
+  render(); return { show, close, destroy: () => { destroyed = true; close(); view.root.remove(); } };
 }

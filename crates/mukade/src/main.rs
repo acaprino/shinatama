@@ -16,7 +16,11 @@ fn main() {
     let phases = mukade::timing::report();
     if !phases.is_empty() {
         eprint!("{phases}");
-        eprintln!("{:<28} {:>9.1} ms", "total", started.elapsed().as_secs_f64() * 1000.0);
+        eprintln!(
+            "{:<28} {:>9.1} ms",
+            "total",
+            started.elapsed().as_secs_f64() * 1000.0
+        );
     }
     if let Err(error) = result {
         eprintln!("{error}");

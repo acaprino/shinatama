@@ -92,41 +92,41 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
 | [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C09R | pending | 14–28 |
 | [C23](#c23) | Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate | C22, C07 | pending | 18–36 |
-| [C24](#c24) | Indicizzare e cercare le sessioni in modo incrementale | C23 | pending | 12–24 |
+| [C24](#c24) | Indicizzare e cercare le sessioni in modo incrementale | C23 | committed | 12–24 |
 | [F02](#f02) | Proprietà del runtime, flusso degli eventi e rilevamento della presenza | FS03, C15, C11 | pending | 4–10 |
-| [C25](#c25) | Aggiungere thread persistenti e ripresa esclusiva nello stesso agente | C22, C24, FS03, F02 | pending | 12–24 |
-| [C26](#c26) | Aggiungere esportazioni e CLI stabile per le sessioni | C23, C24, C25 | pending | 12–24 |
+| [C25](#c25) | Aggiungere thread persistenti e ripresa esclusiva nello stesso agente | C22, C24, FS03, F02 | committed | 12–24 |
+| [C26](#c26) | Aggiungere esportazioni e CLI stabile per le sessioni | C23, C24, C25 | committed | 12–24 |
 | [F03P](#f03p) | Controlli di riservatezza, doctor e ricostruzione degli indici operativi | FS03, C23, C24 | pending | 4–10 |
 | [C16](#c16) | Aggiungere l'adattatore Codex | C15, C11S | pending | 12–24 |
 | [C17](#c17) | Aggiungere l'adattatore OpenCode | C15, C11S | pending | 12–24 |
 | [C18](#c18) | Aggiungere l'adattatore Pi | C15, C11S | pending | 12–24 |
 | [C19](#c19) | Aggiungere Hermes Agent con capacità non supportate esplicite | C15, C11S | pending | 14–28 |
 | [C20](#c20) | Aggiungere il pannello ACP DeepSeek | C15, C11S | pending | 20–40 |
-| [C27](#c27) | Creare anteprime seed esatte e oscurate | C23, C25, C26, C13 | pending | 16–32 |
-| [C28](#c28) | Implementare il coordinatore degli hop close/fork con registro persistente | C27 | pending | 20–40 |
-| [C29](#c29) | Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato | C28 | pending | 20–40 |
+| [C27](#c27) | Creare anteprime seed esatte e oscurate | C23, C25, C26, C13 | committed | 16–32 |
+| [C28](#c28) | Implementare il coordinatore degli hop close/fork con registro persistente | C27 | committed | 20–40 |
+| [C29](#c29) | Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato | C28 | committed | 20–40 |
 | [C30](#c30) | Completare la matrice degli hop ordinati tra i sei agenti | C19, C20, C29, C16, C17, C18 | pending | 16–32 |
-| [F03H](#f03h) | Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo | F03P, C29 | pending | 3–8 |
-| [C31](#c31) | Costruire l'API di messaggistica limitata e circoscritta tra istanze | C25, C27, F02 | pending | 14–28 |
+| [F03H](#f03h) | Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo | F03P, C29 | committed | 3–8 |
+| [C31](#c31) | Costruire l'API di messaggistica limitata e circoscritta tra istanze | C25, C27, F02 | committed | 14–28 |
 | [C32](#c32) | Esporre quattro strumenti MCP e hook iniettati all'avvio | C31, C11, C14, C16, C17, C18, C19, C20 | pending | 18–36 |
 | [C33](#c33) | Consegnare una tavola rotonda headless con limiti rigidi | C32, C13, C24, C28, C29 | pending | 20–40 |
 | [C34](#c34) | Mostrare lo stato Daodan in sola lettura e digitare i comandi | C14, C25, C32, D01 | deferred | 16–32 |
 | [C35](#c35) | Trasferire il contesto delle attività Daodan dopo un hop close completato | C29, C34 | deferred | 8–16 |
-| [C36](#c36) | Aggiungere preferiti, metadati git e avvio in worktree collegati | C25 | pending | 12–24 |
+| [C36](#c36) | Aggiungere preferiti, metadati git e avvio in worktree collegati | C25 | committed | 12–24 |
 | [C39](#c39) | Vincolare importazione e trasferimento nativo post-v1 alle verifiche | C30, C26 | pending | 24–48 |
 | [C21](#c21) | Aggiungere Gemini per il solo avvio | C13, C14, C15 | pending | 6–12 |
 | [C37](#c37) | Aggiungere installazione, aggiornamento e ripristino dei programmi gestiti | C14, C15, C16, C17, C18, C19, C20 | pending | 16–32 |
-| [C41](#c41) | Aggiungere navigazione limitata e in sola lettura nei file del progetto | C07, C04 | pending | 10–18 |
-| [C42](#c42) | Aggiungere lettura sicura di Markdown e modifica del sorgente | C41 | pending | 16–32 |
-| [C43](#c43) | Abilitare la modifica visuale Markdown solo dopo le verifiche di fedeltà | C42 | pending | 16–32 |
+| [C41](#c41) | Aggiungere navigazione limitata e in sola lettura nei file del progetto | C07, C04 | committed | 10–18 |
+| [C42](#c42) | Aggiungere lettura sicura di Markdown e modifica del sorgente | C41 | committed | 16–32 |
+| [C43](#c43) | Abilitare la modifica visuale Markdown solo dopo le verifiche di fedeltà | C42 | committed | 16–32 |
 | [C44](#c44) | Aggiungere anteprime degli artefatti e lettura DOCX verificata separatamente | C41 | pending | 12–24 |
 | [C45](#c45) | Vincolare browser incorporati e mini-app post-v1 a verifiche separate | C07, C44 | pending | 24–48 |
 | [F04](#f04) | Hook di stato nativi e prima panoramica delle istanze | F02, C15 | pending | 4–10 |
 | [F05](#f05) | Utilizzo, dati git, collisioni e cronologia della collaborazione | F04, C23, C29 | pending | 4–10 |
-| [F06](#f06) | Titoli testuali originali con impostazioni, esclusioni e limiti di costo | F03P, F04 | pending | 2–6 |
+| [F06](#f06) | Titoli testuali originali con impostazioni, esclusioni e limiti di costo | F03P, F04 | committed | 2–6 |
 | [F07](#f07) | Runtime condiviso per modelli locali e download facoltativi | F06, C13 | pending | 6–16 |
 | [F08](#f08) | Titoli facoltativi dei provider dai cataloghi degli account autenticati | F06, C13, C14 | pending | 3–8 |
-| [F09](#f09) | Protocollo delle schede companion, azioni predefinite e rendering sicuro | C42, C11 | pending | 4–10 |
+| [F09](#f09) | Protocollo delle schede companion, azioni predefinite e rendering sicuro | C42, C11 | committed | 4–10 |
 | [F10](#f10) | Companion R1: integrazione Claude su richiesta | F09, C15, C13, F04 | pending | 6–16 |
 | [F11-windows](#f11-windows) | Confinamento del companion a livello di sistema operativo: Windows | F10 | pending | 6–20 |
 | [F12](#f12) | Companion R2: flusso automatico dei turni e continuità dopo gli hop | F10, C23, C29, F04 | pending | 5–12 |
@@ -156,7 +156,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [F27](#f27) | Selezione degli strumenti differiti senza invalidare la cache | F25, C15 | pending | 4–12 |
 | [F28](#f28) | Installazione facoltativa TokenEconomizer e rimozione degli strumenti solo su proposta | F20, C15, C13 | pending | 6–16 |
 | [F29](#f29) | TokenEconomizer: envfacts e protezione dai cicli subordinata alle verifiche | F28, F07 | pending | 4–12 |
-| [C46](#c46) | Widget desktop anticipato Windows | B00, B02, C01, C07, C08 | pending | 1–4 |
+| [C46](#c46) | Widget desktop anticipato Windows | B00, B02, C01, C07, C08 | committed | 1–4 |
 | [F30](#f30) | Widget finale della V1: prova per piattaforma e avvisi di consultazione | F02, F05, F06, C29, C15, F16, F19, F24, F27, F29, C30, C33, C36, C37, C43, C44 | pending | 6–16 |
 | [F31](#f31) | Widget: risposte rapide legate alla richiesta e pipeline delle animazioni revisionata | F30, C11 | pending | 6–16 |
 | [F32PKG](#f32pkg) | Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito | F32CI, C29, C14, C13, C16 | pending | 6–18 |
@@ -176,7 +176,9 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [QSET-deepseek](#qset-deepseek) | Provare set e tool reali per deepseek | C14, C20 | pending | 3–6 |
 | [QA-deepseek-windows](#qa-deepseek-windows) | Certificare il pannello ACP DeepSeek su windows | C09, C20 | pending | 4–8 |
 | [F32SIGN](#f32sign) | Artefatti di rilascio firmati e notarizzazione | F32PKG, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 4–12 |
-| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R | pending | 8–16 |
+| [F34](#f34) | Interfaccia desktop composta con Imago: vetro, pannelli in posizione e palette degli harness | C07, C08 | in_progress | 20–60 |
+| [F35](#f35) | Browser Moli: un host per esecuzione, schede del workspace e strumenti agente | F17, C13 | pending | 8–16 |
+| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R, F34, F35 | pending | 8–16 |
 | [D01](#d01) | Integrare pacchetti e marketplace Daodan | C14, C15 | deferred | 4–8 |
 | [D02](#d02) | Collegare i partecipanti bare-model della roundtable a Daodan | C33, D01 | deferred | 4–8 |
 | [D03](#d03) | Mostrare gli avvisi dei task Daodan nel widget | C34, F30 | deferred | 4–8 |
@@ -937,7 +939,7 @@ Un solo supervisore per finestra, topologia scelta sulla base delle misure, recu
 
 **Gate collegati, da registrare separatamente:** SC5, SC6, SC12, SC14, SC15, SC16, T9, RES1, RES2, RES3, RES4 (integrazione).
 
-**Requisiti coperti dal piano:** FRD-0009/R17, FRD-0009/R18, FRD-0009/R19, FRD-0009/R20, FRD-0009/R21, FRD-0009/R22, FRD-0009/R23, FRD-0009/R24, FRD-0009/R25, FRD-0009/R26, FRD-0009/R29, FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63.
+**Requisiti coperti dal piano:** FRD-0009/R17, FRD-0009/R18, FRD-0009/R19, FRD-0009/R20, FRD-0009/R21, FRD-0009/R22, FRD-0009/R23, FRD-0009/R24, FRD-0009/R25, FRD-0009/R26, FRD-0009/R29, FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63, FRD-0009/R31, FRD-0009/R32.
 
 **Commit proposto:** `feat(c13): Supervisionare i sidecar distinguendo occupazione e recupero`.
 
@@ -1468,7 +1470,7 @@ Navigatore Progetti/Sessioni e pannelli in sola lettura Panoramica, Trascrizione
 
 **Gate collegati, da registrare separatamente:** SS1, SS2, SS3, SS6, CL6, CX10, OC3, PI3, H15.
 
-**Requisiti coperti dal piano:** FRD-0001/R11, FRD-0006/R04, FRD-0006/R05, FRD-0006/R12, FRD-0006/R13, FRD-0006/R16, FRD-0006/R17, FRD-0006/R18, FRD-0006/R19, FRD-0006/R20, FRD-0006/R21, FRD-0006/R22, FRD-0006/R23.
+**Requisiti coperti dal piano:** FRD-0001/R11, FRD-0006/R04, FRD-0006/R05, FRD-0006/R12, FRD-0006/R13, FRD-0006/R16, FRD-0006/R17, FRD-0006/R18, FRD-0006/R19, FRD-0006/R20, FRD-0006/R21, FRD-0006/R22, FRD-0006/R23, FRD-0006/R49.
 
 **Commit proposto:** `feat(c23): Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate`.
 
@@ -4290,7 +4292,7 @@ Widget in un processo separato alimentato dagli eventi: viso di Shinatama in sov
 
 **Gate collegati, da registrare separatamente:** W1, W2, W3, W4, W6, W10.
 
-**Requisiti coperti dal piano:** FRD-0010/R24, FRD-0010/R25, FRD-0010/R26, FRD-0010/R28, FRD-0010/R29, FRD-0010/R30, FRD-0010/R31, FRD-0010/R36, FRD-0010/R37, FRD-0010/R44.
+**Requisiti coperti dal piano:** FRD-0010/R24, FRD-0010/R25, FRD-0010/R26, FRD-0010/R28, FRD-0010/R29, FRD-0010/R30, FRD-0010/R31, FRD-0010/R36, FRD-0010/R37, FRD-0010/R44, FRD-0010/R45.
 
 **Commit proposto:** `feat(f30): Widget finale della V1: prova per piattaforma e avvisi di consultazione`.
 
@@ -4342,7 +4344,7 @@ Artefatti installabili e gestione esplicita di Node e componenti facoltativi, co
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, X4, SC13, P17, P18, AT-12.
 
-**Requisiti coperti dal piano:** FRD-0017/R01, FRD-0017/R02, FRD-0017/R03, FRD-0017/R04, FRD-0017/R05, FRD-0017/R08, FRD-0017/R09, FRD-0017/R13, FRD-0017/R14, FRD-0017/R15, FRD-0017/R16, FRD-0017/R17, FRD-0017/R18, FRD-0017/R23, FRD-0002/R42.
+**Requisiti coperti dal piano:** FRD-0017/R01, FRD-0017/R02, FRD-0017/R03, FRD-0017/R04, FRD-0017/R05, FRD-0017/R08, FRD-0017/R09, FRD-0017/R13, FRD-0017/R14, FRD-0017/R15, FRD-0017/R16, FRD-0017/R17, FRD-0017/R18, FRD-0017/R23, FRD-0002/R42, FRD-0017/R24.
 
 **Commit proposto:** `feat(f32pkg): Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito`.
 
@@ -4804,12 +4806,126 @@ Firma e checksum dei rilasci Windows, con distribuzione delle risorse grafiche r
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire packaging/, .github/workflows/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
+<a id="f34"></a>
+## F34 · Interfaccia desktop composta con Imago: vetro, pannelli in posizione e palette degli harness
+
+Le due pagine desktop (index.html, widget.html) composte con i controlli pubblici di Imago: vetro acrilico scuro, pannelli e scelte che si aprono in posizione, menu Nuova sessione e terminali che seguono la skin; xterm.js, CodeMirror e i frame Moli restano contenuto montato da Shinatama.
+
+**Ambito:** v1. **Dipendenze:** C07, C08. **Stima:** 20–60 ore.
+
+**File/componenti:** `apps/desktop/src/`; `apps/desktop/index.html`; `apps/desktop/widget.html`; `package.json`; `Cargo.toml`.
+
+**Accettazione osservabile:**
+
+- Ogni superficie del chrome è un unico materiale traslucido colorato dalla skin attiva; il tema resta scuro con qualunque tema di sistema.
+- Pannelli della toolbar e dettagli si aprono come drawer accanto ai pannelli; solo chiusura con terminali vivi e anteprima hop sono modali.
+- Spostare una scheda conserva PTY, documento o sessione Moli; layout V1, skin e zoom già salvati si rileggono.
+- Nessun controllo locale nelle due pagine: il conteggio dei controlli costruiti a mano è zero, esclusi i punti di montaggio dei motori.
+
+**Catalogo verifiche (applicare la policy essenziale):** `planned: npm test, npm run build, npm run test:imago`; `planned: desktop-smoke and thread-sets-smoke on Verify Windows`.
+
+**Gate collegati, da registrare separatamente:** nessun gate intero chiuso da questo passo.
+
+**Requisiti coperti dal piano:** FRD-0001/R64, FRD-0001/R65, FRD-0001/R66, FRD-0001/R67, FRD-0001/R68, FRD-0001/R69.
+
+**Commit proposto:** `feat(f34): Interfaccia desktop composta con Imago`.
+
+**Prima azione alla ripresa:** Leggere lo studio di migrazione (sezioni 3, 4, 6, 7) e la revisione della migrazione; i commit b4181c1 e fb73603 hanno migrato gran parte della GUI senza prova WebView2. Riprendere dalla prima tappa non dimostrata in un flusso reale.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### F34.1 · Prima schermata su Imago
+
+Progetti → Gestisci radici → Scegli cartella con shell, campi e pulsanti di Imago; Imago e imago-shell allo stesso riferimento.
+
+Stima: 4–12 ore. File: `apps/desktop/src/`.
+
+Accettazione: Scelta nativa, testo digitato, annullamento, errore e ritorno del focus funzionano su Windows.
+
+Verifiche pianificate: `planned: projects-smoke`.
+
+Commit: `feat(f34.1): Prima schermata su Imago`. Registrare stato e prove sotto `progress.json` → `steps` → `F34` → `units` → `F34.1`.
+
+### F34.2 · Comandi, sidebar e pannelli
+
+Workset, nuova sessione, impostazioni, libreria, ricerca, dettagli, export, Hop e pagina avvisi su Imago.
+
+Stima: 4–12 ore. File: `apps/desktop/src/`.
+
+Accettazione: Un'azione fa una sola operazione, Esc rispetta i livelli, la finestra avvisi funziona con la principale in secondo piano.
+
+Verifiche pianificate: `planned: desktop-smoke`.
+
+Commit: `feat(f34.2): Comandi, sidebar e pannelli`. Registrare stato e prove sotto `progress.json` → `steps` → `F34` → `units` → `F34.2`.
+
+### F34.3 · Workspace con risorse vive
+
+Renderer controllato con punti di montaggio stabili collegato al reducer e alla persistenza V1.
+
+Stima: 4–12 ore. File: `apps/desktop/src/`.
+
+Accettazione: Un terminale attraversa un cambio di gruppo senza nuovo processo né nuova sottoscrizione.
+
+Verifiche pianificate: `planned: desktop-smoke, thread-sets-smoke`.
+
+Commit: `feat(f34.3): Workspace con risorse vive`. Registrare stato e prove sotto `progress.json` → `steps` → `F34` → `units` → `F34.3`.
+
+### F34.4 · Terminale, file e browser
+
+I tre strumenti montati nei pannelli Imago con i loro comandi attorno al contenuto.
+
+Stima: 4–12 ore. File: `apps/desktop/src/`.
+
+Accettazione: Spostare una scheda conserva PTY, undo/selezione o sessione Moli; la chiusura libera le risorse una volta.
+
+Verifiche pianificate: `planned: files-smoke, browser-smoke`.
+
+Commit: `feat(f34.4): Terminale, file e browser`. Registrare stato e prove sotto `progress.json` → `steps` → `F34` → `units` → `F34.4`.
+
+### F34.5 · Mappa team e chiusura
+
+Editing accessibile del grafo, ultimi CSS e controlli locali rimossi, entrambi i pacchetti allo stesso tag.
+
+Stima: 4–12 ore. File: `apps/desktop/src/`.
+
+Accettazione: Galleria Imago e smoke Shinatama verdi; nessuna UI locale nel grafo di produzione.
+
+Verifiche pianificate: `planned: team-map-smoke, imago gallery`.
+
+Commit: `feat(f34.5): Mappa team e chiusura`. Registrare stato e prove sotto `progress.json` → `steps` → `F34` → `units` → `F34.5`.
+
+<a id="f35"></a>
+## F35 · Browser Moli: un host per esecuzione, schede del workspace e strumenti agente
+
+shinatama-moli.exe da crate Moli fissati su pipe privata con token, in un Job Object kill-on-close; pagine come schede del workspace disegnate da frame JPEG; strumenti MCP fissi per gli agenti e presa di controllo dell'utente.
+
+**Ambito:** v1. **Dipendenze:** F17, C13. **Stima:** 8–16 ore.
+
+**File/componenti:** `crates/browser/`; `apps/desktop/src/browser-tab.ts`; `apps/desktop/src-tauri/src/browser.rs`.
+
+**Accettazione osservabile:**
+
+- Una sola istanza per esecuzione, client remoti rifiutati, DACL del solo utente e token letto prima di qualunque byte.
+- Al massimo 8 pagine vive; le schede nascoste non ricevono frame; un layout ripristinato mostra l'indirizzo con «Riapri».
+- Gli agenti aprono solo pagine http(s) pubbliche con gli strumenti fissi; l'input dell'utente non raggiunge una pagina controllata da un agente.
+- Nessuna cifra di memoria prima della misura M2 sull'intero albero dell'host.
+
+**Catalogo verifiche (applicare la policy essenziale):** `planned: browser-smoke on Verify Windows`; `planned: M2 memory measurement against headless Chrome`.
+
+**Gate collegati, da registrare separatamente:** AT-11.
+
+**Requisiti coperti dal piano:** FRD-0011/R53, FRD-0011/R54, FRD-0011/R55, FRD-0011/R56, FRD-0011/R57, FRD-0011/R58, FRD-0011/R59, FRD-0011/R60.
+
+**Commit proposto:** `feat(f35): Browser Moli con host per esecuzione e strumenti agente`.
+
+**Prima azione alla ripresa:** Leggere FRD-0011 R53-R60 e ADR-0056; il codice esiste già in crates/browser e browser-tab.ts. Preparare le prove M2-M7 prima di dichiarare il passo verificato.
+
 <a id="v1-acceptance"></a>
 ## V1-acceptance · Verificare e distribuire il candidato dello scope attivo
 
 Candidato verificato dello scope attualmente autorizzato, con esclusione esplicita dell integrazione Daodan rinviata dall utente.
 
-**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R. **Stima:** 8–16 ore.
+**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R, F34, F35. **Stima:** 8–16 ore.
 
 **File/componenti:** `docs/verification/release-v1/**`; `docs/releases/**`; `release-manifest.json`.
 

@@ -1,7 +1,7 @@
-import { openModal } from './modal.ts';
+import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import { createProgressLine, type ProgressBackend } from './session-progress.ts';
-import './session-export.css';
 
 export type ExportFormat = 'stx' | 'mukade' | 'md';
 export type ExportMode = 'full' | 'portable';
@@ -32,43 +32,39 @@ const ISSUES: Record<string, string> = {
 };
 
 export function createSessionExport(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'session-export-dialog'; dialog.setAttribute('aria-labelledby', 'session-export-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-export-title'; title.textContent = 'Export session';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close export'); heading.append(title, closeButton);
-  const source = document.createElement('p'); source.className = 'hint session-export-source';
-  const formatSet = document.createElement('fieldset'); const formatLegend = document.createElement('legend'); formatLegend.textContent = 'Format'; formatSet.append(formatLegend);
+  const view = sideSurface('session-export-dialog', 'Export session', 'Close export', 'session-export-title');
+  const source = uiPart('hint');
+  const formatSet = uiPart('fieldset'); const formatLegend = uiPart('legend', 'Format'); formatSet.append(formatLegend);
   const radios = new Map<ExportFormat, HTMLInputElement>();
   for (const format of FORMATS) {
-    const label = document.createElement('label'); label.className = 'session-export-choice';
-    const input = document.createElement('input'); input.type = 'radio'; input.name = 'session-export-format'; input.value = format.value; input.checked = format.value === 'stx';
-    const text = document.createElement('span'); const strong = document.createElement('strong'); strong.textContent = format.label;
-    const small = document.createElement('small'); small.textContent = format.detail; text.append(strong, small); label.append(input, text);
+    const label = uiPart('label');
+    const input = uiInput('radio'); input.name = 'session-export-format'; input.value = format.value; input.checked = format.value === 'stx';
+    const text = uiPart('text'); const strong = uiPart('strong', format.label);
+    const small = uiPart('hint', format.detail); text.append(strong, small); label.append(input, text);
     formatSet.append(label); radios.set(format.value, input); input.onchange = render;
   }
-  const native = document.createElement('p'); native.className = 'hint'; native.textContent = "The agent's own export is not offered yet: no native export has been proven for this agent.";
+  const native = uiPart('hint', "The agent's own export is not offered yet: no native export has been proven for this agent.");
   formatSet.append(native);
-  const modeSet = document.createElement('fieldset'); const modeLegend = document.createElement('legend'); modeLegend.textContent = 'Privacy'; modeSet.append(modeLegend);
+  const modeSet = uiPart('fieldset'); const modeLegend = uiPart('legend', 'Privacy'); modeSet.append(modeLegend);
   const modes = new Map<ExportMode, HTMLInputElement>();
   for (const [value, label, detail] of [['full', 'Full backup', 'For you: keeps paths and addresses. Secrets are still redacted.'],
     ['portable', 'Portable', 'For sharing: also replaces your home folder with ~ and removes e-mail addresses.']] as [ExportMode, string, string][]) {
-    const row = document.createElement('label'); row.className = 'session-export-choice';
-    const input = document.createElement('input'); input.type = 'radio'; input.name = 'session-export-mode'; input.value = value; input.checked = value === 'full';
-    const text = document.createElement('span'); const strong = document.createElement('strong'); strong.textContent = label;
-    const small = document.createElement('small'); small.textContent = detail; text.append(strong, small); row.append(input, text); modeSet.append(row); modes.set(value, input);
+    const row = uiPart('label');
+    const input = uiInput('radio'); input.name = 'session-export-mode'; input.value = value; input.checked = value === 'full';
+    const text = uiPart('text'); const strong = uiPart('strong', label);
+    const small = uiPart('hint', detail); text.append(strong, small); row.append(input, text); modeSet.append(row); modes.set(value, input);
   }
-  const attachRow = document.createElement('label'); attachRow.className = 'session-export-choice';
-  const attach = document.createElement('input'); attach.type = 'checkbox';
-  const attachText = document.createElement('span'); attachText.textContent = 'Copy attachment content beside the file (inline images only). Otherwise attachments are hashed references.';
+  const attachRow = uiPart('label');
+  const attach = uiInput('checkbox');
+  const attachText = uiPart('text', 'Copy attachment content beside the file (inline images only). Otherwise attachments are hashed references.');
   attachRow.append(attach, attachText);
-  const always = document.createElement('p'); always.className = 'hint'; always.textContent = 'Reasoning is never exported. The file is written to a temporary name and renamed when complete.';
-  const actions = document.createElement('div'); actions.className = 'session-export-actions';
-  const save = document.createElement('button'); save.type = 'button'; save.className = 'primary'; save.textContent = 'Save as…'; actions.append(save);
-  const status = document.createElement('p'); status.className = 'session-export-status'; status.setAttribute('role', 'status');
+  const always = uiPart('hint', 'Reasoning is never exported. The file is written to a temporary name and renamed when complete.');
+  const actions = uiPart('actions');
+  const save = uiButton('Save as…', { primary: true }); actions.append(save);
+  const status = uiPart('status');
   const progress = createProgressLine('export', options.progress);
-  const report = document.createElement('dl'); report.className = 'session-export-report';
-  dialog.append(heading, source, formatSet, modeSet, attachRow, always, actions, status, progress.element, report);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  const report = uiPart('descriptionList');
+  view.body.append(source, formatSet, modeSet, attachRow, always, actions, status, progress.element, report);
   let selection: ExportSelection | null = null; let busy = false; let generation = 0;
   const chosenFormat = (): ExportFormat => [...radios].find(([, input]) => input.checked)?.[0] ?? 'stx';
   const chosenMode = (): ExportMode => [...modes].find(([, input]) => input.checked)?.[0] ?? 'full';
@@ -77,10 +73,10 @@ export function createSessionExport(options: Options) {
     if (chosenFormat() === 'mukade') attach.checked = false;
     for (const input of [...radios.values(), ...modes.values()]) input.disabled = busy;
     source.textContent = selection ? `${selection.harness} · session ${selection.nativeId}` : '';
-    dialog.setAttribute('aria-busy', String(busy));
+    view.root.setAttribute('aria-busy', String(busy));
   }
   function fact(label: string, value: string) {
-    const key = document.createElement('dt'); key.textContent = label; const item = document.createElement('dd'); item.textContent = value; report.append(key, item);
+    const key = uiPart('term', label); const item = uiPart('definition', value); report.append(key, item);
   }
   save.onclick = async () => {
     if (busy || !selection) return;
@@ -88,7 +84,7 @@ export function createSessionExport(options: Options) {
     try {
       const outcome = await options.save({ root: { ...selection.root }, nativeId: selection.nativeId, fingerprint: selection.fingerprint,
         format: chosenFormat(), mode: chosenMode(), withAttachments: attach.checked }, requestId);
-      if (at !== generation || !dialog.open) return;
+      if (at !== generation || !view.isOpen()) return;
       if (outcome.state === 'cancelled') { status.textContent = progress.cancelled() ? 'Export cancelled. Nothing was written.' : 'Nothing was written.'; return; }
       if (outcome.state === 'refused') {
         const code = outcome.issue.startsWith('write_failed:') ? outcome.issue.slice(13) : ISSUES[outcome.issue] ?? ISSUES.read_unavailable;
@@ -101,19 +97,18 @@ export function createSessionExport(options: Options) {
       fact('Attachments', `${r.attachmentsReferenced} referenced, ${outcome.attachments} copied`);
       fact('Losses', r.declaration.losses.join(' ')); fact('SHA-256', outcome.sha256);
     } catch (error) {
-      if (at !== generation || !dialog.open) return;
+      if (at !== generation || !view.isOpen()) return;
       const code = typeof error === 'string' ? error : (error as { issue?: string })?.issue ?? '';
       status.dataset.state = 'error'; status.textContent = ISSUES[code] ?? ISSUES.read_unavailable; options.reportError(status.textContent);
     } finally { progress.end(requestId); if (at === generation) { busy = false; render(); } }
   };
-  closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  view.onClose(() => { progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!sidePanelOpen()) options.restoreFocus?.(); });
   function show(value: ExportSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint) || !/^[a-z0-9_-]{1,256}$/i.test(value.nativeId)) { options.reportError('This session cannot be exported safely.'); return; }
     selection = { root: { ...value.root }, nativeId: value.nativeId, fingerprint: value.fingerprint, harness: value.harness };
     report.replaceChildren(); status.textContent = 'Choose a format, then Save as…'; status.dataset.state = 'ready'; render();
-    if (!dialog.open) openModal(dialog); save.focus();
+    if (!view.isOpen()) view.open(); save.focus();
   }
   render();
-  return { show, close: () => dialog.close() };
+  return { show, close: () => view.close() };
 }

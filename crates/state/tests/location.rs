@@ -363,29 +363,41 @@ fn later_project_selection_cannot_include_active_storage() {
     );
 }
 
+/// The DACL stored on the file itself. GetFileSecurityW returns the descriptor as it is;
+/// GetNamedSecurityInfoW, for a DACL without SE_DACL_AUTO_INHERITED, reports each ACE's
+/// inherited flag against the current parent, so making the parent private reads as a change
+/// to an untouched child (Verify Windows: SY and BA "lost" their ID flag).
 fn dacl(path: &Path) -> String {
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::null_mut;
     use windows_sys::Win32::Foundation::LocalFree;
-    use windows_sys::Win32::Security::Authorization::{
-        ConvertSecurityDescriptorToStringSecurityDescriptorW, GetNamedSecurityInfoW, SE_FILE_OBJECT,
-    };
-    use windows_sys::Win32::Security::DACL_SECURITY_INFORMATION;
+    use windows_sys::Win32::Security::Authorization::ConvertSecurityDescriptorToStringSecurityDescriptorW;
+    use windows_sys::Win32::Security::{DACL_SECURITY_INFORMATION, GetFileSecurityW};
     let name: Vec<_> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-    let mut descriptor = null_mut();
+    let mut needed = 0;
+    unsafe {
+        GetFileSecurityW(
+            name.as_ptr(),
+            DACL_SECURITY_INFORMATION,
+            null_mut(),
+            0,
+            &mut needed,
+        );
+    }
+    assert!(needed > 0, "the descriptor size of {}", path.display());
+    // u64 cells keep the self-relative descriptor aligned.
+    let mut buffer = vec![0u64; (needed as usize).div_ceil(8)];
+    let descriptor = buffer.as_mut_ptr().cast();
     let mut text = null_mut();
     let mut length = 0;
     unsafe {
-        assert_eq!(
-            GetNamedSecurityInfoW(
+        assert_ne!(
+            GetFileSecurityW(
                 name.as_ptr(),
-                SE_FILE_OBJECT,
                 DACL_SECURITY_INFORMATION,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                null_mut(),
-                &mut descriptor
+                descriptor,
+                needed,
+                &mut needed,
             ),
             0
         );
@@ -404,7 +416,6 @@ fn dacl(path: &Path) -> String {
             &value[..value.iter().position(|n| *n == 0).unwrap_or(value.len())],
         );
         LocalFree(text.cast());
-        LocalFree(descriptor);
         value
     }
 }

@@ -4,7 +4,10 @@ import { chromium, expect as plainExpect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { driveBoxesFit, driveNotices, driveTeamMap, driveTemplateListed, driveTemplateSave, driveTemplateUse, installStub } from './team-map-drive.mjs';
@@ -32,7 +35,8 @@ try {
   }
   if (!browser) throw new Error('WebView startup timed out');
   for (const until = Date.now() + 15000; !page && Date.now() < until;) {
-    page = browser.contexts()[0].pages().find(p => new URL(p.url()).hostname === 'tauri.localhost');
+    // The attention widget is a page too; the workspace is the one that is not widget.html.
+    page = browser.contexts()[0].pages().find(p => new URL(p.url()).hostname === 'tauri.localhost' && !p.url().includes('widget.html'));
     if (!page) await delay(100);
   }
   if (!page) throw new Error('Main WebView missing');
@@ -57,7 +61,7 @@ try {
 
   await installStub(page);
   await sidebar.locator('.thread-sidebar-team').click();
-  await expect(page.locator('.wm-tab[data-view-id^="team-"]')).toBeVisible();
+  await expect(page.locator('.im-tile-tab[data-view-id^="team-"]')).toBeVisible();
   await driveTeamMap(page, expect, message => console.log(message));
   await driveNotices(page, expect, message => console.log(message));
 

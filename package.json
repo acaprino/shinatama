@@ -3,6 +3,21 @@
   "version": "0.2.1",
   "private": true,
   "type": "module",
+  "imago": {
+    "src": ["apps/desktop/src"],
+    "tests": ["apps/desktop/tests"],
+    "cargo": "apps/desktop/src-tauri/Cargo.toml",
+    "agents": ["AGENTS.md", "CLAUDE.md"],
+    "entry": "apps/desktop/src/main.ts",
+    "app": "shinatama",
+    "icons": {
+      "apps/desktop/src-tauri/icons/icon.ico": "icon.ico",
+      "apps/desktop/src-tauri/icons/32x32.png": "32x32.png",
+      "apps/desktop/src-tauri/icons/128x128.png": "128x128.png",
+      "apps/desktop/src-tauri/icons/128x128@2x.png": "256x256.png",
+      "apps/desktop/src-tauri/icons/icon.png": "icon.png", "crates/cli/icon.ico": "icon.ico"
+    }
+  },
   "scripts": {
     "dev": "vite --config apps/desktop/vite.config.ts",
     "build": "tsc --noEmit && vite build --config apps/desktop/vite.config.ts",
@@ -12,6 +27,7 @@
     "desktop:tl1": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -p shinatama-engine --bin shinatama-session-helper --bin shinatama-hook --features shinatama-engine/session-reader -j1 && cd apps/desktop && tauri build --debug --no-bundle --features tl1-proof,custom-protocol --config tests/tl1/tauri.tl1.conf.json",
     "test:tl1": "node apps/desktop/tests/tl1/proof.mjs",
     "test": "node --experimental-strip-types --test apps/desktop/tests/*.test.ts",
+    "test:imago": "node apps/desktop/tests/imago-desktop-smoke.mjs && node apps/desktop/tests/thread-chat-smoke.mjs && node --test apps/desktop/tests/files-tree.browser.mjs apps/desktop/tests/specialist-layout.browser.mjs apps/desktop/tests/new-project.browser.mjs",
     "test:desktop": "node apps/desktop/tests/desktop-smoke.mjs",
     "test:projects": "node apps/desktop/tests/projects-smoke.mjs",
     "test:storage": "node apps/desktop/tests/storage-smoke.mjs",
@@ -33,6 +49,7 @@
     "verify": "pwsh -NoProfile -File scripts/verify.ps1"
   },
   "dependencies": {
+    "@acaprino/imago": "git+https://github.com/acaprino/imago.git#8418ccac391ffb56dc1a997b996e7237b714b606",
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.12",
@@ -57,6 +74,7 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@tauri-apps/cli": "2.12.4",
+    "postcss": "8.5.32",
     "typescript": "7.0.2",
     "vite": "8.3.5"
   }

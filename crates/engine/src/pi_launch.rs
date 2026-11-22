@@ -5,10 +5,10 @@
 //! login, credential read, shell, npm install or marketplace access.
 #![cfg(windows)]
 use crate::{
-    marionette::{Host, Marionette, is_marionette_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
+    marionette::{Host, Marionette, is_marionette_set},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -164,11 +164,19 @@ fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapt
         .map_err(|_| PiLaunchError::BundledPlugins)
 }
 /// The session id, when the launch names one, is last: it is only ever added.
-fn session_arguments(bundled: Option<ResourceArguments>, chat: Vec<OsString>, native_id: Option<&str>) -> Vec<OsString> {
+fn session_arguments(
+    bundled: Option<ResourceArguments>,
+    chat: Vec<OsString>,
+    native_id: Option<&str>,
+) -> Vec<OsString> {
     run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
         .into_iter()
         .chain(chat)
-        .chain(native_id.into_iter().flat_map(|id| [OsString::from("--session-id"), OsString::from(id)]))
+        .chain(
+            native_id
+                .into_iter()
+                .flat_map(|id| [OsString::from("--session-id"), OsString::from(id)]),
+        )
         .collect()
 }
 
@@ -196,17 +204,28 @@ fn with_first_message(mut arguments: Vec<OsString>, initial_prompt: Option<&str>
 /// A first message is bounded as `collaboration.rs` bounds it (`crate::launch::is_first_message`).
 fn check_first_message(prompt: Option<&str>) -> Result<(), PiLaunchError> {
     match prompt {
-        Some(text) if !crate::launch::is_first_message(text) => Err(PiLaunchError::InvalidFirstMessage),
+        Some(text) if !crate::launch::is_first_message(text) => {
+            Err(PiLaunchError::InvalidFirstMessage)
+        }
         _ => Ok(()),
     }
 }
 
 /// The model arguments of a launch's snapshot: the panel's assignment, or the agent's model when
 /// the launch took one; nothing when Pi keeps its own sign-in and model.
-fn selected_model_arguments(models: &crate::model_config::Snapshot, extension: PathBuf) -> Vec<OsString> {
+fn selected_model_arguments(
+    models: &crate::model_config::Snapshot,
+    extension: PathBuf,
+) -> Vec<OsString> {
     models
         .selected(crate::model_config::Harness::Pi)
-        .map(|(connection, selection)| model_arguments(extension, &crate::model_config::alias(connection), &selection.model_id))
+        .map(|(connection, selection)| {
+            model_arguments(
+                extension,
+                &crate::model_config::alias(connection),
+                &selection.model_id,
+            )
+        })
         .unwrap_or_default()
 }
 
@@ -223,11 +242,20 @@ pub fn new_session_id() -> String {
 
 /// Mukade's Pi extension, written beside the instance, as the arguments that load it, followed by
 /// Pi's built-in MCP, which registers the extension's server (Mukade's live record, run 10).
-fn chat_kit(base: &StorageLocation, instance: &Path) -> Result<(crate::mukade_mcp::Connection, Vec<OsString>), String> {
+fn chat_kit(
+    base: &StorageLocation,
+    instance: &Path,
+) -> Result<(crate::mukade_mcp::Connection, Vec<OsString>), String> {
     let connection = crate::mukade_mcp::Connection::discover(base)
         .map_err(|error| error.to_string())?
         .ok_or("the Mukade service is not running")?;
-    let kit = crate::mukade_chat::plugin_kit(base, "pi", &instance.join("mukade-kit"), &connection, None)?;
+    let kit = crate::mukade_chat::plugin_kit(
+        base,
+        "pi",
+        &instance.join("mukade-kit"),
+        &connection,
+        None,
+    )?;
     if kit.arguments.len() != 2 || kit.arguments[0] != "-e" {
         return Err("Mukade's Pi kit is not the one extension Shinatama expects".into());
     }
@@ -404,9 +432,8 @@ fn prepare(
     } else if is_marionette_set(context.selected_set) && !trial {
         let root = context.plugins_root.ok_or(PiLaunchError::BundledPlugins)?;
         let adapter = bundled_adapter(root, context.base.directory())?;
-        let arguments =
-            shinatama_adapter::pi::sets::plan_marionette(Path::new(&adapter.dir_arg()))
-        .map_err(|_| PiLaunchError::BundledPlugins)?;
+        let arguments = shinatama_adapter::pi::sets::plan_marionette(Path::new(&adapter.dir_arg()))
+            .map_err(|_| PiLaunchError::BundledPlugins)?;
         Some(arguments)
     } else {
         return Err(PiLaunchError::UnsupportedSet);
@@ -624,7 +651,9 @@ fn prepare(
     if !trial {
         crate::launch_policy::current().apply_environment(&mut environment);
     }
-    let models = if trial { crate::model_config::Snapshot::default() } else {
+    let models = if trial {
+        crate::model_config::Snapshot::default()
+    } else {
         crate::model_config::current()
             .map_err(|_| PiLaunchError::Configuration)?
             .for_launch(crate::model_config::Harness::Pi, context.model)
@@ -647,8 +676,13 @@ fn prepare(
     }
     let mut arguments = session_arguments(bundled, chat_arguments, context.native_id);
     if let Some(extension) = models.pi_extension() {
-        let path = create_bytes(&instance_directory, "model-provider.mjs", extension.as_bytes(), &mut artifacts)
-            .map_err(|_| PiLaunchError::Configuration)?;
+        let path = create_bytes(
+            &instance_directory,
+            "model-provider.mjs",
+            extension.as_bytes(),
+            &mut artifacts,
+        )
+        .map_err(|_| PiLaunchError::Configuration)?;
         arguments.extend(selected_model_arguments(&models, path));
     }
     // The first message is last, after `--`, so that no word of it is read as an option.
@@ -839,13 +873,25 @@ fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, PiLaunchE
 mod tests {
     #[test]
     fn a_talking_thread_adds_mukade_after_marionette_and_removes_nothing() {
-        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let marionette =
+            shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
         let without = session_arguments(Some(marionette.clone()), Vec::new(), None);
-        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let chat: Vec<OsString> = [
+            "-e",
+            r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts",
+            "-e",
+            "builtin:mcp",
+        ]
+        .map(OsString::from)
+        .to_vec();
         let with = session_arguments(Some(marionette), chat.clone(), None);
         assert_eq!(with[..without.len()], without[..]);
         assert_eq!(with[without.len()..], chat[..]);
-        assert!(without.iter().any(|token| token.to_string_lossy().ends_with("policy.js")));
+        assert!(
+            without
+                .iter()
+                .any(|token| token.to_string_lossy().ends_with("policy.js"))
+        );
         assert!(without.contains(&OsString::from("--skill")));
     }
     /// Task 0 of the thread team: Pi keeps the id given with `--session-id` and Mukade's extension keys
@@ -854,8 +900,13 @@ mod tests {
     fn pi_starts_with_the_session_id_it_is_given() {
         let id = "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864";
         assert!(is_session_id(id));
-        for refused in ["", "ses_f4a4700c4988qHjfJkARDz8LLp", "0E8A7129-1F2C-486D-BB80-3F2E8AC8A864",
-                        "0e8a71291f2c486dbb803f2e8ac8a864", "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864 "] {
+        for refused in [
+            "",
+            "ses_f4a4700c4988qHjfJkARDz8LLp",
+            "0E8A7129-1F2C-486D-BB80-3F2E8AC8A864",
+            "0e8a71291f2c486dbb803f2e8ac8a864",
+            "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864 ",
+        ] {
             assert!(!is_session_id(refused), "{refused}");
         }
         let made = new_session_id();
@@ -864,7 +915,10 @@ mod tests {
         let plain = session_arguments(None, Vec::new(), None);
         let named = session_arguments(None, Vec::new(), Some(id));
         assert_eq!(named[..plain.len()], plain[..]);
-        assert_eq!(named[plain.len()..], ["--session-id", id].map(OsString::from));
+        assert_eq!(
+            named[plain.len()..],
+            ["--session-id", id].map(OsString::from)
+        );
     }
     /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (crates/terminal/src/protocol.rs,
     /// 32; the terminal crate depends on this one, so the number is repeated here). The fullest Pi
@@ -872,11 +926,23 @@ mod tests {
     /// script is the first token after Node.
     #[test]
     fn pi_arguments_stay_within_the_launch_bound_at_the_fullest_launch() {
-        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
-        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let marionette =
+            shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = [
+            "-e",
+            r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts",
+            "-e",
+            "builtin:mcp",
+        ]
+        .map(OsString::from)
+        .to_vec();
         let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
-        fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
-        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        fullest.extend(model_arguments(
+            PathBuf::from(r"C:\Data\i\model-provider.mjs"),
+            "provider",
+            "model",
+        ));
+        assert!(fullest.len() < 32, "{} arguments", fullest.len() + 1);
         assert!(fullest.contains(&OsString::from("--session-id")));
     }
     use super::*;
@@ -887,14 +953,36 @@ mod tests {
     /// 1.4.0: the interface opens and runs that turn (docs/verification/2026-11-17-opencode-pi-session-id.md).
     #[test]
     fn pi_takes_its_first_message_last() {
-        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
-        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
-        let mut options = session_arguments(Some(marionette), chat, Some("0e8a7129-1f2c-486d-bb80-3f2e8ac8a864"));
-        options.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
-        for text in ["You are Ada in this thread's team.", "-p --provider x -- not options"] {
+        let marionette =
+            shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = [
+            "-e",
+            r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts",
+            "-e",
+            "builtin:mcp",
+        ]
+        .map(OsString::from)
+        .to_vec();
+        let mut options = session_arguments(
+            Some(marionette),
+            chat,
+            Some("0e8a7129-1f2c-486d-bb80-3f2e8ac8a864"),
+        );
+        options.extend(model_arguments(
+            PathBuf::from(r"C:\Data\i\model-provider.mjs"),
+            "provider",
+            "model",
+        ));
+        for text in [
+            "You are Ada in this thread's team.",
+            "-p --provider x -- not options",
+        ] {
             let arguments = with_first_message(options.clone(), Some(text));
             assert_eq!(arguments[..options.len()], options[..]);
-            assert_eq!(arguments[options.len()..], [OsString::from("--"), OsString::from(text)]);
+            assert_eq!(
+                arguments[options.len()..],
+                [OsString::from("--"), OsString::from(text)]
+            );
             assert_eq!(arguments.last().unwrap(), &OsString::from(text));
             // No option follows the `--` and none of ours is `--` itself.
             assert!(!options.contains(&OsString::from("--")));
@@ -907,20 +995,43 @@ mod tests {
         assert_eq!(check_first_message(None), Ok(()));
         assert_eq!(check_first_message(Some(&"x".repeat(8192))), Ok(()));
         assert_eq!(check_first_message(Some(&"é".repeat(4096))), Ok(()));
-        for refused in ["x".repeat(8193), "é".repeat(4097), "a\0b".into(), "\0".into(), String::new(), " \r\n\t".into()] {
-            assert_eq!(check_first_message(Some(&refused)), Err(PiLaunchError::InvalidFirstMessage), "{refused:?}");
+        for refused in [
+            "x".repeat(8193),
+            "é".repeat(4097),
+            "a\0b".into(),
+            "\0".into(),
+            String::new(),
+            " \r\n\t".into(),
+        ] {
+            assert_eq!(
+                check_first_message(Some(&refused)),
+                Err(PiLaunchError::InvalidFirstMessage),
+                "{refused:?}"
+            );
         }
     }
     /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (32, as above): Marionette, the
     /// talking thread's extension and MCP, the agent's model, the session id and the first message.
     #[test]
     fn the_fullest_launch_stays_within_32_arguments() {
-        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
-        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let marionette =
+            shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = [
+            "-e",
+            r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts",
+            "-e",
+            "builtin:mcp",
+        ]
+        .map(OsString::from)
+        .to_vec();
         let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
-        fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
+        fullest.extend(model_arguments(
+            PathBuf::from(r"C:\Data\i\model-provider.mjs"),
+            "provider",
+            "model",
+        ));
         let fullest = with_first_message(fullest, Some(&"x".repeat(8192)));
-        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        assert!(fullest.len() < 32, "{} arguments", fullest.len() + 1);
         assert_eq!(fullest[fullest.len() - 2], OsString::from("--"));
     }
     /// Task 12 of the thread team: a launch for an agent carries the agent's model, the panel's
@@ -930,16 +1041,29 @@ mod tests {
         use crate::model_config::fixtures;
         let (panel, other) = fixtures::panel_and_other();
         let path = PathBuf::from(r"C:\Data\i\model-provider.mjs");
-        let launch = panel.clone().for_launch(crate::model_config::Harness::Pi, Some(Some(&other))).unwrap();
+        let launch = panel
+            .clone()
+            .for_launch(crate::model_config::Harness::Pi, Some(Some(&other)))
+            .unwrap();
         assert_eq!(
             selected_model_arguments(&launch, path.clone()),
-            ["-e", r"C:\Data\i\model-provider.mjs", "--provider", "shinatama-other", "--model", "big"].map(OsString::from)
+            [
+                "-e",
+                r"C:\Data\i\model-provider.mjs",
+                "--provider",
+                "shinatama-other",
+                "--model",
+                "big"
+            ]
+            .map(OsString::from)
         );
         // The extension that registers the provider holds the agent's connection, not the panel's.
         let extension = launch.pi_extension().unwrap();
         assert!(extension.contains("\"name\":\"Other\"") && !extension.contains("Local"));
         // Pi's own sign-in and model: no provider extension and no model arguments at all.
-        let own = panel.for_launch(crate::model_config::Harness::Pi, Some(None)).unwrap();
+        let own = panel
+            .for_launch(crate::model_config::Harness::Pi, Some(None))
+            .unwrap();
         assert!(selected_model_arguments(&own, path).is_empty());
         assert!(own.pi_extension().is_none());
     }
@@ -949,7 +1073,18 @@ mod tests {
         let panel = fixtures::panel();
         let path = PathBuf::from(r"C:\Data\i\model-provider.mjs");
         let before = selected_model_arguments(&panel, path.clone());
-        assert_eq!(before, ["-e", r"C:\Data\i\model-provider.mjs", "--provider", "shinatama-example", "--model", "org/model:v2"].map(OsString::from));
+        assert_eq!(
+            before,
+            [
+                "-e",
+                r"C:\Data\i\model-provider.mjs",
+                "--provider",
+                "shinatama-example",
+                "--model",
+                "org/model:v2"
+            ]
+            .map(OsString::from)
+        );
         let same = panel.clone().for_launch(Harness::Pi, None).unwrap();
         assert_eq!(selected_model_arguments(&same, path), before);
         assert_eq!(same.pi_extension(), panel.pi_extension());
@@ -957,7 +1092,10 @@ mod tests {
 
     #[test]
     fn a_cache_written_where_pi_loads_marionette_never_reaches_the_store() {
-        use crate::marionette::{self, tests::{FakeFetch, scratch}};
+        use crate::marionette::{
+            self,
+            tests::{FakeFetch, scratch},
+        };
         let home = scratch("pi-copy-home");
         let store = home.join(marionette::STORE);
         marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();

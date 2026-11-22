@@ -77,11 +77,21 @@ enum AdmissionMode {
     // enforces on it ends all of them at once: Node reached the 768 MiB process quota
     // within minutes with six sessions (2026-11-18, 765 MiB two seconds before it ended).
     Proxy,
+    // One of the proxy's own commands that clean its archive, with the proxy's limits. The one
+    // admission that passes while the application closes: the close cleanup runs then.
+    ProxyMaintenance,
 }
 impl AdmissionMode {
     /// Memory, process count and CPU are a share of the ledger, not a Windows quota.
     fn advisory(self) -> bool {
-        matches!(self, Self::Interactive | Self::Proxy)
+        matches!(
+            self,
+            Self::Interactive | Self::Proxy | Self::ProxyMaintenance
+        )
+    }
+    /// Admitted after `request_shutdown`: only the cleanup the close itself runs.
+    fn allowed_while_closing(self) -> bool {
+        matches!(self, Self::ProxyMaintenance)
     }
 }
 fn stamp() -> PolicyStamp {
@@ -338,12 +348,16 @@ impl Runtime {
         &self,
         lock: File,
         location: StorageLocation,
+        archive: crate::sidecar::ArchiveRecord,
+        activity: crate::sidecar::SessionActivity,
     ) -> Result<SidecarProvider, String> {
         let database = self.admission.services.load()?.store.clone();
         Ok(SidecarProvider {
             database,
             admission: self.admission.clone(),
             exits: crate::sidecar::ExitLog::default(),
+            archive,
+            activity,
             _lock: lock,
             _location: location,
         })
@@ -524,6 +538,10 @@ impl Admission {
         if self.closing.load(Ordering::Acquire) {
             bail!("This application is closing; new starts are disabled.");
         }
+        self.headroom(interactive)
+    }
+    /// [`Self::current_headroom`] without the closing gate.
+    fn headroom(&self, interactive: bool) -> Result<(u64, u64)> {
         if !crate::memory_settings::current().enabled {
             // Memory safety is off in Settings: no start waits for, or is refused on,
             // memory measurements. The workload count in the ledger still applies.
@@ -606,7 +624,12 @@ impl Admission {
         {
             bail!("Native workload profile exceeds the shared safety policy.");
         }
-        let (physical, commit) = self.current_headroom(mode != AdmissionMode::Background)?;
+        let interactive = mode != AdmissionMode::Background;
+        let (physical, commit) = if mode.allowed_while_closing() {
+            self.headroom(interactive)?
+        } else {
+            self.current_headroom(interactive)?
+        };
         let state = self.services.load().map_err(|e| anyhow!(e))?;
         let database = &state.store;
         let ledger = match database.resource_reservations()? {
@@ -658,7 +681,7 @@ impl Admission {
             &policy.stamp,
             ledger.revision,
             PrepareRequest {
-                budget: budget,
+                budget,
                 process_commit_bytes,
                 now_ms: now,
                 lease_expires_at_ms: now + lease_ms,
@@ -693,10 +716,10 @@ impl WindowsTerminalAdmission for Admission {
         let result = workload
             .finish_cleanup(&state.store, timeout)
             .map_err(|e| anyhow!("Terminal cleanup remains reserved: {e:?}"))?;
-        if matches!(result, CleanupStatus::Released { .. }) {
-            if let Ok(mut approved) = self.approved.lock() {
-                approved.retain(|item| item.key != workload.owned_key());
-            }
+        if matches!(result, CleanupStatus::Released { .. })
+            && let Ok(mut approved) = self.approved.lock()
+        {
+            approved.retain(|item| item.key != workload.owned_key());
         }
         Ok(result)
     }
@@ -789,17 +812,18 @@ pub struct SidecarProvider {
     database: Arc<Database>,
     admission: Arc<Admission>,
     exits: crate::sidecar::ExitLog,
+    archive: crate::sidecar::ArchiveRecord,
+    activity: crate::sidecar::SessionActivity,
     _lock: File,
     _location: StorageLocation,
 }
-impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider {
-    fn database(&self) -> &Database {
-        &self.database
-    }
-    fn prepare(
-        &mut self,
+impl SidecarProvider {
+    /// The proxy's budget, for the proxy or for one of its maintenance commands.
+    fn admit(
+        &self,
         now: i64,
         lease_until: i64,
+        mode: AdmissionMode,
     ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
         let lease = lease_until
             .checked_sub(now)
@@ -815,13 +839,48 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
                 },
                 768 * MIB,
                 lease,
-                AdmissionMode::Proxy,
+                mode,
             )
             .map_err(|_| shinatama_engine::sidecar_supervisor::AdmissionUnavailable)
+    }
+}
+impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider {
+    fn database(&self) -> &Database {
+        &self.database
+    }
+    fn prepare(
+        &mut self,
+        now: i64,
+        lease_until: i64,
+    ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
+        self.admit(now, lease_until, AdmissionMode::Proxy)
+    }
+    fn prepare_maintenance(
+        &mut self,
+        now: i64,
+        lease_until: i64,
+    ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
+        self.admit(now, lease_until, AdmissionMode::ProxyMaintenance)
+    }
+    fn sessions_active(&self) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
+        let activity = self.activity.clone();
+        Some(Arc::new(move || activity.active()))
     }
     fn exited(&mut self, exit: &shinatama_engine::sidecar_supervisor::ProxyExit) {
         if let Some(line) = self.exits.line(exit) {
             crate::app_log::write("proxy", &line);
+        }
+    }
+    fn maintained(&mut self, report: &shinatama_engine::sidecar_archive::Report) {
+        use shinatama_engine::sidecar_archive::Stop;
+        if report.removed + report.failed > 0 || report.stop != Stop::Done {
+            crate::app_log::write("proxy-archive", &crate::sidecar::report_line(report));
+        }
+        // A run that read no archive (none yet, or unreadable) leaves the panel's record alone.
+        if report.file_bytes_after.is_some()
+            && let Ok(mut archive) = self.archive.lock()
+        {
+            *archive = Some(crate::sidecar::archive_status(report));
         }
     }
 }
@@ -898,7 +957,10 @@ mod memory_tests {
             "half the free memory at first launch"
         );
         previous.aggregate_ceiling.memory_bytes = 16 * GIB;
-        assert!(is_previous_policy(&previous), "the 16 GiB policy of the build installed on 2026-11-15");
+        assert!(
+            is_previous_policy(&previous),
+            "the 16 GiB policy of the build installed on 2026-11-15"
+        );
         previous.aggregate_ceiling.memory_bytes = 5 * GIB;
         assert!(!is_previous_policy(&previous));
         assert!(!is_previous_policy(&policy()));
@@ -1062,6 +1124,19 @@ mod memory_tests {
         assert!(AdmissionMode::Interactive.advisory());
         assert!(!AdmissionMode::InteractiveSupport.advisory());
         assert!(!AdmissionMode::Background.advisory());
+    }
+
+    #[test]
+    fn only_the_proxy_archive_cleanup_is_admitted_while_closing() {
+        assert!(AdmissionMode::ProxyMaintenance.allowed_while_closing());
+        for mode in [
+            AdmissionMode::Proxy,
+            AdmissionMode::Interactive,
+            AdmissionMode::InteractiveSupport,
+            AdmissionMode::Background,
+        ] {
+            assert!(!mode.allowed_while_closing());
+        }
     }
 
     #[test]

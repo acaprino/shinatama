@@ -33,6 +33,7 @@ $report = [ordered]@{
 }
 
 . (Join-Path $PSScriptRoot 'check-process.ps1')
+Set-NewFileOwnerToUser
 
 # Every check after the dependency install runs even when an earlier one failed, and the run fails at the
 # end with all of them: a failing documentation check stopped every run in its first minute, so no run said
@@ -108,22 +109,39 @@ try {
     Invoke-Verification 'python-tests' 'python' @('-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_*.py')
     Invoke-Verification 'frontend-tests' 'npm.cmd' @('test')
     Invoke-Verification 'frontend-build' 'npm.cmd' @('run', 'build')
+    Invoke-Verification 'imago-desktop-smoke' 'npm.cmd' @('run', 'test:imago') -Needs @('frontend-build')
+    # Imago's canon: the names, values, keys and files the design file asks of an app (the "imago" block of
+    # package.json says where they are). A finding fails the run.
+    Invoke-Verification 'imago-check' 'node' @('node_modules/@acaprino/imago/scripts/check/cli.mjs')
+    # The real tiling renderer and layout model in headless Edge: drag, keyboard, three-way split, and the
+    # live DOM bindings a terminal or editor keeps across moves and parking. No app build is needed.
+    Invoke-Verification 'pane-drag-smoke' 'npm.cmd' @('run', 'test:drag')
+    # The thread sidebar in headless Edge, including a project removal that waits for its confirmation.
+    Invoke-Verification 'sidebar-groups-smoke' 'node' @('apps/desktop/tests/sidebar-groups-smoke.mjs')
     Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
     Invoke-Verification 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings') -TimeoutSeconds 3600
-    # Every test binary runs: on the first CI run the CLI's MCP test failed on the runner's temporary folder (owned
-    # by another account) and cargo stopped there, so no test of the engine, the state or the desktop ran.
+    # Every test binary runs, so one failing target does not hide the others. The whole output of each check is
+    # in .verification/logs, which the workflow uploads: the run's log shows only the end of a failed one.
     Invoke-Verification 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--no-fail-fast') -TimeoutSeconds 3600
     Invoke-Verification 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
     # The desktop embeds the frontend that `frontend-build` writes.
-    Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
+    # The engine's program is the contained session reader (shinatama-session-helper), which reads the saved sessions.
+    Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '-p', 'shinatama-engine', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
+    # The contained session reader as it is released (build-release.bat): its reads have a time limit and a tenth
+    # of the processor, which an unoptimised reader does not meet on a real home. Uploaded, to be tried on one.
+    Invoke-Verification 'session-helper-release' 'cargo' @('build', '--release', '--locked', '-p', 'shinatama-engine', '--features', 'session-reader', '--bin', 'shinatama-session-helper') -TimeoutSeconds 3600
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     # The real desktop check below covers ConPTY through its admitted helper.
     # A default unconfigured Windows host deliberately cannot spawn a process.
     # These share a checkout and use fixed CDP ports: keep them sequential.
     $app = @('desktop-build', 'test-job-build')
-    Invoke-Verification 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs') -Needs $app
+    # The model proxy runs on the pinned Node of sidecar/runtime.lock.json. A fresh checkout has none:
+    # fetch-runtime.ps1 downloads the official archive and refuses it unless both SHA256 match (it does
+    # nothing where sidecar/runtime exists). desktop-smoke opens the proxy.
+    Invoke-Verification 'sidecar-runtime' 'pwsh' @('-NoProfile', '-File', 'sidecar/fetch-runtime.ps1')
+    Invoke-Verification 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs') -Needs ($app + 'sidecar-runtime')
     Invoke-Verification 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs') -Needs $app
     Invoke-Verification 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs') -Needs $app
     Invoke-Verification 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs') -Needs $app
@@ -134,6 +152,11 @@ try {
     Invoke-Verification 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs') -Needs $app
     # Threads, their tabs, closing and bringing back a session, and a restart (ADR-0055).
     Invoke-Verification 'thread-sets-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/thread-sets-smoke.mjs') -Needs $app
+    # The tools composed with Imago (plan F34.4, F34.5) through the real app: the files tool (tree, preview, visual
+    # editor, save), the terminal's minimap beside a drawer, and the team map with its commands stubbed.
+    Invoke-Verification 'files-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/files-smoke.mjs') -Needs $app
+    Invoke-Verification 'minimap-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/minimap-smoke.mjs') -Needs $app
+    Invoke-Verification 'team-map-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/team-map-smoke.mjs') -Needs $app
     if (-not $notPassed.Contains('desktop-build')) {
         $report.executable = [ordered]@{
             path = 'target/debug/shinatama-desktop.exe'

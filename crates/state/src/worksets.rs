@@ -64,13 +64,21 @@ fn record_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorksetRecord> {
 }
 fn load(connection: &Connection, key: &str) -> Result<WorksetRecord> {
     connection
-        .query_row(&format!("SELECT {COLUMNS} FROM workset WHERE id=?1"), [key], record_row)
+        .query_row(
+            &format!("SELECT {COLUMNS} FROM workset WHERE id=?1"),
+            [key],
+            record_row,
+        )
         .optional()?
         .ok_or(ThreadError::NotFound)
 }
 fn of_thread(connection: &Connection, thread: &str) -> Result<Option<String>> {
     Ok(connection
-        .query_row("SELECT workset_id FROM workset_member WHERE thread_id=?1", [thread], |row| row.get(0))
+        .query_row(
+            "SELECT workset_id FROM workset_member WHERE thread_id=?1",
+            [thread],
+            |row| row.get(0),
+        )
         .optional()?)
 }
 fn insert(connection: &Connection, record: &WorksetRecord) -> Result<()> {
@@ -87,21 +95,37 @@ pub(crate) fn leave(connection: &Connection, thread: &str) -> Result<()> {
     let Some(workset) = of_thread(connection, thread)? else {
         return Ok(());
     };
-    let own = thread.get(2..).is_some_and(|suffix| workset.get(2..) == Some(suffix));
+    let own = thread
+        .get(2..)
+        .is_some_and(|suffix| workset.get(2..) == Some(suffix));
     connection.execute("DELETE FROM workset_member WHERE thread_id=?1", [thread])?;
     if own
-        && !connection.query_row("SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)", [&workset], |row| row.get::<_, bool>(0))?
+        && !connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)",
+            [&workset],
+            |row| row.get::<_, bool>(0),
+        )?
     {
         let record = load(connection, &workset)?;
-        connection.execute("DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2", params![record.project_id, workset])?;
+        connection.execute(
+            "DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2",
+            params![record.project_id, workset],
+        )?;
         connection.execute("DELETE FROM workset WHERE id=?1", [&workset])?;
     }
     Ok(())
 }
 /// Called inside the transaction that inserts `record`. A session that comes from another one
 /// (fork, companion) stays with it; otherwise it joins the named workset or gets its own.
-pub(crate) fn join(connection: &Connection, record: &ThreadRecord, workset: Option<&str>) -> Result<()> {
-    let source = record.companion_worker_thread_id.as_deref().or(record.parent_thread_id.as_deref());
+pub(crate) fn join(
+    connection: &Connection,
+    record: &ThreadRecord,
+    workset: Option<&str>,
+) -> Result<()> {
+    let source = record
+        .companion_worker_thread_id
+        .as_deref()
+        .or(record.parent_thread_id.as_deref());
     let target = match (source, workset) {
         (Some(source), _) => of_thread(connection, source)?.ok_or(ThreadError::NotFound)?,
         (None, Some(workset)) => {
@@ -114,17 +138,32 @@ pub(crate) fn join(connection: &Connection, record: &ThreadRecord, workset: Opti
         }
         (None, None) => {
             let own = format!("w_{}", &record.id[2..]);
-            if connection.query_row("SELECT EXISTS(SELECT 1 FROM workset WHERE id=?1)", [&own], |row| row.get::<_, bool>(0))? {
+            if connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM workset WHERE id=?1)",
+                [&own],
+                |row| row.get::<_, bool>(0),
+            )? {
                 return Err(ThreadError::Conflict);
             }
-            insert(connection, &WorksetRecord {
-                id: own.clone(), project_id: record.project_id.clone(), title: None, archived: false,
-                revision: 1, created_at: record.created_at, updated_at: record.created_at,
-            })?;
+            insert(
+                connection,
+                &WorksetRecord {
+                    id: own.clone(),
+                    project_id: record.project_id.clone(),
+                    title: None,
+                    archived: false,
+                    revision: 1,
+                    created_at: record.created_at,
+                    updated_at: record.created_at,
+                },
+            )?;
             own
         }
     };
-    connection.execute("INSERT INTO workset_member(thread_id,workset_id) VALUES(?1,?2)", params![record.id, target])?;
+    connection.execute(
+        "INSERT INTO workset_member(thread_id,workset_id) VALUES(?1,?2)",
+        params![record.id, target],
+    )?;
     Ok(())
 }
 fn bump(connection: &Connection, key: &str, at: i64) -> Result<()> {
@@ -138,7 +177,12 @@ fn bump(connection: &Connection, key: &str, at: i64) -> Result<()> {
 }
 
 impl Database {
-    pub fn create_workset(&self, project_id: &str, name: Option<&str>, at: i64) -> Result<WorksetRecord> {
+    pub fn create_workset(
+        &self,
+        project_id: &str,
+        name: Option<&str>,
+        at: i64,
+    ) -> Result<WorksetRecord> {
         id(project_id, CanonicalIdKind::Project)?;
         title(name)?;
         millis(at)?;
@@ -146,12 +190,21 @@ impl Database {
         let mut connection = self.lock()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         crate::schema::require_write_version(&tx)?;
-        if !tx.query_row("SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)", [project_id], |row| row.get::<_, bool>(0))? {
+        if !tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)",
+            [project_id],
+            |row| row.get::<_, bool>(0),
+        )? {
             return Err(ThreadError::NotFound);
         }
         let record = WorksetRecord {
-            id: new_id(CanonicalIdKind::Workset), project_id: project_id.to_owned(),
-            title: name.map(str::to_owned), archived: false, revision: 1, created_at: at, updated_at: at,
+            id: new_id(CanonicalIdKind::Workset),
+            project_id: project_id.to_owned(),
+            title: name.map(str::to_owned),
+            archived: false,
+            revision: 1,
+            created_at: at,
+            updated_at: at,
         };
         insert(&tx, &record)?;
         tx.commit()?;
@@ -172,10 +225,18 @@ impl Database {
         of_thread(&connection, thread_id)
     }
     /// Most recently used first. Bounded; `more` says the project has worksets beyond the bound.
-    pub fn list_worksets(&self, project_id: &str, archived: bool) -> Result<(Vec<WorksetSummary>, bool)> {
+    pub fn list_worksets(
+        &self,
+        project_id: &str,
+        archived: bool,
+    ) -> Result<(Vec<WorksetSummary>, bool)> {
         id(project_id, CanonicalIdKind::Project)?;
         let connection = self.lock()?;
-        if !connection.query_row("SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)", [project_id], |row| row.get::<_, bool>(0))? {
+        if !connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)",
+            [project_id],
+            |row| row.get::<_, bool>(0),
+        )? {
             return Err(ThreadError::NotFound);
         }
         let mut statement = connection.prepare(
@@ -188,23 +249,30 @@ impl Database {
  WHERE w.project_id=?1 AND w.archived=?2 ORDER BY used DESC,w.id LIMIT ?3",
         )?;
         let mut rows = statement
-            .query_map(params![project_id, archived, (MAX_LISTED + 1) as i64], |row| {
-                let lead: Option<String> = row.get(8)?;
-                Ok(WorksetSummary {
-                    id: row.get(0)?,
-                    project_id: row.get(1)?,
-                    title: row.get(2)?,
-                    archived: row.get(3)?,
-                    revision: rev_row(row, 4)?,
-                    used_at: row.get(5)?,
-                    sessions: row.get(6)?,
-                    open: row.get(7)?,
-                    lead: match lead {
-                        Some(thread_id) => Some(WorksetLead { thread_id, title: row.get(9)?, harness: row.get(10)? }),
-                        None => None,
-                    },
-                })
-            })?
+            .query_map(
+                params![project_id, archived, (MAX_LISTED + 1) as i64],
+                |row| {
+                    let lead: Option<String> = row.get(8)?;
+                    Ok(WorksetSummary {
+                        id: row.get(0)?,
+                        project_id: row.get(1)?,
+                        title: row.get(2)?,
+                        archived: row.get(3)?,
+                        revision: rev_row(row, 4)?,
+                        used_at: row.get(5)?,
+                        sessions: row.get(6)?,
+                        open: row.get(7)?,
+                        lead: match lead {
+                            Some(thread_id) => Some(WorksetLead {
+                                thread_id,
+                                title: row.get(9)?,
+                                harness: row.get(10)?,
+                            }),
+                            None => None,
+                        },
+                    })
+                },
+            )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let more = rows.len() > MAX_LISTED;
         rows.truncate(MAX_LISTED);
@@ -235,7 +303,9 @@ impl Database {
  WHERE m.workset_id=?1 ORDER BY t.created_at,t.id LIMIT ?2",
         )?;
         let rows = statement
-            .query_map(params![key, MAX_MEMBERS as i64], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .query_map(params![key, MAX_MEMBERS as i64], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
@@ -293,14 +363,24 @@ impl Database {
         }
         let previous = of_thread(&tx, thread_id)?.ok_or(ThreadError::NotFound)?;
         if previous != key {
-            tx.execute("UPDATE workset_member SET workset_id=?2 WHERE thread_id=?1", params![thread_id, key])?;
+            tx.execute(
+                "UPDATE workset_member SET workset_id=?2 WHERE thread_id=?1",
+                params![thread_id, key],
+            )?;
             bump(&tx, key, at)?;
             // A workset made only to hold this session, never named, leaves with it.
             let emptied = load(&tx, &previous)?;
             if emptied.title.is_none()
-                && !tx.query_row("SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)", [&previous], |row| row.get::<_, bool>(0))?
+                && !tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)",
+                    [&previous],
+                    |row| row.get::<_, bool>(0),
+                )?
             {
-                tx.execute("DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2", params![emptied.project_id, previous])?;
+                tx.execute(
+                    "DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2",
+                    params![emptied.project_id, previous],
+                )?;
                 tx.execute("DELETE FROM workset WHERE id=?1", [&previous])?;
             } else {
                 bump(&tx, &previous, at)?;
@@ -321,10 +401,17 @@ impl Database {
         if current.revision != expected_revision {
             return Err(ThreadError::Conflict);
         }
-        if tx.query_row("SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)", [key], |row| row.get::<_, bool>(0))? {
+        if tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)",
+            [key],
+            |row| row.get::<_, bool>(0),
+        )? {
             return Err(ThreadError::OwnedElsewhere);
         }
-        tx.execute("DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2", params![current.project_id, key])?;
+        tx.execute(
+            "DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2",
+            params![current.project_id, key],
+        )?;
         tx.execute("DELETE FROM workset WHERE id=?1", [key])?;
         tx.commit()?;
         Ok(())
@@ -384,9 +471,15 @@ mod tests {
     #[test]
     fn migration_groups_a_family_and_leaves_no_session_outside_a_workset() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.pragma_update(None, "foreign_keys", true).unwrap();
+        connection
+            .pragma_update(None, "foreign_keys", true)
+            .unwrap();
         connection.execute_batch(crate::schema::CREATE_V1).unwrap();
-        for sql in crate::records::schema::MIGRATION_V3.iter().chain(crate::threads::schema::MIGRATION_V4).chain(crate::threads::schema::MIGRATION_V5) {
+        for sql in crate::records::schema::MIGRATION_V3
+            .iter()
+            .chain(crate::threads::schema::MIGRATION_V4)
+            .chain(crate::threads::schema::MIGRATION_V5)
+        {
             connection.execute_batch(sql).unwrap();
         }
         connection.execute("INSERT INTO project(id,path,path_key,name,last_opened,recent_sequence) VALUES('p_aaaaaaaaaaaa','x','x','x',0,0)", []).unwrap();
@@ -401,12 +494,24 @@ mod tests {
         let sets: Vec<(String, i64)> = connection
             .prepare("SELECT workset_id,count(*) FROM workset_member GROUP BY workset_id ORDER BY workset_id").unwrap()
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-        assert_eq!(sets, vec![("w_aaaaaaaaaaaa".to_owned(), 4), ("w_eeeeeeeeeeee".to_owned(), 1)]);
-        let worksets: i64 = connection.query_row("SELECT count(*) FROM workset", [], |row| row.get(0)).unwrap();
+        assert_eq!(
+            sets,
+            vec![
+                ("w_aaaaaaaaaaaa".to_owned(), 4),
+                ("w_eeeeeeeeeeee".to_owned(), 1)
+            ]
+        );
+        let worksets: i64 = connection
+            .query_row("SELECT count(*) FROM workset", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(worksets, 2);
         // Forgetting a session removes its membership with it.
-        connection.execute("DELETE FROM thread WHERE id='t_dddddddddddd'", []).unwrap();
-        let left: i64 = connection.query_row("SELECT count(*) FROM workset_member", [], |row| row.get(0)).unwrap();
+        connection
+            .execute("DELETE FROM thread WHERE id='t_dddddddddddd'", [])
+            .unwrap();
+        let left: i64 = connection
+            .query_row("SELECT count(*) FROM workset_member", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(left, 4);
     }
 }

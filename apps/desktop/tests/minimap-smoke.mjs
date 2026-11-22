@@ -6,7 +6,10 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
@@ -63,7 +66,7 @@ const launch = async () => {
 /** The visible terminal's minimap: where it is, how much of its canvas is drawn, the mark of the
  * visible part, and whether a drawer or sheet is open. */
 const minimap = () => page.evaluate(() => {
-  const view = document.querySelector('.wm-body > .terminal-view:not([hidden])');
+  const view = document.querySelector('.im-tile-body > .terminal-view:not([hidden])');
   const strip = view?.querySelector('.terminal-minimap'); const canvas = strip?.querySelector('canvas');
   const box = element => { const rect = element?.getBoundingClientRect(); return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null; };
   // Painted pixels, and how wide the drawn rows are on average, as a share of the strip.
@@ -76,13 +79,13 @@ const minimap = () => page.evaluate(() => {
     }
   }
   const screen = view?.querySelector('.xterm-screen');
-  const mark = strip?.querySelector('.terminal-minimap-view');
+  const mark = strip?.querySelector('.im-overview-frame');
   const open = [...document.querySelectorAll('dialog[open]')].map(element => element.id || element.className);
   return { strip: box(strip), screen: box(screen), mark: mark && !mark.hidden ? box(mark) : null, painted,
     ink: rows ? Math.round(ink / rows * 100) / 100 : 0, canvas: canvas ? [canvas.width, canvas.height] : null, open };
 });
 /** The numbers of the "line N" rows on screen, from the terminal's accessibility rows. */
-const shownLines = () => page.evaluate(() => [...document.querySelectorAll('.wm-body > .terminal-view:not([hidden]) .xterm-accessibility-tree > div')]
+const shownLines = () => page.evaluate(() => [...document.querySelectorAll('.im-tile-body > .terminal-view:not([hidden]) .xterm-accessibility-tree > div')]
   .map(row => /line (\d+)\b/.exec(row.textContent ?? '')?.[1]).filter(Boolean).map(Number));
 /** Drawn within a second or so, with no drawer or sheet open: the prompt's line, and a frame around
  * the screen's lines that is a mark, not the whole strip. */
@@ -95,7 +98,7 @@ const drawnSoon = message => until(async () => {
 
 const LINES = 400;
 async function printLines() {
-  await page.locator('.wm-body > .terminal-view:not([hidden]) .xterm-screen').click({ position: { x: 40, y: 20 } });
+  await page.locator('.im-tile-body > .terminal-view:not([hidden]) .xterm-screen').click({ position: { x: 40, y: 20 } });
   await page.keyboard.type(`1..${LINES} | ForEach-Object { "line $_ " + ('#' * ($_ % 70)) }`); await page.keyboard.press('Enter');
   await until(async () => ({ ok: (await shownLines()).includes(LINES) }), 20000, `The ${LINES} lines were not printed.`);
 }
@@ -141,11 +144,11 @@ try {
   const gone = new Promise(accept => app.once('exit', accept));
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   // A running terminal makes the window ask first.
-  await Promise.race([gone, page.locator('#confirm-dialog button[value="stop"]').click({ timeout: 10000 }).catch(() => {})]);
+  await Promise.race([gone, page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click({ timeout: 10000 }).catch(() => {})]);
   expect(await Promise.race([gone, delay(20000).then(() => 'timeout')])).toBe(0);
   await browser.close().catch(() => {});
   await launch();
-  await expect(page.locator('.wm-tab').first()).toBeVisible({ timeout: 30000 });
+  await expect(page.locator('.im-tile-tab').first()).toBeVisible({ timeout: 30000 });
   await (await startSession(page, { project: projectPath, harness: 'powershell' })).done();
   await drawnSoon('After a restart: the minimap was not drawn once the session was on screen.');
   await shot('restart-1-session-open');

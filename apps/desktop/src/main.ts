@@ -1,12 +1,15 @@
+import './shell-frame.ts';
+import '@acaprino/imago/css/imago.css';
+import { claimKey, confirm as confirmWorkspace, createRegistry, footerKeys, hasModal, mountApp, notify as showNotice, PALETTE_COMMAND, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
+import { zoomDirection } from '@acaprino/imago/shell';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
 import { emptyWorkspace, parseWorkspaceLayout, reduceWorkspaceLayout, tabGroups, keyboardNeighbor, type WorkspaceLayout, type LayoutAction } from './workspace-model.ts';
 import { createWorkspaceRenderer } from './workspace-renderer.ts';
 import { createTauriWorkspaceTransport, createWorkspacePersistence, type WorkspacePersistence } from './workspace-persistence.ts';
-import './workspace-renderer.css';
 import { initializeWindowControls } from './window-controls.ts';
 import { canZoom, changeZoom, initializeDesktopShell, interfaceZoom, onInterfaceZoom } from './desktop-shell.ts';
 import { ZOOM_STEPS } from './desktop-shell-model.ts';
@@ -17,10 +20,8 @@ import { openModal, openSheet } from './modal.ts';
 import { createTerminalFind } from './terminal-find.ts';
 import { createTerminalHistory, LIVE_SCROLLBACK, splitOutput, type TerminalHistory } from './terminal-history.ts';
 import { createTerminalMinimap, type TerminalMinimap } from './terminal-minimap.ts';
-import { openTerminalHistory } from './terminal-history-view.ts';
 import { attachTerminalPaste, startTerminalDrop, type TerminalTarget } from './terminal-input.ts';
 import { createPresentation, PROFILES, setTerminalGlass } from './presentation.ts';
-import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
 import { createAttentionControl } from './attention-control.ts';
 import { createSidecarControl } from './sidecar-control.ts';
@@ -34,13 +35,14 @@ import type { ProgressBackend, ProgressEvent } from './session-progress.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
-import './browser-tab.css';
+import './terminal-content.css';
 import { createTeamMap, teamViewId } from './team-map.ts';
 import { classifyTarget, findLinksInRows, hoverText, type CellText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createLeftoversPanel } from './leftovers-panel.ts';
 import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
+import { createViews } from './views.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -54,8 +56,6 @@ import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts'
 import { forgetRefusal, openStep, threadsOff, restoredRunning, rowsToRecover, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from './session-tabs.ts';
 import { createThreadChat, laterEvent } from './thread-chat.ts';
 import { createToneKeeper } from './thread-tone.ts';
-import './styles.css';
-import './smooth.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
 type HarnessCapabilities = { id: string; label: string; nativeResume: boolean };
@@ -74,9 +74,12 @@ type View = {
 type WorksetScope = { id: string; projectId: string };
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+// The window's command registry; mountApp attaches it once the sidebar is in the shell.
+const registry = createRegistry();
 const desktop = isTauri();
+const loadTerminalEmulator = () => import('./terminal-emulator.ts');
 // The desktop window is transparent over Windows acrylic; only the terminal panes let it through.
-if (desktop) { document.documentElement.classList.add('native-glass'); setTerminalGlass(true); }
+if (desktop) setTerminalGlass(true);
 const builtinHarness: HarnessCapabilities = { id: 'powershell', label: 'PowerShell', nativeResume: false };
 let sessionHarnesses: HarnessCapabilities[] = [builtinHarness];
 let harnessCatalogLoaded = false;
@@ -239,17 +242,19 @@ let pendingAttentionFocus: string | null = null;
 const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
-let noticeTimer = 0;
-/** True while the notice shows what an open is waiting for (`showOpening`). */
-let openingShown = false;
+/** Closes the notice `notify` showed last; a new session's start takes it away. */
+let closeNotice: (() => void) | null = null;
+/** Set when the database is read-only (a newer schema): its notice says why nothing is saved,
+ *  so the layout notices that follow from it do not take its place. */
+let readOnlyStorage = false;
+/** Imago's notice: a result replaces the plain one on screen and goes after six seconds; an error says "Error" in
+ *  words and stays, up to three, until it is dismissed. */
 function notify(message: unknown, tone: Tone = 'error') {
-  const notice = $('#notice');
-  notice.dataset.tone = tone;
-  notice.setAttribute('role', tone === 'error' ? 'alert' : 'status');
-  $('#notice span').textContent = String(message);
-  notice.hidden = false;
-  clearTimeout(noticeTimer); openingShown = false;
-  if (tone !== 'error') noticeTimer = window.setTimeout(() => { notice.hidden = true; }, 6000);
+  closeNotice = showNotice($('#app'), String(message), tone === 'error' ? { tone: 'err' } : {});
+}
+/** The open in progress, said in the footer until it ends (never a notice that does not go). */
+function showProgress(text: string | null) {
+  const line = $('#open-progress'); line.textContent = text ?? ''; line.hidden = text === null;
 }
 /** What the open in progress is waiting for, said until the open ends (a first open after a start
  * waits for the model proxy and the harness check; it no longer fails while they finish). */
@@ -264,21 +269,21 @@ function showOpening(harness: string, step: string) {
   const text = openingSteps[step]; if (!text) return;
   const agent = sessionHarnesses.find(item => item.id === harness)?.label ?? harness;
   openingStep = text(agent);
-  notify(`Opening ${agent}: ${openingStep}…`, 'info'); clearTimeout(noticeTimer); openingShown = true; render();
+  showProgress(`Opening ${agent}: ${openingStep}…`); render();
 }
 /** Ends the progress line of an open; a result notice shown since stays. */
-function endOpening() { if (openingShown) $('#notice').hidden = true; openingShown = false; openingStep = null; }
+function endOpening() { showProgress(null); openingStep = null; }
 /** Writes one line in shinatama.log (data folder); a log that cannot be written changes nothing. */
 function appLog(source: 'layout' | 'page', message: string) { if (desktop) void invoke('app_log', { source, message }).catch(() => {}); }
-$('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
 // Restart is the panel's exit when the proxy supervisor stops answering; it closes like the window does.
 createSidecarControl(desktop, notify, () => closeWorkspace(true));
 // Only a real modal takes the page. Drawers and sheets (modal.ts) leave the terminals live.
-function modalOpen() { return !!document.querySelector('dialog[open][aria-modal="true"]'); }
+function modalOpen() { return hasModal() || !!document.querySelector('dialog[open][aria-modal="true"]'); }
 function focusAttentionSession(id: string) {
   if (modalOpen()) { pendingAttentionFocus = id; return; }
   pendingAttentionFocus = null;
+  leaveSettings();
   const view = views.get(id);
   if (view?.workset && !isOn(view.workset.id)) {
     void showWorkset(view.workset).then(opened => { if (opened) focusAttentionSession(id); });
@@ -374,6 +379,7 @@ const isTeamView = (id: string) => workspaceLayout.views.find(panel => panel.id 
 /** Opens the thread's team map: one per thread. The first one of the layout gets a column beside the focused pane; later ones join that pane. */
 function openTeamTab(thread: { id: string; projectId?: string }) {
   try {
+    leaveSettings();
     const opened = teamMap.open(thread);
     bindings.set(opened.viewId, opened.element);
     const present = workspaceLayout.views.find(panel => panel.id === opened.viewId);
@@ -394,6 +400,43 @@ function openTeamTab(thread: { id: string; projectId?: string }) {
   } catch (error) { notify(error); }
 }
 function closeTeamTab(viewId: string) { bindings.delete(viewId); teamMap.close(viewId); changeLayout({ type: 'remove-view', viewId }); }
+/** The project files (browse, edit, save), a tab of the workspace like the team map and the browser: one per window. */
+const filesPanel = createFilesPanel({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse files.'),
+  project: () => projectPath || null,
+  reportError: notify,
+  decide: (title, message, accept) => decide(title, message, accept),
+  openInBrowser: desktop ? path => { void openBrowserTab({ file: path }); } : undefined,
+});
+const isFilesView = (id: string) => workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'files';
+/** Opens the Files tab, or brings it forward. The first one gets a column beside the focused pane. */
+async function openFilesTab() {
+  try {
+    leaveSettings();
+    const opened = await filesPanel.open();
+    if (!opened) return;
+    bindings.set(opened.viewId, opened.element);
+    const present = workspaceLayout.views.find(panel => panel.id === opened.viewId);
+    if (present) {
+      const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+      if (present.hidden) changeLayout({ type: 'hide', viewId: opened.viewId, hidden: false });
+      if (group) { changeLayout({ type: 'collapse', groupId: group.id, collapsed: false }); changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); }
+      render(); filesPanel.focus(); return;
+    }
+    const view = { id: opened.viewId, resource: { kind: 'files' as const, resourceId: opened.viewId }, hidden: false };
+    const focused = tabGroups(workspaceLayout.root).find(group => group.id === focusedGroup());
+    if (focused && focused.tabs.length) changeLayout({ type: 'split', groupId: focused.id, view, axis: 'columns', side: 'after', newGroupId: `g-${opened.viewId}`, newSplitId: `s-${opened.viewId}` });
+    else changeLayout({ type: 'add-view', groupId: focusedGroup(), view });
+    const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+    if (group) { changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); }
+    filesPanel.focus();
+  } catch (error) { notify(error); }
+}
+/** The tab's close: with unsaved edits the person decides first (Discard, or Cancel keeps the files open). */
+async function closeFilesTab(viewId: string) {
+  if (!await filesPanel.close()) return;
+  bindings.delete(viewId); changeLayout({ type: 'remove-view', viewId });
+}
 /** Opens a page or a local HTML document in a browser tab of its own (ADR-0056). The first one
  *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
 async function openBrowserTab(target: BrowserTarget, viewId?: string) {
@@ -412,14 +455,14 @@ async function openBrowserTab(target: BrowserTarget, viewId?: string) {
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else if (teamMap.has(id)) teamMap.focus(id); else views.get(id)?.terminal.focus(); },
+  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else if (teamMap.has(id)) teamMap.focus(id); else if (filesPanel.has(id)) filesPanel.focus(); else views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } if (teamMap.has(id)) { teamMap.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
-  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : panel.resource.kind === 'team' ? teamMap.label(panel.id) : tabLabel(panel.id),
+  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : panel.resource.kind === 'team' ? teamMap.label(panel.id) : panel.resource.kind === 'files' ? filesPanel.label(panel.id) : tabLabel(panel.id),
   toneForView: panel => panel.resource.kind === 'terminal' ? tabTone(panel.id) : null,
   tabFilter() {
     const project = tabFilter?.current();
     // Browser tabs belong to the thread, not to a project: the filter never hides them.
-    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team') return true; const folder = panelFolder(panel.id); return !!folder && samePath(folder, project); } } : null;
+    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team' || panel.resource.kind === 'files') return true; const folder = panelFolder(panel.id); return !!folder && samePath(folder, project); } } : null;
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
@@ -429,10 +472,12 @@ const renderer = createWorkspaceRenderer({
       bindings.delete(id); void browserTabs.close(id); changeLayout({ type: 'remove-view', viewId: id }); return;
     }
     if (isTeamView(id)) { closeTeamTab(id); return; }
+    if (isFilesView(id)) { void closeFilesTab(id); return; }
     void closePanel(id);
   },
   placeholderFor: panel => panel.resource.kind === 'browser' ? browserTabs.placeholder(panel.id, target => { void openBrowserTab(target, panel.id); })
-    : panel.resource.kind === 'team' ? teamMap.placeholder(panel.id, thread => openTeamTab(thread)) : savedSessionCard(panel.id),
+    : panel.resource.kind === 'team' ? teamMap.placeholder(panel.id, thread => openTeamTab(thread))
+    : panel.resource.kind === 'files' ? filesPanel.placeholder(panel.id, () => { void openFilesTab(); }) : savedSessionCard(panel.id),
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -442,7 +487,7 @@ const terminalFind = createTerminalFind({
   returnFocus(id) { const view = views.get(id); if (view && !view.disposed && !modalOpen()) view.terminal.focus(); },
   notify: message => notify(message, 'info'),
 });
-const findButton = document.createElement('button'); findButton.type = 'button'; findButton.id = 'find-terminal'; findButton.textContent = 'Find'; findButton.title = 'Find in terminal (Ctrl+Shift+F)';
+const findButton = uiButton('Find', { attrs: { id: 'find-terminal' } }); findButton.title = 'Find in terminal (Ctrl+Shift+F)';
 findButton.onclick = () => terminalFind.open(); $('#restore').before(findButton);
 function focusedGroup() { return workspaceLayout.focusedGroupId ?? tabGroups(workspaceLayout.root)[0].id; }
 function changeLayout(action: LayoutAction, save = true) {
@@ -452,6 +497,12 @@ function changeLayout(action: LayoutAction, save = true) {
   if (save) persistence?.update(workspaceLayout);
   render();
 }
+/** Back to the Workspace tab when Settings is the view: a pane the person asks for must be on screen (set once the views
+ * exist). Only what the person does calls it; an agent's page, an exit or a restart never takes them out of Settings. */
+let leaveSettings = () => {};
+/** The focus a closed view gives back to the focused pane: nothing moves while Settings is the view (the person is still there). */
+let settingsShown = () => false;
+function restoreFocus() { if (!settingsShown()) setFocus(focusedGroup()); }
 function setFocus(groupId: string, terminal = true) {
   const group = tabGroups(workspaceLayout.root).find(group => group.id === groupId);
   if (!group) return;
@@ -459,7 +510,7 @@ function setFocus(groupId: string, terminal = true) {
   if (terminal && !modalOpen()) {
     const view = group.activeTabId ? views.get(group.activeTabId) : null;
     if (view) view.terminal.focus();
-    else workspace.querySelector<HTMLButtonElement>(`.wm-pane[data-group-id="${groupId}"] .wm-empty-start`)?.focus();
+    else workspace.querySelector<HTMLButtonElement>(`.im-pane[data-group-id="${groupId}"] .im-tile-empty-start`)?.focus();
   }
 }
 function threadHasRunningTab(threadId: string) {
@@ -477,23 +528,23 @@ function render() {
   }
   renderer.render(workspaceLayout);
   tabFilter?.paint();
-  for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
+  for (const pane of workspace.querySelectorAll<HTMLElement>('.im-pane')) {
     const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId); if (!group) continue;
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
-    let footer = pane.querySelector<HTMLElement>('.wm-footer');
-    if (!footer) { footer = document.createElement('div'); footer.className = 'wm-footer pane-footer'; pane.append(footer); }
+    let footer = pane.querySelector<HTMLElement>('.pane-footer');
+    if (!footer) { footer = uiPart('footer', undefined, 'pane-footer'); pane.append(footer); }
     footer.hidden = group.collapsed;
-    const state = document.createElement('span'); state.className = 'pane-state'; state.textContent = active ? active.ended ? 'Exited' : 'Shell running' : 'Ready';
-    const profile = document.createElement('select'); profile.setAttribute('aria-label', 'Terminal color profile'); profile.disabled = !active;
-    for (const [id, data] of Object.entries(profiles)) { const option = document.createElement('option'); option.value = id; option.textContent = data.name; option.selected = id === active?.profile; profile.append(option); }
+    const state = uiPart('text', undefined, 'pane-state'); state.textContent = active ? active.ended ? 'Exited' : 'Shell running' : 'Ready';
+    const profile = uiSelect(); profile.setAttribute('aria-label', 'Terminal color profile'); profile.disabled = !active;
+    for (const [id, data] of Object.entries(profiles)) { const option = uiOption(id, data.name); option.selected = id === active?.profile; profile.append(option); }
     profile.onchange = () => { if (active) { active.profile = profile.value; const applied = presentation.applyProfile(active.terminal, active.profile); active.element.style.background = applied.background; if (applied.metricsChanged) { active.lastSize = ''; scheduleFit(active); }
       const parsed = parseWorkspaceLayout({ ...workspaceLayout, views: workspaceLayout.views.map(view => view.id === active.info.id && view.resource.kind === 'terminal' ? { ...view, resource: { ...view.resource, profileId: active.profile } } : view) });
       if (parsed.ok) { workspaceLayout = parsed.value; persistence?.update(workspaceLayout); }
     } };
-    const path = document.createElement('span'); path.className = 'path'; path.textContent = active?.info.cwd ?? projectPath; path.title = path.textContent;
-    const size = document.createElement('span'); size.className = 'size'; size.textContent = active ? `${active.terminal.cols}×${active.terminal.rows}` : '';
-    const resources = document.createElement('span'); resources.className = 'terminal-resources'; resources.setAttribute('aria-label', 'Terminal resources');
+    const path = uiTraits(uiPart('text', undefined, 'path'), 'grow', 'truncate'); path.textContent = active?.info.cwd ?? projectPath; path.title = path.textContent;
+    const size = uiPart('text', undefined, 'size'); size.textContent = active ? `${active.terminal.cols}×${active.terminal.rows}` : '';
+    const resources = uiPart('text', undefined, 'terminal-resources'); resources.setAttribute('aria-label', 'Terminal resources');
     const measured = active && terminalMetrics.get(active.info.id);
     if (measured) { const formatted = formatTerminalResources(measured); resources.textContent = formatted.summary; footer.title = formatted.detail; }
     else { resources.textContent = active ? 'Measuring…' : ''; footer.title = active ? 'Resource measurements unavailable; native limits remain applied.' : ''; }
@@ -541,7 +592,7 @@ function sameApartFromSizes(a: WorkspaceLayout, b: WorkspaceLayout): boolean {
   return bare(a) === bare(b);
 }
 /** Connects saving for the layout on screen: the open thread's, or the loose terminals'. */
-async function connectWorkspace(adoptSaved = true, recovered = false) {
+async function connectWorkspace(adoptSaved = true, recovered = false, unchangedSince?: WorkspaceLayout) {
   if (!desktop) return;
   // One layout for the window, whichever threads are on (ADR-0055 v2).
   const scope = { workspaceId: 'main' };
@@ -560,7 +611,7 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
         label.dataset.layoutPending = String(status.inFlight);
       }
     });
-    const beforeLoad = workspaceLayout;
+    const beforeLoad = unchangedSince ?? workspaceLayout;
     // Not yet the window's saver: an edit reported while the saved layout loads would count as a local edit and keep it from being restored.
     // A refusal that can pass (storage busy with another operation, still starting) is retried a few times before it is reported.
     let loaded = await controller.load();
@@ -575,9 +626,10 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       appLog('layout', `Load refused: ${loaded.error}${loaded.detail ? ` (${loaded.detail})` : ''}. The window keeps its panes and does not save its layout.`);
       notify(layoutLoadFailureText(loaded.error, loaded.detail)); return;
     }
+    let adopted = false;
     if (loaded.restored && adoptSaved && sameApartFromSizes(workspaceLayout, beforeLoad)) {
       workspaceLayout = reconciled(loaded.layout);
-      controller.update(workspaceLayout); render();
+      controller.update(workspaceLayout); render(); adopted = true;
     } else controller.update(workspaceLayout);
     if (loaded.ownership === 'other') {
       // Marked by another Shinatama. The store hands the arrangement over only when that process is
@@ -586,10 +638,14 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       // as soon as that window closes.
       let code: unknown = 'still_owned';
       if (!recovered) {
+        // The takeover loads the saved arrangement again. It replaces the panes only where this load could (it
+        // adopted it, or there was none) and only if they are still as this load left them: a tab opened meanwhile,
+        // or an edit this load kept, stays.
+        const settled = workspaceLayout;
         try {
           await invoke('global_workspace_recover', { request: { ...scope, expectedRevision: loaded.revision } });
           if (generation !== scopeRevision) return;
-          controller.dispose(); persistence = null; await connectWorkspace(adoptSaved, true); return;
+          controller.dispose(); persistence = null; await connectWorkspace(adoptSaved && (adopted || !loaded.restored), true, settled); return;
         } catch (error) { code = typeof error === 'object' && error && 'code' in error ? (error as { code: unknown }).code : null; }
       }
       if (generation !== scopeRevision) return;
@@ -606,8 +662,8 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       return;
     }
     const claimed = await controller.claim();
-    if (!claimed.ok) notify('Layout saving is unavailable. Your current workspace is preserved.');
-  } catch { notify('Layout storage is unavailable. Your current workspace is preserved.'); }
+    if (!claimed.ok && !readOnlyStorage) notify('Layout saving is unavailable. Your current workspace is preserved.');
+  } catch { if (!readOnlyStorage) notify('Layout storage is unavailable. Your current workspace is preserved.'); }
 }
 async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   if (!desktop) { notify('This is the browser preview. Run npm run desktop to open real terminals.', 'info'); return false; }
@@ -615,9 +671,9 @@ async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   sayQueued();
   return opens.run(`new:${++openSequence}`, async () => {
     try {
-      await namesInFlight;
+      await Promise.all([namesInFlight, loadTerminalEmulator()]);
       const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
-      attachTerminal(info, group, null, activeWorkset());
+      await attachTerminal(info, group, null, activeWorkset());
       return true;
     } catch (error) { notify(error); return false; }
   });
@@ -638,17 +694,20 @@ const worksetThreads = (worksetId: string) => invoke<ThreadSummary[]>('workset_t
 async function attachSession(info: SessionInfo, threadId: string) {
   let workset: WorksetScope | null = activeWorkset();
   workset = await worksetOf(threadId) ?? workset;
-  attachTerminal(info, focusedGroup(), threadId, workset);
+  await attachTerminal(info, focusedGroup(), threadId, workset);
   if (isOn(workset?.id)) await refreshMembers(); else threadSidebar?.changed();
 }
 /** `workset`: the thread the session belongs to. A terminal opened into a thread that is off (a collaboration, a hop) runs
  *  without a tab and is drawn when that thread is turned on; turning a thread off stops its terminals (hideWorksets).
  *  `background`: reopened by the start, it takes its tab's place without bringing it forward or taking the focus. */
-function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null, background = false) {
+async function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null, background = false) {
   // Native collaboration events and reload recovery may see the same owned
   // process. Attach once; neither delivery path is permission to relaunch it.
   if (views.has(info.id)) return;
-  const element = document.createElement('div'); element.className = 'terminal-view';
+  const { Terminal, FitAddon, openTerminalHistory } = await loadTerminalEmulator();
+  // Another attach request may have claimed this live PTY while the engine was loading.
+  if (views.has(info.id)) return;
+  const element = uiPart('viewport', undefined, 'terminal-view');
   const initialProfile = ['Claude Code', 'claude_code'].includes(info.shell) ? 'claude' : 'neutral';
   const terminal = new Terminal({ ...presentation.optionsForProfile(initialProfile),
     // The live buffer is small; older lines move to the history archive (terminal-history.ts).
@@ -736,7 +795,15 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     // Ctrl+V / Ctrl+Shift+V / Shift+Insert paste: xterm must not consume the key (it would send ^V
     // to the harness and cancel the browser's paste event), so the textarea's own paste reaches it.
     if (event.type === 'keydown' && !event.altKey && ((event.ctrlKey && (event.key === 'v' || event.key === 'V')) || (event.shiftKey && event.key === 'Insert'))) return false;
-    return !(event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key));
+    // Shinatama's own chords go to the window's commands.
+    if (event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return false;
+    if (event.type === 'keydown') {
+      // F6 and Shift+F6 leave the terminal for the next region, so the keyboard is never trapped in it; the zoom keys
+      // are the window's. Every other key is the program's, Ctrl+K and Ctrl+F included: no command of the window runs.
+      if (event.key === 'F6' || zoomDirection(event) !== null) return false;
+      claimKey(event);
+    }
+    return true;
   });
   render(); if (shownHere && !background) setFocus(view.group);
   void drain(view);
@@ -777,12 +844,12 @@ function savedAsEnded(view: View) {
   if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
 }
 function showExit(view: View, code: number | null) {
-  const banner = document.createElement('div'); banner.className = 'exit-banner'; banner.setAttribute('role', 'status');
-  const text = document.createElement('span'); text.textContent = code === null ? 'Process exited' : `Process exited · code ${code}`;
-  const restart = document.createElement('button'); restart.type = 'button'; restart.textContent = 'New session';
+  const banner = uiTraits(uiPart('row', undefined, 'exit-banner'), 'viewportFooter'); banner.setAttribute('role', 'status');
+  const text = uiPart('text'); text.textContent = code === null ? 'Process exited' : `Process exited · code ${code}`;
+  const restart = uiButton('New session');
   restart.onclick = () => openNewSession(view.group, view.info.cwd,
     view.info.shell === 'PowerShell' ? 'powershell' : view.info.shell);
-  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Close terminal';
+  const close = uiButton('Close terminal');
   close.onclick = () => void stopTerminal(view);
   banner.append(text, restart, close); view.element.append(banner);
 }
@@ -796,7 +863,7 @@ async function closeWorkspace(relaunch: boolean): Promise<void> {
   // Asked only when something would be lost: a release refused while nothing is unsaved (storage
   // read-only, newer schema) loses nothing, and the next start takes the layout over.
   if (!appearanceSaved || (saved && (saved.ok ? saved.dirty : persistence?.status().dirty))) {
-    if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
+    if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.', undefined, 'Close without saving')) return;
     await invoke('workspace_allow_close');
   }
   // The point of no return: a restart starts its successor here, never before a question the user may decline.
@@ -808,15 +875,28 @@ async function closeWorkspace(relaunch: boolean): Promise<void> {
   for (const view of views.values()) view.disposed = true;
   await getCurrentWindow().close();
 }
-async function confirmStop(title: string, message: string, group?: string, action = 'Stop'): Promise<boolean> {
+let workspaceConfirmPending = false;
+/** Asks before an action that cannot be undone: the confirming button carries the verb and its object ("Stop terminal"),
+ *  and focus starts on Cancel. */
+async function confirmStop(title: string, message: string, group: string | undefined, action: string, danger = true): Promise<boolean> {
   // A window close request can arrive over another dialog; the confirmation stacks above it.
-  if (confirmDialog.open) return false;
+  if (confirmDialog.open || workspaceConfirmPending) return false;
+  if (!group) {
+    workspaceConfirmPending = true;
+    try {
+      const accepted = await confirmWorkspace($('#app'), { title, body: message, confirm: action, cancel: 'Cancel', danger });
+      if (accepted) pendingStart = null;
+      else settlePendingStart();
+      if (pendingAttentionFocus && !modalOpen()) focusAttentionSession(pendingAttentionFocus);
+      return accepted;
+    } finally { workspaceConfirmPending = false; }
+  }
   $('#confirm-title').textContent = title; $('#confirm-message').textContent = message;
   confirmDialog.querySelector<HTMLButtonElement>('button[value="stop"]')!.textContent = action;
   confirmDialog.returnValue = 'cancel';
   // One terminal is confirmed in its own pane, with the rest of the workspace usable.
   // Whatever concerns the whole workspace still takes the page.
-  if (!group || !openSheet(confirmDialog, { anchor: () => paneBody(group), placement: 'pane-bottom' })) openModal(confirmDialog);
+  if (!openSheet(confirmDialog, { anchor: () => paneBody(group), placement: 'pane-bottom' })) openModal(confirmDialog);
   confirmDialog.querySelector<HTMLButtonElement>('button[value="cancel"]')?.focus();
   return new Promise(resolve => confirmDialog.addEventListener('close', () => {
     resolve(confirmDialog.returnValue === 'stop'); setFocus(focusedGroup());
@@ -826,7 +906,7 @@ async function stopTerminal(view: View) {
   const kept = view.threadId !== null && view.workset !== null;
   if (!view.ended && !await confirmStop(kept ? 'Close session?' : 'Stop terminal?', kept
     ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or deleted.'
-    : 'This stops the shell and the programs it started.', view.group, kept ? 'Close' : 'Stop')) return;
+    : 'This stops the shell and the programs it started.', view.group, kept ? 'Close session' : 'Stop terminal')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     discardView(view);
@@ -920,11 +1000,11 @@ const canResume = (harness: string | null) => sessionHarnesses.some(item => item
  *  and its button. No button is disabled because another session is opening: asking queues this one. */
 function savedSessionCard(panelId: string): HTMLElement | null {
   const saved = savedSession(panelId); if (!saved) return null;
-  const card = document.createElement('div'); card.className = 'wm-placeholder session-idle';
-  const name = document.createElement('strong'); name.textContent = memberName(saved);
-  const said = document.createElement('span');
+  const card = uiPart('stack', undefined, 'im-placeholder session-idle');
+  const name = uiPart('strong', memberName(saved));
+  const said = uiPart('text');
   const button = (label: string, title: string, act: () => void) => {
-    const made = document.createElement('button'); made.type = 'button'; made.className = 'wm-empty-start'; made.textContent = label; made.title = title;
+    const made = uiButton(label, { primary: true, cls: 'im-tile-empty-start', attrs: { title } });
     made.onclick = act; card.append(made); return made;
   };
   const plan = openCard(saved.id, { current: opens.current(), wants: wants.all(), now: Date.now() });
@@ -944,7 +1024,7 @@ function savedSessionCard(panelId: string): HTMLElement | null {
     : saved.nativeAvailable !== true ? 'Its saved conversation cannot be reached now.' : `${harnessLabel(saved.harness)} cannot reopen its sessions.`;
   card.append(name, said);
   const issue = openIssues.get(saved.id);
-  if (issue) { const last = document.createElement('span'); last.setAttribute('role', 'status'); last.textContent = `Last try: ${issue}`; card.append(last); }
+  if (issue) { const last = uiPart('text'); last.setAttribute('role', 'status'); last.textContent = `Last try: ${issue}`; card.append(last); }
   if (step === 'resume') button('Resume', 'Opens this session again with its saved conversation.', () => wantOpen(saved.id));
   else if (step === 'recover') {
     // Asked by hand, the recovery starts nothing (ADR-0051): the card then offers Resume.
@@ -978,12 +1058,12 @@ async function openSaved(sessionId: string, background: boolean): Promise<OpenOu
         const refused = await recoverRecord(row); if (refused) return refused;
         recovered = true; await refreshMembers(); continue;
       }
-      await namesInFlight;
+      await Promise.all([namesInFlight, loadTerminalEmulator()]);
       try {
         const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
           request: { threadId: row.id, projectId: row.projectId, expectedRevision: row.revision, rows: 24, cols: 80 },
         });
-        attachTerminal(started.session, focusedGroup(), started.threadId, workset, background);
+        await attachTerminal(started.session, focusedGroup(), started.threadId, workset, background);
         return { opened: true };
       } catch (error) { return { refused: resumeFailureText(error), retry: resumeRetryable(error) }; }
     }
@@ -1102,10 +1182,10 @@ async function hideWorksets(ids: readonly string[]): Promise<boolean> {
   if (!openWorksets.some(workset => ids.includes(workset.id))) return true;
   const off = threadsOff([...views.values()], ids);
   if (off.ask) {
-    const count = off.stop.length; const several = ids.filter(id => isOn(id)).length > 1;
+    const count = off.stop.length; const turning = ids.filter(id => isOn(id)).length; const several = turning > 1;
     if (!await confirmStop(several ? 'Turn the threads off?' : 'Turn the thread off?',
       `This closes ${several ? 'them' : 'it'}: ${count} running session${count === 1 ? '' : 's'} and the programs ${count === 1 ? 'it' : 'they'} started stop. `
-      + `The sessions stay in the thread, not running, and can be resumed when it is turned on again. Nothing is deleted.`, undefined, 'Turn off')) return true;
+      + `The sessions stay in the thread, not running, and can be resumed when it is turned on again. Nothing is deleted.`, undefined, several ? `Turn ${turning} threads off` : 'Turn the thread off')) return true;
   }
   for (const view of off.stop) {
     try { await invoke('terminal_stop', { id: view.info.id }); }
@@ -1158,7 +1238,7 @@ async function startSession(selection: { projectPath: string; harnessId: string;
   sayQueued();
   await opens.run(`new:${++openSequence}`, async () => {
   try {
-    await namesInFlight;
+    await Promise.all([namesInFlight, loadTerminalEmulator()]);
     const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
     // Right after launch the local service and resource measurements are still warming up.
     // Those refusals are temporary: wait and retry instead of making the user press Open again.
@@ -1192,7 +1272,7 @@ async function startSession(selection: { projectPath: string; harnessId: string;
       if (workset) await showWorkset(workset);
     }
     const group = tabGroups(workspaceLayout.root).some(group => group.id === newSessionGroup) ? newSessionGroup! : focusedGroup();
-    attachTerminal(started.session, group, started.threadId, workset); currentWorkset = workset?.id ?? currentWorkset;
+    await attachTerminal(started.session, group, started.threadId, workset); currentWorkset = workset?.id ?? currentWorkset;
     await refreshMembers();
     await refreshThreadProject();
     void threadSidebar?.refresh();
@@ -1208,13 +1288,13 @@ const newSession = createNewSession({
     return selected.kind === 'project' ? selected.project.path : null;
   } : undefined,
   open: startSession,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
   anchor: () => paneBody(newSessionGroup),
 });
 /** The body of a pane: where a sheet that belongs to that pane is docked. */
 function paneBody(groupId: string | null): Element | null {
   const group = tabGroups(workspaceLayout.root).some(group => group.id === groupId) ? groupId! : focusedGroup();
-  return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
+  return [...workspace.querySelectorAll<HTMLElement>('.im-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.im-tile-body') ?? null;
 }
 const sessionMenu = createSessionMenu({
   start: (harnessId, path) => { void launchSession(path, harnessId, sessionMenuTarget.group, sessionMenuTarget.workset); },
@@ -1233,7 +1313,8 @@ async function launchSession(path: string, harnessId: string, group: string, wor
  * known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project', workset: WorksetScope | null = null) {
   if (openingSessionDialog) return;
-  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
+  leaveSettings();
+  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.im-add,.im-tile-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
   // The thread's folder: from the project list, else from one of its open sessions.
@@ -1249,7 +1330,7 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
     await loadHarnessCatalog();
     if (!selectedPath && scope === 'thread' && thread) { notify('The folder of this thread\'s project is not available. Use New session beside the projects.', 'info'); return; }
     if (!selectedPath) { notify('Choose a project first: sessions start in the selected project.', 'info'); $('#project').click(); return; }
-    $('#notice').hidden = true;
+    closeNotice?.(); closeNotice = null;
     if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group, thread); return; }
     const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
     sessionMenuTarget = { path: selectedPath, group, workset: thread };
@@ -1261,7 +1342,10 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
   } finally { openingSessionDialog = false; }
 }
 threadSidebar = createWorksetSidebar({
-  host: $('#work-area'),
+  shell: $('#app'),
+  // The empty sidebar's first action: the toolbar's Projects, which lists projects for it.
+  chooseProjects: () => $('#project').click(),
+  restoreFocus: () => $('#threads-toggle').focus(),
   list: request => desktop ? invoke('workset_list', {request}) : Promise.resolve({rows:[],more:false}),
   create: desktop ? request => invoke('workset_create', {request}) : undefined,
   update: desktop ? request => invoke('workset_update', {request}) : undefined,
@@ -1274,10 +1358,10 @@ threadSidebar = createWorksetSidebar({
   onRestore: restoreSession, onForgetSession: forgetSession,
   // A project leaves the sidebar: its threads go off with it, so no tab is left without a row to bring it back.
   // Turning them off closes their running sessions, after asking: kept on (cancelled, or a stop failed), the project comes back to the sidebar.
-  onProjectsRemoved: projectIds => { void (async () => {
+  onProjectsRemoved: async projectIds => {
     await hideWorksets(openWorksets.filter(workset => projectIds.includes(workset.projectId)).map(workset => workset.id));
-    for (const id of projectIds) if (openWorksets.some(workset => workset.projectId === id) && !threadSidebar?.activeIds().includes(id)) threadSidebar?.toggleActive(id);
-  })(); },
+    for (const id of projectIds) if (openWorksets.some(workset => workset.projectId === id) && !threadSidebar?.activeIds().includes(id)) void threadSidebar?.toggleActive(id);
+  },
   harnessLabel,
   onOpen: thread => showWorkset({ id: thread.id, projectId: thread.projectId }),
   onClose: thread => hideWorkset(thread.id),
@@ -1315,7 +1399,28 @@ threadSidebar = createWorksetSidebar({
   reportError: notify,
   onModeChange: mode => { $('#threads-toggle').setAttribute('aria-pressed', String(mode !== 'hidden')); },
 });
-$('#work-area').prepend(threadSidebar.element);
+// The canon's sidebar region, first in the shell's body: Imago folds it into its rail (sidebarCollapse), makes it a
+// drawer under 620 (sidebarDrawer, the title bar's toggle), and F6 moves between it, the content and the side panel.
+$('#app .im-body').prepend(threadSidebar.element);
+// mountApp: the layer stack, the sidebar's drawer and fold, F6 between the regions, the registry on the document, Ctrl+K
+// (the palette) and Ctrl+F (Find in the focused pane). A terminal keeps its own keys (it claims them, see openTerminal).
+// It is mounted once the sidebar has read its saved state (or failed to), so the fold it is given is the saved one.
+{
+  const sidebar = threadSidebar;
+  void sidebar.ready.then(() => {
+    const unmountApp = mountApp($('#app'), registry, {
+      search: () => { leaveSettings(); terminalFind.open(); },
+      // The look and the theme: the five Appearance commands of every app (presentation.ts keeps the choice).
+      appearance: presentation.appearance,
+      sidebar: { collapsed: sidebar.collapsed(), onChange: collapsed => sidebar.setCollapsed(collapsed) },
+    });
+    window.addEventListener('pagehide', unmountApp, { once: true });
+    // The footer's keys, from the registry: one key cap per key, as on the buttons and in the palette.
+    document.querySelector('.im-footer .im-footer-keys')?.replaceWith(footerKeys(document, registry, [
+      PALETTE_COMMAND, 'shinatama.new-session', { keys: 'Ctrl+Shift+ArrowLeft Ctrl+Shift+ArrowRight', title: 'Focus pane' },
+    ]));
+  });
+}
 // ADR-0057: the conversation of a thread whose sessions talk to each other, beside the terminals.
 threadChat = createThreadChat({
   invoke: (command, args) => invoke(command, args),
@@ -1325,7 +1430,7 @@ threadChat = createThreadChat({
   harnessLabel: id => harnessLabel(id),
   focusSession: id => { void focusThreadSession(id); },
   seen: (id, eventId, timestamp) => { markChatSeen(id, eventId, timestamp); threadSidebar?.repaint(); },
-  restoreFocus: () => { setFocus(focusedGroup()); },
+  restoreFocus,
 });
 /** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. It starts
  *  nothing itself; a "not running" tab shown this way reopens only if the saved layout restored it as running. */
@@ -1380,7 +1485,7 @@ async function loadHarnessCatalog(): Promise<boolean> {
 const sessionRaw = createSessionRaw({
   read: request => desktop ? invoke('session_raw', {request}) : Promise.reject({issue:'read_unavailable'}),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 // Progress of a long search or export (the worker reports at most four times a second) and its cancel.
 const sessionProgress: ProgressBackend = {
@@ -1398,13 +1503,13 @@ const sessionFind = createSessionFind({
   read: (request, requestId) => desktop ? invoke('session_find', {request, requestId}) : Promise.reject({issue:'read_unavailable'}),
   onSelectHit: hit => { sessionDetail.show(hit.root, hit.nativeId, {offset:hit.eventOrdinal,fingerprint:hit.fingerprint}); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionExport = createSessionExport({
   progress: sessionProgress,
   save: (request, requestId) => desktop ? invoke('session_export', { request, requestId }) : Promise.reject({ issue: 'read_unavailable' }),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 function screenText(view: View): string {
   const buffer = view.terminal.buffer.active; const lines: string[] = [];
@@ -1412,12 +1517,11 @@ function screenText(view: View): string {
   return lines.join('\n');
 }
 async function decide(title: string, message: string, accept: string): Promise<boolean> {
-  const button = confirmDialog.querySelector<HTMLButtonElement>('button[value="stop"]')!; const label = button.textContent;
-  button.textContent = accept; button.classList.remove('danger');
-  try { return await confirmStop(title, message); } finally { button.textContent = label; button.classList.add('danger'); }
+  return confirmStop(title, message, undefined, accept, false);
 }
 /** C28: open the destination, paste the exact previewed bootstrap, wait for `ready <nonce>`. */
 async function runHop(preview: HopPreview, progress: (message: string) => void, release: () => void): Promise<string> {
+  await loadTerminalEmulator();
   progress(`Opening ${preview.destination}…`);
   let launched: { hopId: string; nonce: string; started: { session: SessionInfo; threadId: string } } | undefined;
   for (let attempt = 0; !launched; attempt++) {
@@ -1461,28 +1565,19 @@ async function runHop(preview: HopPreview, progress: (message: string) => void, 
   await invoke('hop_finish', { hopId: launched.hopId, outcome: keep ? 'accept_without_receipt' : 'fail' });
   return keep ? 'Hop committed without confirmation.' : 'Hop marked failed; the destination pane stays open.';
 }
-const filesPanel = createFilesPanel({
-  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse files.'),
-  project: () => projectPath || null,
-  reportError: notify,
-  decide: (title, message, accept) => decide(title, message, accept),
-  restoreFocus: () => setFocus(focusedGroup()),
-  openInBrowser: desktop ? path => { void openBrowserTab({ file: path }); } : undefined,
-});
 {
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-files'; button.textContent = 'Files';
-  button.title = 'Browse and edit the project files (nothing is run)';
-  button.onclick = () => { void filesPanel.show(); };
+  const button = uiButton('Files', { attrs: { id: 'open-files' } });
+  button.title = 'Open the project files in a tab of the workspace (nothing is run)';
+  button.onclick = () => { void openFilesTab(); };
   document.querySelector('#new-terminal')?.before(button);
 }
-// What agent sessions create on disk (Xiox), docked right of the workspace and always in view.
+// What agent sessions create on disk (Xiox), a view of the side panel beside the workspace.
 if (desktop) {
   const leftovers = createLeftoversPanel({
     invoke: (command, args) => invoke(command, args),
     focusSession: id => focusAttentionSession(id),
     reportError: notify,
   });
-  $('#work-area').append(leftovers.element);
   document.querySelector('#new-terminal')?.before(leftovers.toggle);
 }
 const projectsOverview = createProjectsOverview({
@@ -1501,12 +1596,13 @@ const projectsOverview = createProjectsOverview({
     });
   },
   decide: (title, message, accept) => decide(title, message, accept),
+  chooseProjects: () => openProjectDialog(),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 {
   // "Projects" is the menu on the left; this one is the overview of pinned projects.
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-projects'; button.textContent = 'Overview';
+  const button = uiButton('Overview', { attrs: { id: 'open-projects' } });
   button.title = 'Pinned projects, Git status, last thread, new session or worktree';
   button.onclick = () => { void projectsOverview.show(); };
   document.querySelector('#open-files')?.before(button);
@@ -1518,7 +1614,7 @@ const sessionsPanel = createSessionsPanel({
   invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to see sessions.'),
   focus: id => {
     const view = views.get(id); if (!view || view.disposed) return false;
-    changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
+    leaveSettings(); changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
   },
   threadOf: id => { const panel = workspaceLayout.views.find(p => p.id === id); return panel?.resource.kind === 'terminal' ? panel.resource.threadId ?? null : null; },
   roots: () => desktop ? invoke('session_roots') : unavailable(),
@@ -1529,32 +1625,39 @@ const sessionsPanel = createSessionsPanel({
   openIndex: () => { sessionSearch.show(); },
   openSettings: () => { settingsPanel.show('sessions'); },
   project: () => projectPath || null,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 {
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-sessions'; button.textContent = 'Sessions';
+  const button = uiButton('Sessions', { attrs: { id: 'open-sessions' } });
   button.title = 'Every session: the ones running now and the ones saved';
   button.onclick = () => { void sessionsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
-// Every preference in one drawer. Each section keeps its owner's saving: presentation.ts for the
-// theme and terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom.
+// Every preference in one view: Settings, the last tab of the title bar. Each section keeps its owner's saving:
+// presentation.ts for the terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom. The look and the
+// theme are the palette's Appearance commands, not a control here.
 const settingsPanel = createSettingsPanel({
-  desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()),
+  desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus,
+  select: () => viewTabs.select('settings'), close: () => viewTabs.select('workspace'),
   appearance: presentation, alerts: attentionControl,
   zoom: { levels: ZOOM_STEPS, current: interfaceZoom, available: canZoom, set: changeZoom, subscribe: onInterfaceZoom },
 });
-{
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-settings'; button.textContent = 'Settings';
-  button.title = 'Appearance, agents, memory, alerts, GitHub, environment variables, sessions and plugins';
-  button.onclick = () => { settingsPanel.show(); };
-  document.querySelector('#open-projects')?.before(button);
-}
+// The views fill the content region: the workspace and its toolbar, or Settings. The one that is not shown is hidden,
+// never removed, so the terminals keep running.
+const content = $('#desktop-content');
+content.querySelector('.im-panel-body')!.append(settingsPanel.element);
+const viewTabs = createViews($('#app'), content, { workspace: [workspace, content.querySelector<HTMLElement>('.im-panel-tools')!], settings: [settingsPanel.element] });
+leaveSettings = () => viewTabs.select('workspace');
+settingsShown = () => viewTabs.current() === 'settings';
+viewTabs.listen((shown, left) => {
+  if (shown === 'settings') settingsPanel.enter();
+  if (left === 'settings') { settingsPanel.leave(); document.dispatchEvent(new CustomEvent('shinatama-settings-left')); }
+});
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   send: desktop ? runHop : undefined,
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
@@ -1565,7 +1668,7 @@ const sessionDetail = createSessionDetail({
   openHop: selection => { hopPreview.show(selection); },
   back: { label: 'Sessions', open: () => { void sessionsPanel.show(); } },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionLibrary = createSessionLibrary({
   roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
@@ -1573,7 +1676,7 @@ const sessionLibrary = createSessionLibrary({
   addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionSearch = createSessionSearch({
   search: request => desktop ? invoke('session_search', { request }) : unavailable(),
@@ -1584,7 +1687,7 @@ const sessionSearch = createSessionSearch({
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   openSettings: () => { settingsPanel.show('sessions'); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 function openProjectDialog() { projectPicker.open(); }
 async function chooseProject(path: string) {
@@ -1605,7 +1708,8 @@ createProjectMenu({
   search: desktop ? onResults => createCatalogClient(snapshot => onResults(snapshot.projects), () => onResults([])) : undefined,
   current: () => projectPath,
   active: () => new Set(threadSidebar?.activeIds() ?? []),
-  toggleActive: id => { threadSidebar?.toggleActive(id); },
+  // The project menu repaints its marks once this settles, so a cancelled removal shows the project kept.
+  toggleActive: id => threadSidebar?.toggleActive(id),
   running: () => [...views.values()].filter(view => !view.ended && !view.disposed).map(view => view.info.cwd),
   choose: chooseProject,
   browse: () => { projectPicker.open(); void projectPicker.browse(); },
@@ -1618,9 +1722,8 @@ function settlePendingStart() {
   const request = pendingStart; pendingStart = null;
   if (request?.projectChosen) void startTerminal(request.group);
 }
-for (const dialog of ['#project-dialog', '#new-project-dialog']) {
-  $(dialog).addEventListener('close', settlePendingStart);
-}
+$('#project-dialog').addEventListener('close', settlePendingStart);
+newProject.onClose(settlePendingStart);
 confirmDialog.addEventListener('close', () => {
   // A selection may finish under this overlay. Cancel resumes the original
   // request once; confirming shutdown must never create another terminal.
@@ -1636,23 +1739,24 @@ $('#layout-toggle').onclick = () => {
     if (result.ok) { workspaceLayout = result.value; persistence?.update(workspaceLayout); render(); }
   }
 };
-document.addEventListener('keydown', event => {
-  if (projectPicker.handleKey(event)) return;
-  if (newProject.handleKey(event)) return;
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  const terminalInput = !!target?.closest('.xterm');
-  const textInput = !!target?.closest('input,textarea,select,[contenteditable="true"]');
-  if (!modalOpen() && !terminalInput && !textInput && !event.ctrlKey && !event.altKey && !event.metaKey) {
-    // A character key acts only while its control has focus, never on stray focus.
-    if (event.key === '/' && target?.closest('#project')) { event.preventDefault(); projectPicker.open(true); return; }
-    if (event.key === 'F3') { event.preventDefault(); projectPicker.open(); void projectPicker.browse(); return; }
-  }
-  if (modalOpen() || !event.ctrlKey || !event.shiftKey) return;
-  if (event.key.toLowerCase() === 'f') { event.preventDefault(); terminalFind.open(); }
-  if (event.key.toLowerCase() === 't') { event.preventDefault(); openNewSession(); }
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault(); const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), event.key === 'ArrowLeft' ? 'left' : 'right', { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
-  }
+// The window's commands, in the registry mountApp attaches (the palette, Ctrl+K, lists them). None runs under a modal.
+const fieldFocused = () => !!document.activeElement?.closest('input,textarea,select,[contenteditable="true"],.xterm');
+registry.register({ id: 'shinatama.new-session', title: 'New session', keys: 'Ctrl+Shift+T', when: () => !modalOpen(), run: () => { void openNewSession(); } });
+registry.register({ id: 'shinatama.find-in-terminal', title: 'Find in the terminal', keys: 'Ctrl+Shift+F', when: () => !modalOpen(), run: () => { leaveSettings(); terminalFind.open(); } });
+for (const [side, key] of [['left', 'ArrowLeft'], ['right', 'ArrowRight']] as const) {
+  registry.register({ id: `shinatama.pane-${side}`, title: `Focus the pane on the ${side}`, keys: `Ctrl+Shift+${key}`, when: () => !modalOpen(), run: () => {
+    leaveSettings();
+    const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), side, { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
+  } });
+}
+// F3 outside a field or a terminal opens a folder as a project.
+registry.register({ id: 'shinatama.open-folder', title: 'Open a folder as a project', keys: 'F3', when: () => !modalOpen() && !fieldFocused(), run: () => { projectPicker.open(); void projectPicker.browse(); } });
+// A surface's own keys stay on it: the project picker's n, / and F3; on the Projects button, n makes a project and /
+// opens the picker on its filter. A character key acts only while its control has focus, never on stray focus.
+$('#project-dialog').addEventListener('keydown', event => { if (projectPicker.handleKey(event)) claimKey(event); });
+$('#project').addEventListener('keydown', event => {
+  if (newProject.handleKey(event)) { claimKey(event); return; }
+  if (event.key === '/' && !event.ctrlKey && !event.altKey && !event.metaKey && !modalOpen()) { event.preventDefault(); claimKey(event); projectPicker.open(true); }
 });
 async function initialize() {
   render(); setFocus(focusedGroup(), false);
@@ -1704,10 +1808,10 @@ async function initialize() {
     const existing = await invoke<SessionInfo[]>('terminal_list');
     let known: Record<string, { threadId: string | null; workset: WorksetScope | null }> = {};
     try { known = JSON.parse(sessionStorage.getItem('shinatama.sessions') ?? '{}'); } catch { /* reattached as loose terminals */ }
-    for (const info of existing) attachTerminal(info, focusedGroup(), known[info.id]?.threadId ?? null, known[info.id]?.workset ?? null);
+    for (const info of existing) await attachTerminal(info, focusedGroup(), known[info.id]?.threadId ?? null, known[info.id]?.workset ?? null);
     if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.', 'info');
     await listen('confirm-close', async () => {
-      if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.')) return;
+      if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.', undefined, 'Close workspace')) return;
       try { await closeWorkspace(false); } catch (error) { notify(error); }
     });
     await initializeWindowControls(notify);
@@ -1715,10 +1819,10 @@ async function initialize() {
     const stopResources = startTerminalResources(statuses => {
       terminalMetrics.clear();
       for (const status of statuses ?? []) terminalMetrics.set(status.id, status);
-      for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
+      for (const pane of workspace.querySelectorAll<HTMLElement>('.im-pane')) {
         const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId);
         const measured = group?.activeTabId && terminalMetrics.get(group.activeTabId);
-        const footer = pane.querySelector<HTMLElement>('.wm-footer');
+        const footer = pane.querySelector<HTMLElement>('.pane-footer');
         const label = footer?.querySelector<HTMLElement>('.terminal-resources');
         if (!footer || !label) continue;
         if (measured) { const formatted = formatTerminalResources(measured); label.textContent = formatted.summary; footer.title = formatted.detail; }
@@ -1728,13 +1832,14 @@ async function initialize() {
     window.addEventListener('pagehide', stopResources, { once: true });
     initializeMaintenance(notify);
     await presentation.initialize();
-    $('#runtime-status').innerHTML = '<i></i>Local runtime · experimental';
+    $('#runtime-status').textContent = 'Local runtime · experimental';
     appLog('page', 'The main window loaded.');
     render();
     try {
       const storage = await invoke<{ directory: string; database_path: string; read_only: boolean; message: string | null }>('storage_location');
       $('#runtime-status').title = `Private data: ${storage.directory}\nDatabase: ${storage.database_path}`;
       if (storage.read_only) {
+        readOnlyStorage = true;
         $('#runtime-status').textContent = 'Read-only storage · update required';
         notify(storage.message || 'Update Shinatama to modify this database.');
       }

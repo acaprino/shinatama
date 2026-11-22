@@ -3,10 +3,14 @@
 //! opens the same room by name, so the room needs no record of its own here.
 //! Reads only: it starts no service, creates no room, joins and sends nothing.
 use crate::storage;
+use crate::thread_chat::{
+    CHAT_HARNESSES, MANUAL_HARNESSES, find_room, hooked_member, session_state,
+};
 use serde_json::{Value, json};
-use shinatama_engine::session_control::{Caller, ThreadTools, thread_member_name, thread_room_name};
+use shinatama_engine::session_control::{
+    Caller, ThreadTools, thread_member_name, thread_room_name,
+};
 use shinatama_engine::team::{self, Formation, Role};
-use crate::thread_chat::{CHAT_HARNESSES, MANUAL_HARNESSES, find_room, hooked_member, session_state};
 use shinatama_state::threads::ThreadSummary;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -26,7 +30,9 @@ impl ThreadTools for Peers {
             .workset_record(&workset)
             .map_err(|_| "state_unavailable")?
             .ok_or("thread_not_found")?;
-        let sessions = store.workset_threads(&workset).map_err(|_| "state_unavailable")?;
+        let sessions = store
+            .workset_threads(&workset)
+            .map_err(|_| "state_unavailable")?;
         let service = match shinatama_engine::mukade_mcp::Connection::discover(&state.location) {
             Ok(Some(_)) => "running",
             Ok(None) => "not_started",
@@ -40,8 +46,11 @@ impl ThreadTools for Peers {
         if store.thread_chat_enabled(&workset).unwrap_or(false)
             && let Some(room) = find_room(state, &workset)
         {
-            hooks = shinatama_engine::mukade_chat::launched_room(caller.session).as_deref() == Some(room.as_str());
-            for (session, harness, native) in store.workset_native_sessions(&workset).unwrap_or_default() {
+            hooks = shinatama_engine::mukade_chat::launched_room(caller.session).as_deref()
+                == Some(room.as_str());
+            for (session, harness, native) in
+                store.workset_native_sessions(&workset).unwrap_or_default()
+            {
                 if let Some(member) = hooked_member(state, &session, &harness, &native, &room) {
                     names.insert(session, member.name);
                 }
@@ -56,7 +65,16 @@ impl ThreadTools for Peers {
         } else {
             None
         };
-        projection_with_team(&record.id, record.title.as_deref(), &sessions, caller, service, &names, hooks, team.as_ref())
+        projection_with_team(
+            &record.id,
+            record.title.as_deref(),
+            &sessions,
+            caller,
+            service,
+            &names,
+            hooks,
+            team.as_ref(),
+        )
     }
 }
 
@@ -74,7 +92,10 @@ pub(crate) struct TeamView {
 impl TeamView {
     /// `None` when `session` is not an agent's session on the map: it has no place in the team.
     pub(crate) fn of(formation: &Formation, session: &str) -> Option<Self> {
-        let me = formation.agents.iter().find(|agent| agent.session.as_deref() == Some(session))?;
+        let me = formation
+            .agents
+            .iter()
+            .find(|agent| agent.session.as_deref() == Some(session))?;
         let relations = formation
             .links
             .iter()
@@ -86,9 +107,20 @@ impl TeamView {
             .agents
             .iter()
             .filter(|agent| agent.id != me.id)
-            .filter_map(|agent| Some((agent.session.clone()?, (agent.name.clone(), team::role(formation, &agent.id)))))
+            .filter_map(|agent| {
+                Some((
+                    agent.session.clone()?,
+                    (agent.name.clone(), team::role(formation, &agent.id)),
+                ))
+            })
             .collect();
-        Some(Self { revision: formation.revision, name: me.name.clone(), role: team::role(formation, &me.id), relations, peers })
+        Some(Self {
+            revision: formation.revision,
+            name: me.name.clone(),
+            role: team::role(formation, &me.id),
+            relations,
+            peers,
+        })
     }
 
     fn to_json(&self) -> Value {
@@ -113,7 +145,9 @@ pub(crate) fn projection(
     names: &BTreeMap<String, String>,
     hooks: bool,
 ) -> Result<Value, &'static str> {
-    projection_with_team(workset_id, title, sessions, caller, service, names, hooks, None)
+    projection_with_team(
+        workset_id, title, sessions, caller, service, names, hooks, None,
+    )
 }
 
 /// `projection`, with the thread's team map when the caller has a place in it.
@@ -137,7 +171,9 @@ pub(crate) fn projection_with_team(
         None if hooks => None,
         None => Some(thread_member_name(caller.harness, caller.session).ok_or("thread_not_found")?),
     };
-    let me = known.clone().unwrap_or_else(|| "the name your [mukade chat] note gives".to_owned());
+    let me = known
+        .clone()
+        .unwrap_or_else(|| "the name your [mukade chat] note gives".to_owned());
     let peers: Vec<Value> = sessions
         .iter()
         .filter(|session| session.id != caller.session)
@@ -177,8 +213,14 @@ pub(crate) fn projection_with_team(
         "3. Do not call chat_read or chat_wait: what other members write reaches you at your turns, and after each turn you wait a few minutes for a message addressed to you. A peer that listens the same way answers on its own; one with state other than running answers when resumed.".to_owned(),
         format!("4. To bring a new session into this thread, call shinatama_session_open with your room_id and coordinator \"{me}\"."),
     ];
-    let how_to: Vec<String> = if hooks { joined.to_vec() } else { manual.to_vec() };
-    let mut note = String::from("A peer with chat \"none\" has no mukade tools in Shinatama and cannot be reached this way. An OpenCode or Pi peer joins the room under the name Mukade gives it (for example pi-1): find it with chat_members.");
+    let how_to: Vec<String> = if hooks {
+        joined.to_vec()
+    } else {
+        manual.to_vec()
+    };
+    let mut note = String::from(
+        "A peer with chat \"none\" has no mukade tools in Shinatama and cannot be reached this way. An OpenCode or Pi peer joins the room under the name Mukade gives it (for example pi-1): find it with chat_members.",
+    );
     if service != "running" {
         note.push_str(" The mukade chat service is not running now: chat calls will fail until Shinatama starts it.");
     }
@@ -219,15 +261,31 @@ mod tests {
 
     #[test]
     fn lists_the_other_sessions_with_their_stable_member_names() {
-        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let caller = Caller {
+            instance: "i_aaaaaaaaaaaa",
+            session: "t_aaaaaaaaaaaa",
+            harness: "claude_code",
+        };
         let sessions = [
             // The caller's own record, still without a segment.
             session("t_aaaaaaaaaaaa", None, ThreadStatus::Unbound),
             session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
             session("t_cccccccccccc", Some("pi"), ThreadStatus::Inactive),
         ];
-        let value = projection("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &BTreeMap::new(), false).unwrap();
-        assert_eq!(value["mukade"]["room_name"], "shinatama-thread-dddddddddddd");
+        let value = projection(
+            "w_dddddddddddd",
+            Some("Billing"),
+            &sessions,
+            &caller,
+            "running",
+            &BTreeMap::new(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            value["mukade"]["room_name"],
+            "shinatama-thread-dddddddddddd"
+        );
         assert_eq!(value["you"]["member_name"], "claude-aaaaaaaaaaaa");
         let peers = value["peers"].as_array().unwrap();
         assert_eq!(peers.len(), 2);
@@ -237,43 +295,112 @@ mod tests {
         // Pi takes part through Mukade's kit, under a name not tied to the session here.
         assert_eq!(peers[1]["member_name"], Value::Null);
         assert_eq!(peers[1]["chat"], "mukade");
-        assert!(value["how_to"][1].as_str().unwrap().contains("claude-aaaaaaaaaaaa"));
+        assert!(
+            value["how_to"][1]
+                .as_str()
+                .unwrap()
+                .contains("claude-aaaaaaaaaaaa")
+        );
         assert!(!value["note"].as_str().unwrap().contains("not running now"));
     }
 
     #[test]
     fn with_hooks_the_adapter_names_are_used_and_no_second_join_is_asked() {
-        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let caller = Caller {
+            instance: "i_aaaaaaaaaaaa",
+            session: "t_aaaaaaaaaaaa",
+            harness: "claude_code",
+        };
         let sessions = [
-            session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
+            session(
+                "t_aaaaaaaaaaaa",
+                Some("claude_code"),
+                ThreadStatus::RecordedOpen,
+            ),
             session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
         ];
         let names = BTreeMap::from([
             ("t_aaaaaaaaaaaa".to_owned(), "claude-1".to_owned()),
             ("t_bbbbbbbbbbbb".to_owned(), "codex-1".to_owned()),
         ]);
-        let value = projection("w_dddddddddddd", None, &sessions, &caller, "running", &names, true).unwrap();
+        let value = projection(
+            "w_dddddddddddd",
+            None,
+            &sessions,
+            &caller,
+            "running",
+            &names,
+            true,
+        )
+        .unwrap();
         assert_eq!(value["you"]["member_name"], "claude-1");
         assert_eq!(value["peers"][0]["member_name"], "codex-1");
         assert_eq!(value["mukade"]["delivery"], "hooks");
         let steps = value["how_to"].to_string();
-        assert!(steps.contains("Do not call chat_join again") && steps.contains("Do not call chat_read"));
+        assert!(
+            steps.contains("Do not call chat_join again")
+                && steps.contains("Do not call chat_read")
+        );
     }
     #[test]
     fn a_stopped_service_is_said_and_invalid_ids_are_refused() {
-        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "codex" };
-        let value = projection("w_dddddddddddd", None, &[], &caller, "not_started", &BTreeMap::new(), false).unwrap();
+        let caller = Caller {
+            instance: "i_aaaaaaaaaaaa",
+            session: "t_aaaaaaaaaaaa",
+            harness: "codex",
+        };
+        let value = projection(
+            "w_dddddddddddd",
+            None,
+            &[],
+            &caller,
+            "not_started",
+            &BTreeMap::new(),
+            false,
+        )
+        .unwrap();
         assert!(value["note"].as_str().unwrap().contains("not running now"));
-        assert!(projection("bad", None, &[], &caller, "running", &BTreeMap::new(), false).is_err());
-        let stranger = Caller { session: "x", ..caller };
-        assert!(projection("w_dddddddddddd", None, &[], &stranger, "running", &BTreeMap::new(), false).is_err());
+        assert!(
+            projection(
+                "bad",
+                None,
+                &[],
+                &caller,
+                "running",
+                &BTreeMap::new(),
+                false
+            )
+            .is_err()
+        );
+        let stranger = Caller {
+            session: "x",
+            ..caller
+        };
+        assert!(
+            projection(
+                "w_dddddddddddd",
+                None,
+                &[],
+                &stranger,
+                "running",
+                &BTreeMap::new(),
+                false
+            )
+            .is_err()
+        );
     }
 
     fn formation() -> shinatama_engine::team::Formation {
         use shinatama_engine::team::{Agent, Formation, Kind, Link, Report, Share};
         let agent = |id: &str, name: &str, session: Option<&str>| Agent {
-            id: id.into(), session: session.map(Into::into), model: None, name: name.into(),
-            notes: String::new(), share: Share::Split, x: 0, y: 0,
+            id: id.into(),
+            session: session.map(Into::into),
+            model: None,
+            name: name.into(),
+            notes: String::new(),
+            share: Share::Split,
+            x: 0,
+            y: 0,
         };
         Formation {
             revision: 3,
@@ -283,30 +410,65 @@ mod tests {
                 agent("a_cccccccccccc", "Reviewer", None),
             ],
             links: vec![Link {
-                from: "a_aaaaaaaaaaaa".into(), to: "a_bbbbbbbbbbbb".into(), kind: Kind::Work,
-                report: Report::Done, words: "Keep the diff small.".into(),
+                from: "a_aaaaaaaaaaaa".into(),
+                to: "a_bbbbbbbbbbbb".into(),
+                kind: Kind::Work,
+                report: Report::Done,
+                words: "Keep the diff small.".into(),
             }],
         }
     }
 
     #[test]
     fn peers_report_the_team() {
-        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let caller = Caller {
+            instance: "i_aaaaaaaaaaaa",
+            session: "t_aaaaaaaaaaaa",
+            harness: "claude_code",
+        };
         let sessions = [
-            session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
+            session(
+                "t_aaaaaaaaaaaa",
+                Some("claude_code"),
+                ThreadStatus::RecordedOpen,
+            ),
             session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
         ];
         let team = TeamView::of(&formation(), "t_aaaaaaaaaaaa").unwrap();
-        let value = projection_with_team("w_dddddddddddd", None, &sessions, &caller, "running", &BTreeMap::new(), false, Some(&team)).unwrap();
+        let value = projection_with_team(
+            "w_dddddddddddd",
+            None,
+            &sessions,
+            &caller,
+            "running",
+            &BTreeMap::new(),
+            false,
+            Some(&team),
+        )
+        .unwrap();
         assert_eq!(value["team"]["revision"], 3);
         assert_eq!(value["team"]["you"]["name"], "Planner");
         assert_eq!(value["team"]["you"]["role"], "lead");
         let relations = value["team"]["you"]["relations"].as_array().unwrap();
         assert_eq!(relations.len(), 1);
-        assert!(relations[0].as_str().unwrap().contains("You give work to Builder"), "{relations:?}");
-        assert!(relations[0].as_str().unwrap().contains("Keep the diff small."));
+        assert!(
+            relations[0]
+                .as_str()
+                .unwrap()
+                .contains("You give work to Builder"),
+            "{relations:?}"
+        );
+        assert!(
+            relations[0]
+                .as_str()
+                .unwrap()
+                .contains("Keep the diff small.")
+        );
         // Peers by session id: an agent without a session is not a peer to talk to.
-        assert_eq!(value["team"]["peers"], json!({"t_bbbbbbbbbbbb": {"name": "Builder", "role": "worker"}}));
+        assert_eq!(
+            value["team"]["peers"],
+            json!({"t_bbbbbbbbbbbb": {"name": "Builder", "role": "worker"}})
+        );
         assert!(value["team"]["note"].as_str().unwrap().contains("Team map"));
         // A session that is not on the map has no place in it.
         assert!(TeamView::of(&formation(), "t_cccccccccccc").is_none());
@@ -314,11 +476,41 @@ mod tests {
 
     #[test]
     fn peers_without_a_team_are_unchanged() {
-        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
-        let sessions = [session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen), session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen)];
+        let caller = Caller {
+            instance: "i_aaaaaaaaaaaa",
+            session: "t_aaaaaaaaaaaa",
+            harness: "claude_code",
+        };
+        let sessions = [
+            session(
+                "t_aaaaaaaaaaaa",
+                Some("claude_code"),
+                ThreadStatus::RecordedOpen,
+            ),
+            session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
+        ];
         let names = BTreeMap::new();
-        let plain = projection("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &names, false).unwrap();
-        let none = projection_with_team("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &names, false, None).unwrap();
+        let plain = projection(
+            "w_dddddddddddd",
+            Some("Billing"),
+            &sessions,
+            &caller,
+            "running",
+            &names,
+            false,
+        )
+        .unwrap();
+        let none = projection_with_team(
+            "w_dddddddddddd",
+            Some("Billing"),
+            &sessions,
+            &caller,
+            "running",
+            &names,
+            false,
+            None,
+        )
+        .unwrap();
         assert_eq!(plain, none);
         assert!(plain.get("team").is_none());
     }

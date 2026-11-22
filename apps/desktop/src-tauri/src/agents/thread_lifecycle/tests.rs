@@ -495,9 +495,16 @@ fn claude_switching_to_a_conversation_another_thread_holds_still_ends_its_activa
     let ended = fixture.active().unwrap();
     assert_eq!(ended.sequence, reserved.sequence);
     assert_eq!(ended.native.native_id, CLAUDE_NATIVE);
-    assert_eq!(fixture.db().segment_record(&held.id).unwrap().unwrap(), held);
     assert_eq!(
-        fixture.db().thread_resume_target(&other.id).unwrap().segment,
+        fixture.db().segment_record(&held.id).unwrap().unwrap(),
+        held
+    );
+    assert_eq!(
+        fixture
+            .db()
+            .thread_resume_target(&other.id)
+            .unwrap()
+            .segment,
         held
     );
 }
@@ -776,7 +783,10 @@ fn codex_resume_rejects_wrong_source_or_uuid_and_retains_the_sealed_owner() {
 #[test]
 fn a_session_without_events_is_recorded_under_the_id_its_launch_chose() {
     for (harness, native) in [
-        ("opencode", shinatama_engine::opencode_launch::new_session_id()),
+        (
+            "opencode",
+            shinatama_engine::opencode_launch::new_session_id(),
+        ),
         ("pi", shinatama_engine::pi_launch::new_session_id()),
     ] {
         let fixture = Fixture::new(HarnessKind::ClaudeCode);
@@ -785,24 +795,51 @@ fn a_session_without_events_is_recorded_under_the_id_its_launch_chose() {
             .location
             .as_ref()
             .unwrap()
-            .resolve_related_directory(&fixture.location.as_ref().unwrap().directory().join(format!("native-{harness}")))
+            .resolve_related_directory(
+                &fixture
+                    .location
+                    .as_ref()
+                    .unwrap()
+                    .directory()
+                    .join(format!("native-{harness}")),
+            )
             .unwrap();
         archive.prepare_private_directory().unwrap();
         let root = StoreRootRecord {
             id: format!("synthetic-{harness}-root"),
             harness: harness.into(),
-            resolved_path: archive.directory().to_string_lossy().trim_start_matches(r"\?\").into(),
+            resolved_path: archive
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\?\")
+                .into(),
             ..fixture.root.clone()
         };
-        database.register_store_root(&PreparedStoreRoot::resolve(root.clone()).unwrap()).unwrap();
+        database
+            .register_store_root(&PreparedStoreRoot::resolve(root.clone()).unwrap())
+            .unwrap();
         let at = now().unwrap();
-        let workset = database.create_workset(&fixture.thread.project_id, None, at).unwrap();
-        database.move_thread_to_workset(&fixture.thread.id, &workset.id, at).unwrap();
-        assert!(database.workset_native_sessions(&workset.id).unwrap().is_empty(), "{harness}");
+        let workset = database
+            .create_workset(&fixture.thread.project_id, None, at)
+            .unwrap();
+        database
+            .move_thread_to_workset(&fixture.thread.id, &workset.id, at)
+            .unwrap();
+        assert!(
+            database
+                .workset_native_sessions(&workset.id)
+                .unwrap()
+                .is_empty(),
+            "{harness}"
+        );
         record_chosen_native_session(database, &fixture.thread, &root, &native).unwrap();
         assert_eq!(
             database.workset_native_sessions(&workset.id).unwrap(),
-            vec![(fixture.thread.id.clone(), harness.to_string(), native.clone())],
+            vec![(
+                fixture.thread.id.clone(),
+                harness.to_string(),
+                native.clone()
+            )],
             "{harness}"
         );
         // Recording the same id twice is refused, never a second row.
@@ -817,8 +854,18 @@ fn a_refused_new_is_discarded_only_while_nothing_was_bound_to_it() {
     let fixture = Fixture::new(HarnessKind::Codex);
     let (lifecycle, _) = fixture.lifecycle(HarnessKind::Codex, None);
     assert!(fixture.active().is_none());
-    crate::agents::service::discard_unstarted(fixture.db(), &fixture.thread.id, Some(fixture.identity.instance_id()));
-    assert!(fixture.db().thread_record(&fixture.thread.id).unwrap().is_some());
+    crate::agents::service::discard_unstarted(
+        fixture.db(),
+        &fixture.thread.id,
+        Some(fixture.identity.instance_id()),
+    );
+    assert!(
+        fixture
+            .db()
+            .thread_record(&fixture.thread.id)
+            .unwrap()
+            .is_some()
+    );
     fixture.release();
     lifecycle
         .after_cleanup(fixture.identity.instance_id(), fixture.process)
@@ -830,7 +877,17 @@ fn a_refused_new_is_discarded_only_while_nothing_was_bound_to_it() {
     };
     fixture.db().create_thread(&unstarted).unwrap();
     let unbound = LaunchIdentity::generate(&unstarted.id).unwrap();
-    crate::agents::service::discard_unstarted(fixture.db(), &unstarted.id, Some(unbound.instance_id()));
+    crate::agents::service::discard_unstarted(
+        fixture.db(),
+        &unstarted.id,
+        Some(unbound.instance_id()),
+    );
     assert!(fixture.db().thread_record(&unstarted.id).unwrap().is_none());
-    assert!(fixture.db().thread_record(&fixture.thread.id).unwrap().is_some());
+    assert!(
+        fixture
+            .db()
+            .thread_record(&fixture.thread.id)
+            .unwrap()
+            .is_some()
+    );
 }

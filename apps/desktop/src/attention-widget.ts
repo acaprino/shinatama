@@ -1,11 +1,20 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import './attention-widget.css';
+import '@acaprino/imago/css/imago.css';
+import { portraitNotice } from '@acaprino/imago/ui';
+import { applyLook } from '@acaprino/imago/shell';
 import shinatamaSmile from '../../../docs/assets/widget/shinatama-smile-v1.png';
 import shinatamaHappy from '../../../docs/assets/widget/shinatama-happy-v1.png';
 import shinatamaCurious from '../../../docs/assets/widget/shinatama-curious-v1.png';
 
-const portrait = document.querySelector<HTMLImageElement>('#shinatama-portrait')!;
+applyLook(document.documentElement, { app: 'shinatama', look: 'smooth', theme: 'dark', glass: false });
+const { root, portrait, kind, title, body, error, open, dismiss } = portraitNotice({
+  label: 'Avviso di Shinatama', name: 'Shinatama', dismiss: 'Chiudi avviso', open: 'Apri sessione',
+});
+root.id = 'attention';
+portrait.id = 'shinatama-portrait';
+for (const [name, node] of Object.entries({ kind, title, body, error, open, dismiss })) node.id = 'attention-' + name;
+document.querySelector('#widget')!.replaceChildren(root);
 const expressions = [
   { name: 'smile', src: shinatamaSmile },
   { name: 'happy', src: shinatamaHappy },
@@ -43,13 +52,6 @@ interface AttentionSnapshot {
   current: AttentionNotice | null;
 }
 
-const root = document.querySelector<HTMLElement>('#attention')!;
-const kind = document.querySelector<HTMLElement>('#attention-kind')!;
-const title = document.querySelector<HTMLElement>('#attention-title')!;
-const body = document.querySelector<HTMLElement>('#attention-body')!;
-const error = document.querySelector<HTMLElement>('#attention-error')!;
-const open = document.querySelector<HTMLButtonElement>('#attention-open')!;
-const dismiss = document.querySelector<HTMLButtonElement>('#attention-dismiss')!;
 const kindLabels: Record<AttentionKind, string> = {
   input: 'Serve una tua risposta', complete: 'Processo terminato',
   error: 'Richiede attenzione', update: 'Aggiornamento', memory: 'Memoria del PC in esaurimento',
@@ -57,7 +59,7 @@ const kindLabels: Record<AttentionKind, string> = {
 let current: AttentionNotice | null = null;
 let refreshRevision = 0;
 let actionPending = false;
-let animationTimer: ReturnType<typeof setTimeout> | undefined;
+let arrival: Animation | undefined;
 
 function render(snapshot: AttentionSnapshot) {
   const notice = snapshot.enabled ? snapshot.current : null;
@@ -80,14 +82,10 @@ function render(snapshot: AttentionSnapshot) {
     error.hidden = true;
     // Reading time belongs to the user. Only an explicit action dismisses a
     // notice; the backend can still replace resolved or superseded facts.
-    root.classList.remove('arriving');
-    clearTimeout(animationTimer);
-    // Restart only the brief expression when a different notice arrives.
-    requestAnimationFrame(() => {
-      if (current?.id !== notice.id) return;
-      root.classList.add('arriving');
-      animationTimer = setTimeout(() => root.classList.remove('arriving'), 1800);
-    });
+    arrival?.cancel();
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      arrival = portrait.animate([{ opacity: 0.65 }, { opacity: 1 }], { duration: 350, easing: 'ease-out' });
+    }
   }
   root.hidden = false;
 }
@@ -130,6 +128,7 @@ async function act(command: 'attention_open' | 'attention_dismiss') {
 
 open.addEventListener('click', () => { void act('attention_open'); });
 dismiss.addEventListener('click', () => { void act('attention_dismiss'); });
+// imago-check: allow own-keydown — the attention window is not a shell and has no registry: Escape dismisses its one notice.
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); void act('attention_dismiss'); }
 });
@@ -137,7 +136,7 @@ document.addEventListener('keydown', (event) => {
 // Subscribe before the first snapshot so an event between startup and hydration is retained.
 void listen('attention-changed', () => { void refresh(); }).then((unlisten) => {
   window.addEventListener('pagehide', () => {
-    unlisten(); clearTimeout(animationTimer);
+    unlisten(); arrival?.cancel();
   }, { once: true });
   return refresh();
 }).catch(() => { void refresh(); });

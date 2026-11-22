@@ -436,6 +436,7 @@ impl Controller {
         )
         .await
     }
+    #[allow(clippy::too_many_arguments)]
     async fn start_request(
         self: &Arc<Self>,
         agent_id: &str,
@@ -478,13 +479,18 @@ impl Controller {
                 )
             })
             .await
-            .unwrap_or(Err("The harness worker is unavailable; no replacement was started.")),
+            .unwrap_or(Err(
+                "The harness worker is unavailable; no replacement was started.",
+            )),
         };
         let elapsed = began.elapsed().as_millis();
-        crate::app_log::write("open", &match &result {
-            Ok(_) => format!("{agent_id} opened after {elapsed} ms."),
-            Err(message) => format!("{agent_id} refused after {elapsed} ms: {message}"),
-        });
+        crate::app_log::write(
+            "open",
+            &match &result {
+                Ok(_) => format!("{agent_id} opened after {elapsed} ms."),
+                Err(message) => format!("{agent_id} refused after {elapsed} ms: {message}"),
+            },
+        );
         result
     }
 
@@ -502,11 +508,26 @@ impl Controller {
         if !matches!(agent_id, "claude_code" | "codex") {
             return Err("This harness does not support collaborative startup.");
         }
-        if initial_prompt.trim().is_empty() || initial_prompt.len() > 8192 || initial_prompt.contains('\0') {
+        if initial_prompt.trim().is_empty()
+            || initial_prompt.len() > 8192
+            || initial_prompt.contains('\0')
+        {
             return Err("The initial collaboration instruction is invalid.");
         }
-        self.start_request(agent_id, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset, None).await
+        self.start_request(
+            agent_id,
+            host,
+            project,
+            24,
+            80,
+            OpenMode::PrepareWhenNeeded,
+            Some(initial_prompt),
+            require_mukade,
+            None,
+            workset,
+            None,
+        )
+        .await
     }
 
     /// A session of `program` for an agent of a thread's team, created in `workset` with the
@@ -514,6 +535,7 @@ impl Controller {
     /// `model` is then ignored; otherwise `model` is the Models panel's entry the program runs
     /// (only OpenCode and Pi take one). The thread's room is joined through the launch's hooks as
     /// for any session of a talking thread; a failure of the chat never refuses the launch.
+    #[allow(clippy::too_many_arguments)]
     pub async fn open_agent(
         self: &Arc<Self>,
         program: &str,
@@ -527,17 +549,36 @@ impl Controller {
         if !matches!(program, "claude_code" | "codex" | "opencode" | "pi") {
             return Err("This program cannot be opened for a team.");
         }
-        if initial_prompt.trim().is_empty() || initial_prompt.len() > 8192 || initial_prompt.contains('\0') {
+        if initial_prompt.trim().is_empty()
+            || initial_prompt.len() > 8192
+            || initial_prompt.contains('\0')
+        {
             return Err("The agent's first message is invalid.");
         }
         let model = match (own_model, model) {
             (true, _) => Some(None),
-            (false, Some(selection)) if matches!(program, "opencode" | "pi") => Some(Some(selection)),
-            (false, Some(_)) => return Err("This program has no model setting: use its own sign-in and model."),
+            (false, Some(selection)) if matches!(program, "opencode" | "pi") => {
+                Some(Some(selection))
+            }
+            (false, Some(_)) => {
+                return Err("This program has no model setting: use its own sign-in and model.");
+            }
             (false, None) => return Err("The agent has no model."),
         };
-        self.start_request(program, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), false, None, Some(workset), model).await
+        self.start_request(
+            program,
+            host,
+            project,
+            24,
+            80,
+            OpenMode::PrepareWhenNeeded,
+            Some(initial_prompt),
+            false,
+            None,
+            Some(workset),
+            model,
+        )
+        .await
     }
 }
 fn prepare_box(
@@ -690,13 +731,17 @@ fn session_set(
             _ => None,
         };
         let verified = Marionette::current(store).and_then(|release| {
-            release.verify(host.ok_or(MarionetteError::Missing)?).map(|_| ())
+            release
+                .verify(host.ok_or(MarionetteError::Missing)?)
+                .map(|_| ())
         });
         match verified {
             Ok(()) => return Ok((marionette::marionette_set(), Some(store.to_path_buf()))),
             Err(error) => crate::app_log::write(
                 "marionette",
-                &format!("{harness} starts without Marionette: {error}; the next start repairs the copy."),
+                &format!(
+                    "{harness} starts without Marionette: {error}; the next start repairs the copy."
+                ),
             ),
         }
     }

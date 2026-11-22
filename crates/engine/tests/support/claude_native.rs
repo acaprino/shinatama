@@ -313,10 +313,14 @@ impl Proof {
                         Some("private-ca") => "synthetic-private-ca-case-refused",
                         Some("cleanup") => "synthetic-shutdown-refused",
                         Some("main-record") => "synthetic-main-record-refused",
-                    Some("main-steering") => "synthetic-main-steering-refused",
-                    Some("main-steering-system-absent") => "synthetic-steering-live-system-absent",
-                    Some("main-steering-system-present") => "synthetic-steering-live-system-unsteered",
-                    _ => "synthetic-fixture-refused",
+                        Some("main-steering") => "synthetic-main-steering-refused",
+                        Some("main-steering-system-absent") => {
+                            "synthetic-steering-live-system-absent"
+                        }
+                        Some("main-steering-system-present") => {
+                            "synthetic-steering-live-system-unsteered"
+                        }
+                        _ => "synthetic-fixture-refused",
                     });
                 }
                 require(

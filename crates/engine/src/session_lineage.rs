@@ -295,8 +295,11 @@ mod tests {
         assert_eq!(unknown.ancestor_state, LineageState::UnknownParent);
         assert_eq!(unknown.selected_state, LineageState::Resolved);
         let unobserved = super::derive_lineage(
-            &[row("a", None), row("b", None)], "a", ParentMetadata::Unavailable,
-        ).unwrap();
+            &[row("a", None), row("b", None)],
+            "a",
+            ParentMetadata::Unavailable,
+        )
+        .unwrap();
         assert_eq!(unobserved.children_state, LineageState::UnknownLinks);
         assert_eq!(unobserved.total_direct_children, None);
         let path_label =

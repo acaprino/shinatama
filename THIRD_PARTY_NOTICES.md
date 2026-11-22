@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory. Its complete publisher Node license bundle is verified by sidecar/prepare-runtime.ps1; that check does not close X3 or certify a product release.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -123,6 +123,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Rust | ident_case | 1.0.1 | build-tool | MIT/Apache-2.0 | recognized | LICENSE |
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | imago-shell | 0.2.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -149,7 +150,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Rust | miniz_oxide | 0.9.1 | build-tool | MIT OR Zlib OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
 | Rust | mio | 1.2.4 | dev-test, runtime | MIT | recognized | LICENSE |
 | Rust | muda | 0.20.0 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE.spdx |
-| Rust | mukade | 0.1.0 | runtime | MIT | recognized | LICENSE |
+| Rust | mukade | 0.1.3 | runtime | MIT | recognized | LICENSE |
 | Rust | new_debug_unreachable | 1.0.6 | build-tool, runtime | MIT | recognized | LICENSE-MIT |
 | Rust | nix | 0.28.0 | runtime | MIT | recognized | LICENSE |
 | Rust | num-conv | 0.2.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-Apache; LICENSE-MIT |
@@ -338,6 +339,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
+| npm | @acaprino/imago | 0.2.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @codemirror/autocomplete | 6.20.4 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/commands | 6.11.1 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-css | 6.3.1 | runtime | MIT | recognized | LICENSE |
@@ -381,6 +383,15 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | npm | @xterm/addon-fit | 0.11.0 | runtime | MIT | recognized | LICENSE |
 | npm | @xterm/xterm | 6.0.0 | runtime | MIT | recognized | LICENSE |
 | npm | crelt | 1.0.7 | runtime | MIT | recognized | LICENSE |
+| npm | d3-color | 3.1.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-dispatch | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-drag | 3.0.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-ease | 3.0.2 | runtime | BSD-3-Clause | recognized | LICENSE |
+| npm | d3-interpolate | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-selection | 3.0.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-timer | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-transition | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-zoom | 3.0.1 | runtime | ISC | recognized | LICENSE |
 | npm | detect-libc | 2.1.2 | build-tool | Apache-2.0 | recognized | LICENSE |
 | npm | fdir | 6.5.0 | build-tool | MIT | recognized | LICENSE |
 | npm | lightningcss | 1.33.0 | build-tool | MPL-2.0 | release-review-required | LICENSE |
@@ -404,12 +415,12 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Asset | Origin | SHA-256 |
 | --- | --- | --- |
 | apps/desktop/app-icon.svg | project-owned original geometric icon | 0529e05ef3df065c5086e6e7bafa0512b859074af8b7ef3e0f8d05bd72ec2f12 |
-| apps/desktop/src-tauri/icons/128x128.png | project-owned original geometric icon | b3baf0d559ea92ca35493e3d4a86c3c77901f0c380bf77272cefaa0659d1a371 |
-| apps/desktop/src-tauri/icons/128x128@2x.png | project-owned original geometric icon | 0a63a41bb611e436dac98fcc1f39d185e9f290fa9c996582a1ac02ee79f68e2b |
-| apps/desktop/src-tauri/icons/32x32.png | project-owned original geometric icon | 5c5539633cec3b1a6a3e4016abbc677166b8412279ae74a3628d50db74aadee6 |
+| apps/desktop/src-tauri/icons/128x128.png | project-owned original geometric icon | a949fd2070e552bc76a73a9dd3464fc24da0e2a83b3d9958e94aaada5415162c |
+| apps/desktop/src-tauri/icons/128x128@2x.png | project-owned original geometric icon | 1fd85f48d9ac88442e7563233827d2dcff7ce546bc2c7ce93ba88c6b779c94a9 |
+| apps/desktop/src-tauri/icons/32x32.png | project-owned original geometric icon | 194349f66f882586f2df76d1fa8fb9dc9964f68d62761b1873dfc5c2d0955fe6 |
 | apps/desktop/src-tauri/icons/icon.icns | project-owned original geometric icon | f7b469b96d4b5bce3ce3fc0cf2421ee334d444cb170a58071a51e9881a987d5d |
-| apps/desktop/src-tauri/icons/icon.ico | project-owned original geometric icon | 1cd8876261cfd96697fe8672e18a572afe2451dace637cbca56994efa15ee463 |
-| apps/desktop/src-tauri/icons/icon.png | project-owned original geometric icon | 4e21c0cda12aeee8fe75ed239dc79c3e68b93b649e31626b3e761447fa2859c8 |
+| apps/desktop/src-tauri/icons/icon.ico | project-owned original geometric icon | 5a837cdaede79509ee9488471c1f444acdf685705e46fc8684fe923362c4b760 |
+| apps/desktop/src-tauri/icons/icon.png | project-owned original geometric icon | 3b1847de23b9dd446adb7894d43e9e4d7148263e365c8e65a0754518b315a75b |
 
 The icon source and generated variants are project-owned geometric artwork. No Oni-derived art, remote font or model is bundled. Prepared sidecar and Mukade sources are separately pinned third-party inputs, not project-owned assets or additional first-party npm packages; this table does not certify their transitive license completeness.
 

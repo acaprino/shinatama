@@ -1,3 +1,4 @@
+import { overviewStrip, uiButton } from '@acaprino/imago/ui';
 /** The strip at a terminal's right edge, in place of its scrollbar: the scrollback in miniature.
  * Each line is a bar from its indent to its end (80 cells fill the strip), a few pixels apart while
  * the scrollback is short and one pixel row for several lines once it is longer than the strip; a
@@ -79,30 +80,37 @@ export function createTerminalMinimap(options: {
   shown(): boolean;
 }) {
   const { host, terminal, history } = options;
-  const strip = document.createElement('div'); strip.className = 'terminal-minimap';
-  strip.setAttribute('aria-hidden', 'true');
-  const canvas = document.createElement('canvas');
-  // The archive's band (its color is the archive's ink) and the frame are elements, so the skin's
-  // tokens style them; the canvas only holds the lines.
-  const archiveBand = document.createElement('div'); archiveBand.className = 'terminal-minimap-archive'; archiveBand.hidden = true;
-  const frame = document.createElement('div'); frame.className = 'terminal-minimap-view';
-  strip.append(archiveBand, canvas, frame);
-  const earlier = document.createElement('button'); earlier.type = 'button'; earlier.className = 'terminal-earlier'; earlier.hidden = true;
-  earlier.onclick = () => options.openHistory(Math.max(0, history.archive.lines() - 1));
-  host.classList.add('has-minimap'); host.append(strip, earlier);
-  let timer = 0; let disposed = false;
   /** While a drag lasts: where the pointer holds the frame, in lines below its top. */
   let hold: number | null = null;
+  // Imago draws the strip, the archive's band and the frame in the skin's colours; the canvas holds the lines.
+  const strip = overviewStrip({
+    press(y, on) {
+      const shape = geometry();
+      if (on === 'band') { options.openHistory(archivedLineAt(y, shape, history.archive.lines())); return false; }
+      // On the frame, the drag holds it where it was taken; elsewhere the frame jumps to the pointer.
+      hold = on === 'frame' ? holdAt(y, shape, terminal.buffer.active.viewportY) : shape.frameHeight / 2 / shape.pitch;
+      scrollTo(y); return true;
+    },
+    drag(y) { if (hold !== null) scrollTo(y); },
+    release(completed) { if (hold === null) return; hold = null; if (completed) terminal.focus(); },
+    wheel(deltaY) { terminal.scrollLines(Math.sign(deltaY) * 3); },
+  });
+  strip.element.classList.add('terminal-minimap');
+  const { canvas } = strip;
+  const earlier = uiButton('Earlier', { sm: true, cls: 'terminal-earlier' }); earlier.hidden = true;
+  earlier.onclick = () => options.openHistory(Math.max(0, history.archive.lines() - 1));
+  host.classList.add('has-minimap'); host.append(strip.element, earlier);
+  let timer = 0; let disposed = false;
 
   const geometry = () => {
     const buffer = terminal.buffer.active;
-    return minimapGeometry(strip.clientHeight, history.archive.lines(), buffer.length, buffer.viewportY, terminal.rows);
+    return minimapGeometry(strip.element.clientHeight, history.archive.lines(), buffer.length, buffer.viewportY, terminal.rows);
   };
   /** The frame follows the viewport at once; the lines are repainted at most every REDRAW_MS. */
   function place() {
-    if (disposed || strip.clientHeight < 8) return;
+    if (disposed || strip.element.clientHeight < 8) return;
     const { frameTop, frameHeight } = geometry();
-    frame.style.top = `${frameTop}px`; frame.style.height = `${frameHeight}px`;
+    strip.setFrame(frameTop, frameHeight);
     const buffer = terminal.buffer.active; const archived = history.archive.lines();
     earlier.hidden = !(archived > 0 && buffer.type === 'normal' && buffer.viewportY === 0 && buffer.baseY > 0);
     if (!earlier.hidden) earlier.textContent = `↑ Earlier lines · ${archived.toLocaleString()}`;
@@ -119,15 +127,15 @@ export function createTerminalMinimap(options: {
     const buffer = terminal.buffer.active; const archived = history.archive.lines();
     const shape = minimapGeometry(height, archived, buffer.length, buffer.viewportY, terminal.rows);
     const cols = Math.max(1, Math.min(terminal.cols, MINIATURE_COLUMNS));
-    archiveBand.hidden = !shape.archiveHeight; archiveBand.style.height = `${shape.archiveHeight}px`;
+    strip.setBand(shape.archiveHeight); const ink = strip.ink();
     if (shape.archiveHeight) {
       // Computed colors are plain rgb(): the canvas reads them whatever the skin wrote.
-      context.globalAlpha = 0.6; context.fillStyle = getComputedStyle(archiveBand).color;
+      context.globalAlpha = 0.6; context.fillStyle = ink.band;
       paintLines(context, 0, shape.archiveHeight / archived, archived, width, cols, index => {
         const cells = history.archive.width(index); return cells ? [0, cells] : null;
       });
     }
-    context.globalAlpha = 1; context.fillStyle = getComputedStyle(strip).color;
+    context.globalAlpha = 1; context.fillStyle = ink.trace;
     paintLines(context, shape.archiveHeight, shape.pitch, buffer.length, width, cols, index => {
       const text = buffer.getLine(index)?.translateToString(true) ?? '';
       return text ? [text.length - text.trimStart().length, text.length] : null;
@@ -138,28 +146,14 @@ export function createTerminalMinimap(options: {
   const schedule = () => { if (!timer && !disposed) timer = window.setTimeout(() => requestAnimationFrame(draw), REDRAW_MS); };
   const now = () => { clearTimeout(timer); timer = 0; requestAnimationFrame(draw); };
 
-  function scrollTo(event: PointerEvent) {
-    const box = strip.getBoundingClientRect(); const buffer = terminal.buffer.active;
-    terminal.scrollToLine(lineAt(event.clientY - box.top, geometry(), buffer.length, terminal.rows, hold ?? undefined)); place();
+  function scrollTo(y: number) {
+    const buffer = terminal.buffer.active;
+    terminal.scrollToLine(lineAt(y, geometry(), buffer.length, terminal.rows, hold ?? undefined)); place();
   }
-  strip.addEventListener('pointerdown', event => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    const y = event.clientY - strip.getBoundingClientRect().top; const shape = geometry(); const archived = history.archive.lines();
-    if (y < shape.archiveHeight) { options.openHistory(archivedLineAt(y, shape, archived)); return; }
-    // On the frame, the drag holds it where it was taken; elsewhere the frame jumps to the pointer.
-    const onFrame = y >= shape.frameTop && y < shape.frameTop + shape.frameHeight;
-    hold = onFrame ? holdAt(y, shape, terminal.buffer.active.viewportY) : shape.frameHeight / 2 / shape.pitch;
-    strip.classList.add('dragging'); strip.setPointerCapture(event.pointerId); scrollTo(event);
-  });
-  strip.addEventListener('pointermove', event => { if (hold !== null) scrollTo(event); });
-  strip.addEventListener('wheel', event => { event.preventDefault(); terminal.scrollLines(Math.sign(event.deltaY) * 3); }, { passive: false });
-  const release = (focus: boolean) => { if (hold === null) return; hold = null; strip.classList.remove('dragging'); if (focus) terminal.focus(); };
-  strip.addEventListener('pointerup', () => release(true)); strip.addEventListener('pointercancel', () => release(false));
 
   const subscriptions = [terminal.onScroll(() => { place(); schedule(); }), terminal.onWriteParsed(schedule), terminal.onResize(now), terminal.buffer.onBufferChange(now)];
   const unsubscribe = history.onChange(schedule);
-  const observer = new ResizeObserver(now); observer.observe(strip);
+  const observer = new ResizeObserver(now); observer.observe(strip.element);
   // A skin writes its tokens on the root element: the lines take its ink at the next painting.
   const skin = new MutationObserver(schedule); skin.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] });
   now();
@@ -168,7 +162,7 @@ export function createTerminalMinimap(options: {
     dispose() {
       disposed = true; clearTimeout(timer); observer.disconnect(); skin.disconnect(); unsubscribe();
       for (const subscription of subscriptions) subscription.dispose();
-      strip.remove(); earlier.remove(); host.classList.remove('has-minimap');
+      strip.destroy(); earlier.remove(); host.classList.remove('has-minimap');
     },
   };
 }

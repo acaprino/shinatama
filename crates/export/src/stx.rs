@@ -135,7 +135,11 @@ impl Default for BodyWriter {
 
 impl BodyWriter {
     pub fn new() -> Self {
-        Self { hash: Sha256::new(), items: 0, attachments: 0 }
+        Self {
+            hash: Sha256::new(),
+            items: 0,
+            attachments: 0,
+        }
     }
 
     /// Appends the line of `item` (already redacted) to `out`, counting it in the checksum.
@@ -177,7 +181,12 @@ impl BodyWriter {
             body_sha256: hex(&self.hash.finalize()),
             redactions: options.redactions.clone(),
             attachments: AttachmentPolicy {
-                policy: if options.attachments_copied > 0 { "copied" } else { "references" }.into(),
+                policy: if options.attachments_copied > 0 {
+                    "copied"
+                } else {
+                    "references"
+                }
+                .into(),
                 count: self.attachments,
                 copied: options.attachments_copied,
             },
@@ -217,8 +226,12 @@ pub fn render(transcript: &Transcript, options: &WriteOptions) -> Vec<u8> {
 pub fn read(bytes: &[u8]) -> Result<Document, ReadError> {
     let text = std::str::from_utf8(bytes).map_err(|_| ReadError::NotStx)?;
     let mut lines = text.split('\n');
-    let first = lines.next().filter(|l| !l.trim().is_empty()).ok_or(ReadError::Empty)?;
-    let raw: Value = serde_json::from_str(first.trim_end_matches('\r')).map_err(|_| ReadError::NotStx)?;
+    let first = lines
+        .next()
+        .filter(|l| !l.trim().is_empty())
+        .ok_or(ReadError::Empty)?;
+    let raw: Value =
+        serde_json::from_str(first.trim_end_matches('\r')).map_err(|_| ReadError::NotStx)?;
     if raw.get("format").and_then(Value::as_str) != Some(FORMAT) {
         return Err(ReadError::NotStx);
     }
@@ -245,8 +258,8 @@ pub fn read(bytes: &[u8]) -> Result<Document, ReadError> {
         if line.is_empty() {
             continue;
         }
-        let value: Value = serde_json::from_str(line)
-            .map_err(|_| ReadError::MalformedLine { line: index + 2 })?;
+        let value: Value =
+            serde_json::from_str(line).map_err(|_| ReadError::MalformedLine { line: index + 2 })?;
         parsed.push(match serde_json::from_value::<ItemLine>(value.clone()) {
             Ok(item) => Line::Item(Box::new(item)),
             Err(_) => Line::Unknown(value),
@@ -327,13 +340,55 @@ mod tests {
             },
             thread: Some("thread-1".into()),
             items: vec![
-                ExportItem { kind: ItemKind::UserText, text: "my key is sk-ant-api03-AbCdEf0123456789AbCdEf0123456789xyz".into(), tool: None, attachment: None, provenance: prov(0) },
-                ExportItem { kind: ItemKind::AssistantText, text: "Reading the file.".into(), tool: None, attachment: None, provenance: prov(1) },
-                ExportItem { kind: ItemKind::ToolCall, text: "{\"path\":\"src/lib.rs\"}".into(), tool: Some(ToolInfo { name: "Read".into(), call_id: Some("t1".into()), is_error: false }), attachment: None, provenance: prov(1) },
-                ExportItem { kind: ItemKind::ToolResult, text: "fn main() {}".into(), tool: Some(ToolInfo { name: "Read".into(), call_id: Some("t1".into()), is_error: false }), attachment: None, provenance: prov(2) },
-                ExportItem { kind: ItemKind::Compaction, text: "Summary so far.".into(), tool: None, attachment: None, provenance: prov(3) },
+                ExportItem {
+                    kind: ItemKind::UserText,
+                    text: "my key is sk-ant-api03-AbCdEf0123456789AbCdEf0123456789xyz".into(),
+                    tool: None,
+                    attachment: None,
+                    provenance: prov(0),
+                },
+                ExportItem {
+                    kind: ItemKind::AssistantText,
+                    text: "Reading the file.".into(),
+                    tool: None,
+                    attachment: None,
+                    provenance: prov(1),
+                },
+                ExportItem {
+                    kind: ItemKind::ToolCall,
+                    text: "{\"path\":\"src/lib.rs\"}".into(),
+                    tool: Some(ToolInfo {
+                        name: "Read".into(),
+                        call_id: Some("t1".into()),
+                        is_error: false,
+                    }),
+                    attachment: None,
+                    provenance: prov(1),
+                },
+                ExportItem {
+                    kind: ItemKind::ToolResult,
+                    text: "fn main() {}".into(),
+                    tool: Some(ToolInfo {
+                        name: "Read".into(),
+                        call_id: Some("t1".into()),
+                        is_error: false,
+                    }),
+                    attachment: None,
+                    provenance: prov(2),
+                },
+                ExportItem {
+                    kind: ItemKind::Compaction,
+                    text: "Summary so far.".into(),
+                    tool: None,
+                    attachment: None,
+                    provenance: prov(3),
+                },
             ],
-            omitted: Omissions { reasoning: 2, meta: 1, structured_results: 0 },
+            omitted: Omissions {
+                reasoning: 2,
+                meta: 1,
+                structured_results: 0,
+            },
             instruction_files: vec!["CLAUDE.md".into()],
         }
     }
@@ -341,12 +396,15 @@ mod tests {
     fn rendered(mode: Mode) -> Vec<u8> {
         let mut redactor = Redactor::new(mode, Some(r"C:\Users\someone"));
         let transcript = sample().redacted(&mut redactor);
-        render(&transcript, &WriteOptions {
-            mode,
-            created: "2026-11-09T00:00:00Z".into(),
-            redactions: redactor.into_counts(),
-            attachments_copied: 0,
-        })
+        render(
+            &transcript,
+            &WriteOptions {
+                mode,
+                created: "2026-11-09T00:00:00Z".into(),
+                redactions: redactor.into_counts(),
+                attachments_copied: 0,
+            },
+        )
     }
 
     #[test]
@@ -356,8 +414,21 @@ mod tests {
         assert_eq!(document.header.version, 1);
         assert_eq!(document.header.items, 5);
         let kinds: Vec<_> = document.items().map(|item| item.kind).collect();
-        assert_eq!(kinds, [ItemKind::UserText, ItemKind::AssistantText, ItemKind::ToolCall, ItemKind::ToolResult, ItemKind::Compaction]);
-        assert_eq!(document.to_bytes(), bytes, "re-serialization is byte stable");
+        assert_eq!(
+            kinds,
+            [
+                ItemKind::UserText,
+                ItemKind::AssistantText,
+                ItemKind::ToolCall,
+                ItemKind::ToolResult,
+                ItemKind::Compaction
+            ]
+        );
+        assert_eq!(
+            document.to_bytes(),
+            bytes,
+            "re-serialization is byte stable"
+        );
         assert_eq!(document.header.omitted.reasoning, 2);
     }
 
@@ -397,10 +468,16 @@ mod tests {
         let document = read(edited.as_bytes()).unwrap();
         assert_eq!(document.header.extra["future_field"]["x"], 1);
         assert!(matches!(&document.lines[5], Line::Unknown(v) if v["kind"] == "hologram"));
-        let Line::Item(first) = &document.lines[0] else { panic!() };
+        let Line::Item(first) = &document.lines[0] else {
+            panic!()
+        };
         assert_eq!(first.extra["future_item_field"], true);
         let again = String::from_utf8(document.to_bytes()).unwrap();
-        assert!(again.contains("future_field") && again.contains("future_item_field") && again.contains("hologram"));
+        assert!(
+            again.contains("future_field")
+                && again.contains("future_item_field")
+                && again.contains("hologram")
+        );
     }
 
     #[test]
@@ -416,7 +493,10 @@ mod tests {
         let bytes = rendered(Mode::Full);
         let cut = &bytes[..bytes.len() - 10];
         assert_eq!(read(cut).unwrap_err(), ReadError::BodyMismatch);
-        assert_eq!(read(b"{\"format\":\"other\"}\n").unwrap_err(), ReadError::NotStx);
+        assert_eq!(
+            read(b"{\"format\":\"other\"}\n").unwrap_err(),
+            ReadError::NotStx
+        );
         assert_eq!(read(b"").unwrap_err(), ReadError::Empty);
     }
 }

@@ -1,99 +1,12 @@
 <!doctype html>
-<html lang="en" data-look="smooth">
+<html lang="en" data-im-look="smooth" data-im-app="shinatama" data-im-theme="dark">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark"><link rel="icon" href="data:,">
   <title>Shinatama — terminal workspace</title>
 </head>
 <body>
-  <svg hidden aria-hidden="true">
-    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.5 13.5v-11h5l1.5 2h6.5v9z"/></symbol>
-    <symbol id="i-caret" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
-<symbol id="i-file" viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3"/></symbol>
-<symbol id="i-link" viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3M6 11.5l4-4M7 7.5h3v3"/></symbol>
-    <symbol id="i-layout" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM8 2.5v11"/></symbol>
-    <symbol id="i-sidebar" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM6 2.5v11M3.8 5h1M3.8 7h1M3.8 9h1"/></symbol>
-    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
-    <symbol id="i-move" viewBox="0 0 16 16"><path d="M2 5.5h11M10.5 3 13 5.5 10.5 8M14 10.5H3M5.5 8 3 10.5 5.5 13"/></symbol>
-    <symbol id="i-hide" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
-    <symbol id="i-maximize" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
-    <symbol id="i-restore" viewBox="0 0 16 16"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></symbol>
-    <symbol id="i-stop" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
-    <symbol id="i-prompt" viewBox="0 0 34 34"><path d="M3 5.5h28v23H3zM9 12l6 5-6 5M18 23h7"/></symbol>
-    <symbol id="i-split" viewBox="0 0 34 34"><path d="M3 5.5h28v23H3zM17 5.5v23M21 13h6M21 18h6M21 23h3"/></symbol>
-  </svg>
-  <main id="app">
-    <header class="titlebar">
-      <div class="titlebar-drag" data-tauri-drag-region>
-        <svg class="brand-mark" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 1h16v16H1zM5 5h8M5 9h8M5 13h8"/></svg>
-        <svg class="wordmark" viewBox="0 0 124 10" role="img" aria-label="Shinatama">
-          <path d="M12 .8H1.8L.8 1.8V4L1.8 5h8.4l1 1v2.2l-1 1H0"/>
-          <path transform="translate(15)" d="M.8 0v10M11.2 0v10M.8 5h10.4"/>
-          <path transform="translate(30)" d="M1 0v10"/>
-          <path transform="translate(35)" d="M.8 10V1l10.4 8V0"/>
-          <path transform="translate(50)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
-          <path transform="translate(65)" d="M0 .8h12M6 .8V10"/>
-          <path transform="translate(80)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
-          <path transform="translate(95)" d="M.8 10V1L7 7l6.2-6v9"/>
-          <path transform="translate(112)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
-        </svg><span class="version">0.1</span>
-        <span class="title-description">multi-harness terminal</span>
-      </div>
-      <div class="window-controls" role="group" aria-label="Window controls">
-        <button id="window-minimize" type="button" aria-label="Minimize window" title="Minimize" disabled>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5h10"/></svg>
-        </button>
-        <button id="window-maximize" type="button" aria-label="Maximize window" title="Maximize" disabled>
-          <svg class="maximize-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9"/></svg>
-          <svg class="restore-icon" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M5.5 5.5v-3h8v8h-3"/><rect x="2.5" y="5.5" width="8" height="8"/></svg>
-        </button>
-        <button id="window-close" type="button" aria-label="Close window" title="Close" disabled>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg>
-        </button>
-      </div>
-    </header>
-    <nav class="toolbar" aria-label="Workspace controls">
-      <button id="threads-toggle" class="threads-toggle" type="button" title="Show or close the thread sidebar" aria-label="Thread sidebar" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-sidebar"/></svg></button>
-      <button id="project" class="project-picker" title="Projects: tick the ones whose threads the sidebar lists"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span id="project-name">Projects</span><svg class="icon caret" aria-hidden="true"><use href="#i-caret"/></svg></button>
-      <span class="toolbar-divider"></span><span class="workspace-name">Workspace <small id="pane-count">2 panes</small></span>
-      <span class="spring"></span>
-      <button id="layout-toggle" title="Switch between columns and rows"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg><span>Layout</span></button>
-      <button id="restore" title="Show all hidden terminals">Restore views</button>
-      <button id="new-terminal" class="primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New session</button>
-    </nav>
-    <div id="work-area"><section id="workspace" aria-label="Terminal workspace"></section></div>
-    <footer class="statusbar"><span id="runtime-status"><i></i>Connecting…</span><span id="terminal-count">0 terminals</span><span class="spring"></span><span>Ctrl+Shift+T <span class="muted">new session</span></span><span>Ctrl+Shift+Left / Right <span class="muted">focus pane</span></span></footer>
-    <div id="notice" role="status" hidden><span></span><button aria-label="Dismiss notification">×</button></div>
-    <div id="modal-scrim" hidden></div>
-    <dialog id="project-dialog" aria-labelledby="project-dialog-title">
-      <form id="project-form"><div class="dialog-heading"><h1 id="project-dialog-title">Project roots</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
-      <p class="roots-lead">A root is the folder that holds your projects, such as <code>D:\Projects</code>. Every folder directly inside it shows up as a project. Nothing is created, moved or deleted.</p>
-      <section id="roots-panel" aria-label="Your project roots">
-        <div id="root-list" role="list" aria-live="polite"></div>
-        <div class="root-add"><input id="root-path" spellcheck="false" autocomplete="off" placeholder="Paste a root folder, e.g. D:\Projects" aria-label="Root folder path"><button id="add-root" type="button">Add</button><button id="choose-root" class="primary" type="button">Choose root folder…</button></div>
-        <p id="default-root-summary" class="hint"></p>
-      </section>
-      <section class="recent-projects" aria-label="Projects in your roots">
-        <div class="catalog-section-heading"><h2>Projects in your roots</h2><span class="spring"></span><button id="refresh-projects" type="button">Rescan</button></div>
-        <input id="project-filter" type="search" placeholder="Filter by project name or folder  ( / )" autocomplete="off" maxlength="128" aria-label="Filter projects">
-        <p id="catalog-state" class="hint" role="status"></p>
-        <div id="catalog-project-list" role="list" aria-label="Projects in roots"></div>
-        <div id="catalog-pagination" hidden><button id="catalog-previous" type="button">Previous</button><span id="catalog-page"></span><button id="catalog-next" type="button">Next</button></div>
-        <h2 id="recent-project-heading">Single folders</h2>
-        <div id="recent-project-list" role="list" aria-live="polite"></div>
-      </section>
-      <section class="single-folder" aria-labelledby="single-folder-heading">
-        <h2 id="single-folder-heading">Just one folder</h2>
-        <p class="hint">Opens one folder as a project, without adding a root.</p>
-        <div class="single-folder-row"><input id="folder" name="folder" required spellcheck="false" autocomplete="off" placeholder="D:\Projects\my-app" aria-label="Folder to open as a project"><button id="browse-project" type="button">Browse… <kbd>F3</kbd></button><button type="submit">Use folder</button></div>
-      </section>
-      <p id="project-error" role="alert" hidden></p>
-      <div class="dialog-actions"><button id="create-project" type="button">New project <kbd>n</kbd></button><span class="spring"></span><button type="button" data-cancel>Close</button></div></form>
-    </dialog>
-    <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
-      <form method="dialog"><div class="dialog-heading"><h1 id="confirm-title">Stop terminal?</h1></div><p id="confirm-message"></p>
-      <div class="dialog-actions"><button value="cancel" autofocus>Cancel</button><button value="stop" class="danger">Stop</button></div></form>
-    </dialog>
-  </main><script type="module" src="/src/main.ts"></script>
+  <div id="app" class="im-shell" data-im-sidebar="on" data-im-inspector="wide"></div>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

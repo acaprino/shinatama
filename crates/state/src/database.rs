@@ -19,6 +19,9 @@ const IMPORT_MARKER: &str = "migration.projects_json.v1";
 const APPEARANCE_KEY: &str = "ui.appearance.v1";
 /// The key of the list of template ids; each template is the setting `<key>.<id>`.
 const TEMPLATES_INDEX: &str = "team.templates.v1";
+/// The readable templates by id, and the ids of those the index lists that are not readable as
+/// templates.
+type Templates = (Vec<(String, serde_json::Value)>, Vec<String>);
 /// How many team templates are kept.
 pub const MAX_TEMPLATES: usize = 64;
 
@@ -442,26 +445,36 @@ impl Database {
     /// Pins or unpins one recorded project; returns the new pin list.
     pub fn set_project_pinned(&self, project_id: &str, pinned: bool) -> Result<Vec<String>> {
         self.require_writable()?;
-        if project_id.is_empty() || project_id.len() > 64 || project_id.chars().any(char::is_control) {
+        if project_id.is_empty()
+            || project_id.len() > 64
+            || project_id.chars().any(char::is_control)
+        {
             return Err(DatabaseError::InvalidProject("id"));
         }
         let mut connection = self.lock()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         schema::require_write_version(&transaction)?;
-        let known: bool = transaction.query_row("SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)", [project_id], |row| row.get(0))?;
+        let known: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)",
+            [project_id],
+            |row| row.get(0),
+        )?;
         if pinned && !known {
             return Err(DatabaseError::InvalidProject("unknown project"));
         }
         let saved: Option<String> = transaction
             .query_row("SELECT value FROM setting WHERE key='projects.pinned.v1' AND octet_length(value)<=8192", [], |row| row.get(0))
             .optional()?;
-        let mut pins: Vec<String> = saved.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+        let mut pins: Vec<String> = saved
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default();
         pins.retain(|id| id != project_id);
         if pinned {
             pins.insert(0, project_id.to_owned());
         }
         pins.truncate(100);
-        let json = serde_json::to_string(&pins).map_err(|_| DatabaseError::InvalidProject("pins"))?;
+        let json =
+            serde_json::to_string(&pins).map_err(|_| DatabaseError::InvalidProject("pins"))?;
         transaction.execute(
             "INSERT INTO setting(key,value) VALUES('projects.pinned.v1',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             [json],
@@ -473,14 +486,21 @@ impl Database {
     fn setting_json<T: serde::de::DeserializeOwned + Default>(&self, key: &str) -> Result<T> {
         let connection = self.lock()?;
         let saved: Option<String> = connection
-            .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
+            .query_row(
+                "SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536",
+                [key],
+                |row| row.get(0),
+            )
             .optional()?;
-        Ok(saved.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default())
+        Ok(saved
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default())
     }
 
     fn set_setting_json<T: serde::Serialize>(&self, key: &str, value: &T) -> Result<()> {
         self.require_writable()?;
-        let json = serde_json::to_string(value).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+        let json =
+            serde_json::to_string(value).map_err(|_| DatabaseError::InvalidProject("setting"))?;
         if json.len() > 65536 {
             return Err(DatabaseError::InvalidProject("setting too large"));
         }
@@ -494,7 +514,9 @@ impl Database {
 
     /// F06 titles switch; on by default (the verbatim titler sends nothing anywhere).
     pub fn titles_enabled(&self) -> Result<bool> {
-        Ok(self.setting_json::<Option<bool>>("titles.enabled.v1")?.unwrap_or(true))
+        Ok(self
+            .setting_json::<Option<bool>>("titles.enabled.v1")?
+            .unwrap_or(true))
     }
     pub fn set_titles_enabled(&self, enabled: bool) -> Result<()> {
         self.set_setting_json("titles.enabled.v1", &Some(enabled))
@@ -502,7 +524,11 @@ impl Database {
 
     /// Threads whose transcript is never read for a title or summary (FRD-0010 R22).
     pub fn summaries_excluded(&self) -> Result<Vec<String>> {
-        Ok(self.setting_json::<Vec<String>>("threads.summaries_excluded.v1")?.into_iter().take(1000).collect())
+        Ok(self
+            .setting_json::<Vec<String>>("threads.summaries_excluded.v1")?
+            .into_iter()
+            .take(1000)
+            .collect())
     }
     pub fn set_summaries_excluded(&self, thread_id: &str, excluded: bool) -> Result<Vec<String>> {
         if thread_id.is_empty() || thread_id.len() > 64 || thread_id.chars().any(char::is_control) {
@@ -524,7 +550,9 @@ impl Database {
         Ok(self
             .setting_json::<Vec<String>>("threads.chat_enabled.v1")?
             .into_iter()
-            .filter(|id| crate::records::validate_id(id, crate::records::CanonicalIdKind::Workset).is_ok())
+            .filter(|id| {
+                crate::records::validate_id(id, crate::records::CanonicalIdKind::Workset).is_ok()
+            })
             .take(1000)
             .collect())
     }
@@ -555,14 +583,19 @@ impl Database {
     }
 
     /// `None` removes the thread's team.
-    pub fn set_thread_team(&self, workset_id: &str, record: Option<&serde_json::Value>) -> Result<()> {
+    pub fn set_thread_team(
+        &self,
+        workset_id: &str,
+        record: Option<&serde_json::Value>,
+    ) -> Result<()> {
         let key = Self::team_key(workset_id)?;
         match record {
             Some(record) => self.set_setting_json(&key, record),
             None => {
                 self.require_writable()?;
                 let mut connection = self.lock()?;
-                let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+                let transaction =
+                    connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
                 schema::require_write_version(&transaction)?;
                 transaction.execute("DELETE FROM setting WHERE key=?1", params![key])?;
                 transaction.commit()?;
@@ -584,7 +617,11 @@ impl Database {
     /// not an object carrying its own id, is left out.
     pub fn team_templates(&self) -> Result<Vec<serde_json::Value>> {
         let connection = self.lock()?;
-        Ok(Self::read_templates(&connection)?.0.into_iter().map(|(_, value)| value).collect())
+        Ok(Self::read_templates(&connection)?
+            .0
+            .into_iter()
+            .map(|(_, value)| value)
+            .collect())
     }
 
     /// Replace the whole list (see `edit_team_templates`).
@@ -610,7 +647,8 @@ impl Database {
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         schema::require_write_version(&transaction)?;
         let (before, unreadable) = Self::read_templates(&transaction)?;
-        let mut list: Vec<serde_json::Value> = before.iter().map(|(_, value)| value.clone()).collect();
+        let mut list: Vec<serde_json::Value> =
+            before.iter().map(|(_, value)| value.clone()).collect();
         if let Err(refusal) = edit(&mut list) {
             return Ok(Err(refusal));
         }
@@ -620,12 +658,16 @@ impl Database {
         let mut ids = Vec::with_capacity(list.len());
         let mut texts = Vec::with_capacity(list.len());
         for value in &list {
-            let id = value.get("id").and_then(serde_json::Value::as_str).ok_or(DatabaseError::InvalidProject("template id"))?;
+            let id = value
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or(DatabaseError::InvalidProject("template id"))?;
             Self::template_key(id)?;
             if ids.iter().any(|seen: &String| seen == id) {
                 return Err(DatabaseError::InvalidProject("template id"));
             }
-            let text = serde_json::to_string(value).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+            let text = serde_json::to_string(value)
+                .map_err(|_| DatabaseError::InvalidProject("setting"))?;
             if text.len() > 65536 {
                 return Err(DatabaseError::InvalidProject("setting too large"));
             }
@@ -633,7 +675,9 @@ impl Database {
             texts.push(text);
         }
         for (id, text) in ids.iter().zip(&texts) {
-            let unchanged = before.iter().any(|(old, value)| old == id && serde_json::to_string(value).is_ok_and(|was| &was == text));
+            let unchanged = before.iter().any(|(old, value)| {
+                old == id && serde_json::to_string(value).is_ok_and(|was| &was == text)
+            });
             if !unchanged {
                 transaction.execute(
                     "INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -643,7 +687,10 @@ impl Database {
         }
         for (old, _) in &before {
             if !ids.contains(old) {
-                transaction.execute("DELETE FROM setting WHERE key=?1", params![Self::template_key(old)?])?;
+                transaction.execute(
+                    "DELETE FROM setting WHERE key=?1",
+                    params![Self::template_key(old)?],
+                )?;
             }
         }
         // What this build cannot read stays listed (after the others) and its setting untouched,
@@ -654,7 +701,8 @@ impl Database {
                 listed.push(kept);
             }
         }
-        let index = serde_json::to_string(&listed).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+        let index =
+            serde_json::to_string(&listed).map_err(|_| DatabaseError::InvalidProject("setting"))?;
         transaction.execute(
             "INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             params![TEMPLATES_INDEX, index],
@@ -664,7 +712,12 @@ impl Database {
     }
 
     fn template_key(id: &str) -> Result<String> {
-        if id.is_empty() || id.len() > 40 || !id.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'_')) {
+        if id.is_empty()
+            || id.len() > 40
+            || !id
+                .bytes()
+                .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'_'))
+        {
             return Err(DatabaseError::InvalidProject("template id"));
         }
         Ok(format!("{TEMPLATES_INDEX}.{id}"))
@@ -673,23 +726,35 @@ impl Database {
     /// The readable templates by id, and the ids of those the index lists whose setting exists but
     /// is not a template carrying its own id (a format this build does not know): an edit leaves
     /// those alone.
-    fn read_templates(connection: &rusqlite::Connection) -> Result<(Vec<(String, serde_json::Value)>, Vec<String>)> {
+    fn read_templates(connection: &rusqlite::Connection) -> Result<Templates> {
         let read = |key: &str| -> Result<Option<String>> {
             Ok(connection
-                .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
+                .query_row(
+                    "SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536",
+                    [key],
+                    |row| row.get(0),
+                )
                 .optional()?)
         };
-        let ids: Vec<String> = read(TEMPLATES_INDEX)?.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+        let ids: Vec<String> = read(TEMPLATES_INDEX)?
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default();
         let mut found: Vec<(String, serde_json::Value)> = Vec::new();
         let mut unreadable: Vec<String> = Vec::new();
         for id in ids.into_iter().take(MAX_TEMPLATES) {
-            let Ok(key) = Self::template_key(&id) else { continue };
+            let Ok(key) = Self::template_key(&id) else {
+                continue;
+            };
             if found.iter().any(|(seen, _)| *seen == id) || unreadable.contains(&id) {
                 continue;
             }
             let stored = read(&key)?;
-            let value: Option<serde_json::Value> = stored.as_ref().and_then(|json| serde_json::from_str(json).ok());
-            match value.filter(|value| value.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())) {
+            let value: Option<serde_json::Value> = stored
+                .as_ref()
+                .and_then(|json| serde_json::from_str(json).ok());
+            match value.filter(|value| {
+                value.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())
+            }) {
                 Some(value) => found.push((id, value)),
                 None if stored.is_some() => unreadable.push(id),
                 None => {}
@@ -1206,8 +1271,17 @@ mod team_tests {
     #[test]
     fn an_invalid_thread_id_is_refused() {
         let database = database();
-        for bad in ["", "x_aaaaaaaaaaaa", "w_short", "w_AAAAAAAAAAAA", "w_aaaaaaaaaaaa/../x"] {
-            assert!(database.set_thread_team(bad, Some(&json!({}))).is_err(), "{bad}");
+        for bad in [
+            "",
+            "x_aaaaaaaaaaaa",
+            "w_short",
+            "w_AAAAAAAAAAAA",
+            "w_aaaaaaaaaaaa/../x",
+        ] {
+            assert!(
+                database.set_thread_team(bad, Some(&json!({}))).is_err(),
+                "{bad}"
+            );
             assert!(database.thread_team(bad).is_err(), "{bad}");
         }
     }
@@ -1229,8 +1303,11 @@ mod team_tests {
         let agents: Vec<_> = (0..24)
             .map(|i| json!({"id": format!("a_{i:012}"), "name": "n".repeat(40), "notes": "k".repeat(1024)}))
             .collect();
-        let links: Vec<_> = (0..64).map(|i| json!({"from": "a", "to": "b", "words": "w".repeat(120), "i": i})).collect();
-        let record = json!({"formation": {"revision": 1, "agents": agents, "links": links}, "told": {}});
+        let links: Vec<_> = (0..64)
+            .map(|i| json!({"from": "a", "to": "b", "words": "w".repeat(120), "i": i}))
+            .collect();
+        let record =
+            json!({"formation": {"revision": 1, "agents": agents, "links": links}, "told": {}});
         database.set_thread_team(ONE, Some(&record)).unwrap();
         database.set_thread_team(OTHER, Some(&record)).unwrap();
         assert_eq!(database.thread_team(OTHER).unwrap(), Some(record));
@@ -1243,10 +1320,21 @@ mod team_tests {
     #[test]
     fn templates_outlive_a_thread() {
         let database = database();
-        assert_eq!(database.team_templates().unwrap(), Vec::<serde_json::Value>::new());
-        let kept = vec![template("tm_aaaaaaaaaaaa", "Review"), template("tm_bbbbbbbbbbbb", "Ship")];
+        assert_eq!(
+            database.team_templates().unwrap(),
+            Vec::<serde_json::Value>::new()
+        );
+        let kept = vec![
+            template("tm_aaaaaaaaaaaa", "Review"),
+            template("tm_bbbbbbbbbbbb", "Ship"),
+        ];
         database.set_team_templates(&kept).unwrap();
-        database.set_thread_team(ONE, Some(&json!({"formation": {"revision": 1}, "told": {}}))).unwrap();
+        database
+            .set_thread_team(
+                ONE,
+                Some(&json!({"formation": {"revision": 1}, "told": {}})),
+            )
+            .unwrap();
         database.set_thread_team(ONE, None).unwrap();
         assert_eq!(database.team_templates().unwrap(), kept);
         // Another thread, another handle on the same store: the list is global.
@@ -1261,7 +1349,9 @@ mod team_tests {
     fn sixty_four_templates_of_fifty_kib_each_are_kept_in_their_own_settings() {
         let database = database();
         let big = |i: usize| {
-            let agents: Vec<_> = (0..24).map(|k| json!({"id": format!("a_{k:012}"), "notes": "k".repeat(1024)})).collect();
+            let agents: Vec<_> = (0..24)
+                .map(|k| json!({"id": format!("a_{k:012}"), "notes": "k".repeat(1024)}))
+                .collect();
             json!({"id": format!("tm_{i:012}"), "name": format!("Team {i}"), "agents": agents, "links": [], "pad": "p".repeat(24_000)})
         };
         let list: Vec<_> = (0..64).map(big).collect();
@@ -1283,7 +1373,9 @@ mod team_tests {
     #[test]
     fn an_edit_that_refuses_stores_nothing_and_one_that_adds_sees_the_stored_list() {
         let database = database();
-        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "Review")]).unwrap();
+        database
+            .set_team_templates(&[template("tm_aaaaaaaaaaaa", "Review")])
+            .unwrap();
         let refused = database
             .edit_team_templates(|list| {
                 list.push(template("tm_bbbbbbbbbbbb", "Ship"));
@@ -1299,38 +1391,106 @@ mod team_tests {
                 Ok(())
             })
             .unwrap();
-        assert_eq!(added.unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect::<Vec<_>>(), ["Ship", "Review"]);
-        assert_eq!(database.team_templates().unwrap()[0]["id"], "tm_bbbbbbbbbbbb");
+        assert_eq!(
+            added
+                .unwrap()
+                .iter()
+                .map(|t| t["name"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["Ship", "Review"]
+        );
+        assert_eq!(
+            database.team_templates().unwrap()[0]["id"],
+            "tm_bbbbbbbbbbbb"
+        );
     }
-
 
     #[test]
     fn editing_the_templates_keeps_one_that_cannot_be_read() {
         let database = database();
-        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_bbbbbbbbbbbb", "B")]).unwrap();
-        database.lock().unwrap().execute("UPDATE setting SET value='7' WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'", []).unwrap();
-        assert_eq!(database.team_templates().unwrap().len(), 1, "the odd one is not listed");
-        database.set_team_templates(&[template("tm_bbbbbbbbbbbb", "B"), template("tm_cccccccccccc", "C")]).unwrap();
+        database
+            .set_team_templates(&[
+                template("tm_aaaaaaaaaaaa", "A"),
+                template("tm_bbbbbbbbbbbb", "B"),
+            ])
+            .unwrap();
+        database
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE setting SET value='7' WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            database.team_templates().unwrap().len(),
+            1,
+            "the odd one is not listed"
+        );
+        database
+            .set_team_templates(&[
+                template("tm_bbbbbbbbbbbb", "B"),
+                template("tm_cccccccccccc", "C"),
+            ])
+            .unwrap();
         let connection = database.lock().unwrap();
         let text = |key: &str| -> Option<String> {
-            connection.query_row("SELECT value FROM setting WHERE key=?1", [key], |row| row.get(0)).ok()
+            connection
+                .query_row("SELECT value FROM setting WHERE key=?1", [key], |row| {
+                    row.get(0)
+                })
+                .ok()
         };
-        assert_eq!(text("team.templates.v1.tm_aaaaaaaaaaaa").as_deref(), Some("7"), "its setting is untouched");
+        assert_eq!(
+            text("team.templates.v1.tm_aaaaaaaaaaaa").as_deref(),
+            Some("7"),
+            "its setting is untouched"
+        );
         let index: Vec<String> = serde_json::from_str(&text("team.templates.v1").unwrap()).unwrap();
-        assert_eq!(index, ["tm_bbbbbbbbbbbb", "tm_cccccccccccc", "tm_aaaaaaaaaaaa"], "and the index still names it, after the others");
+        assert_eq!(
+            index,
+            ["tm_bbbbbbbbbbbb", "tm_cccccccccccc", "tm_aaaaaaaaaaaa"],
+            "and the index still names it, after the others"
+        );
     }
     #[test]
     fn a_template_without_a_usable_id_is_refused_and_a_lost_one_is_skipped() {
         let database = database();
         for bad in ["", "tm/../x", "TM_AAAAAAAAAAAA", "tm_a b"] {
-            assert!(database.set_team_templates(&[template(bad, "x")]).is_err(), "{bad}");
+            assert!(
+                database.set_team_templates(&[template(bad, "x")]).is_err(),
+                "{bad}"
+            );
         }
-        assert!(database.set_team_templates(&[json!({"name": "no id"})]).is_err());
-        assert!(database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_aaaaaaaaaaaa", "B")]).is_err());
+        assert!(
+            database
+                .set_team_templates(&[json!({"name": "no id"})])
+                .is_err()
+        );
+        assert!(
+            database
+                .set_team_templates(&[
+                    template("tm_aaaaaaaaaaaa", "A"),
+                    template("tm_aaaaaaaaaaaa", "B")
+                ])
+                .is_err()
+        );
         assert!(database.team_templates().unwrap().is_empty());
-        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_bbbbbbbbbbbb", "B")]).unwrap();
+        database
+            .set_team_templates(&[
+                template("tm_aaaaaaaaaaaa", "A"),
+                template("tm_bbbbbbbbbbbb", "B"),
+            ])
+            .unwrap();
         // The store loses one setting: the other is still listed.
-        database.lock().unwrap().execute("DELETE FROM setting WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'", []).unwrap();
+        database
+            .lock()
+            .unwrap()
+            .execute(
+                "DELETE FROM setting WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'",
+                [],
+            )
+            .unwrap();
         let left = database.team_templates().unwrap();
         assert_eq!(left.len(), 1);
         assert_eq!(left[0]["id"], "tm_bbbbbbbbbbbb");

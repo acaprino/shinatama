@@ -24,7 +24,10 @@ fn cli(home: &PathBuf, args: &[&str]) -> (i32, String) {
         .current_dir(&cwd)
         .output()
         .unwrap();
-    (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).into_owned())
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+    )
 }
 
 #[test]
@@ -41,13 +44,25 @@ fn cli_lists_and_exports_through_the_contained_worker() {
     assert!(out.contains("\"needs_user\""));
     // SAFETY: single-threaded test setup before any other thread reads the environment.
     unsafe { std::env::set_var("SHINATAMA_HOME", &home) };
-    let location = StorageLocation::resolve(LocationRequest::from_environment(vec![base.join("cwd")]).unwrap()).unwrap();
+    let location = StorageLocation::resolve(
+        LocationRequest::from_environment(vec![base.join("cwd")]).unwrap(),
+    )
+    .unwrap();
     location.prepare_private_directory().unwrap();
     let database = Database::open(&location, None).unwrap();
-    let budget = Budget { memory_bytes: 1024 * 1024 * 1024, processes: 8, cpu_basis_points: 1000, queue_bytes: 1024 * 1024, queue_items: 4 };
+    let budget = Budget {
+        memory_bytes: 1024 * 1024 * 1024,
+        processes: 8,
+        cpu_basis_points: 1000,
+        queue_bytes: 1024 * 1024,
+        queue_items: 4,
+    };
     database
         .initialize_resource_policy(&ReservationPolicy {
-            stamp: PolicyStamp { version: 1, id: "cli-proof-v1".into() },
+            stamp: PolicyStamp {
+                version: 1,
+                id: "cli-proof-v1".into(),
+            },
             aggregate_ceiling: budget,
             per_slot_ceiling: budget,
             max_slots: 2,
@@ -77,20 +92,49 @@ fn cli_lists_and_exports_through_the_contained_worker() {
     assert_eq!(code, 0, "{out}");
     let listed: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert_eq!(listed["schema"], "shinatama.cli.sessions/1");
-    assert_eq!(listed["sessions"][0]["session"], "claude_code:cli-export-id");
+    assert_eq!(
+        listed["sessions"][0]["session"],
+        "claude_code:cli-export-id"
+    );
 
     let target = home.join("out.stx.jsonl");
     let target_text = target.to_string_lossy().into_owned();
-    let (code, out) = cli(&home, &["export", "claude:cli-export-id", "-o", &target_text, "--mode", "portable", "--json"]);
+    let (code, out) = cli(
+        &home,
+        &[
+            "export",
+            "claude:cli-export-id",
+            "-o",
+            &target_text,
+            "--mode",
+            "portable",
+            "--json",
+        ],
+    );
     assert_eq!(code, 0, "{out}");
     let exported = fs::read_to_string(&target).unwrap();
     assert!(exported.starts_with("{\"format\":\"shinatama.stx\",\"version\":1"));
     assert!(!exported.contains("sk-ant-api03") && !exported.contains("hidden-thought"));
     let receipt: serde_json::Value = serde_json::from_str(&out).unwrap();
-    assert!(receipt["report"]["redactions"]["anthropic_key"].as_u64().unwrap() >= 1, "body and derived title are both redacted");
+    assert!(
+        receipt["report"]["redactions"]["anthropic_key"]
+            .as_u64()
+            .unwrap()
+            >= 1,
+        "body and derived title are both redacted"
+    );
 
     // Existing file without --replace: refused, unchanged.
-    let (code, out) = cli(&home, &["export", "claude:cli-export-id", "-o", &target_text, "--json"]);
+    let (code, out) = cli(
+        &home,
+        &[
+            "export",
+            "claude:cli-export-id",
+            "-o",
+            &target_text,
+            "--json",
+        ],
+    );
     assert_eq!(code, 2, "{out}");
     assert_eq!(fs::read_to_string(&target).unwrap(), exported);
     // Markdown to stdout.
@@ -98,13 +142,30 @@ fn cli_lists_and_exports_through_the_contained_worker() {
     assert_eq!(code, 0);
     assert!(out.contains("## User") && out.contains("[REDACTED:anthropic_key]"));
     // Native is not offered, resume/hop are desktop-only.
-    assert_eq!(cli(&home, &["export", "claude:cli-export-id", "--format", "native"]).0, 2);
+    assert_eq!(
+        cli(
+            &home,
+            &["export", "claude:cli-export-id", "--format", "native"]
+        )
+        .0,
+        2
+    );
     assert_eq!(cli(&home, &["resume", "x"]).0, 2);
     assert_eq!(cli(&home, &["export", "claude:missing-id"]).0, 2);
-    assert_eq!(fs::read_to_string(&file).unwrap(), SOURCE, "the native source must not change");
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        SOURCE,
+        "the native source must not change"
+    );
     fs::remove_dir_all(&base).unwrap();
 }
 
 fn uuid_like() -> String {
-    format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos())
+    format!(
+        "{:x}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    )
 }

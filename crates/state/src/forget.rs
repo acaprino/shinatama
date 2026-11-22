@@ -77,7 +77,9 @@ fn hop_error(error: HopError) -> ForgetError {
 /// Removes `handoffs/<hop id>/{seed,full}.md` (crates/hop/src/files.rs) and then the folder if it
 /// is empty. Any other recorded path is left alone.
 fn remove_handoff(hop_id: &str, seed: &Path) -> std::io::Result<u64> {
-    let Some(dir) = seed.parent() else { return Ok(0) };
+    let Some(dir) = seed.parent() else {
+        return Ok(0);
+    };
     if seed.file_name() != Some(OsStr::new("seed.md"))
         || dir.file_name() != Some(OsStr::new(hop_id))
         || dir.parent().and_then(Path::file_name) != Some(OsStr::new("handoffs"))
@@ -98,20 +100,33 @@ fn remove_handoff(hop_id: &str, seed: &Path) -> std::io::Result<u64> {
 
 /// `expected_revision` is the revision the caller showed the user (the desktop); `None` takes
 /// the current one (the CLI names the thread by id).
-pub fn forget_thread(location: &StorageLocation, database: &Database, thread_id: &str, expected_revision: Option<u64>, at: i64) -> Result<ForgetReport, ForgetError> {
+pub fn forget_thread(
+    location: &StorageLocation,
+    database: &Database,
+    thread_id: &str,
+    expected_revision: Option<u64>,
+    at: i64,
+) -> Result<ForgetReport, ForgetError> {
     let scope = database.thread_forget_scope(thread_id)?;
     if expected_revision.is_some_and(|revision| revision != scope.revision) {
         return Err(ForgetError::Changed);
     }
     let index = SearchIndex::open(location).map_err(|_| ForgetError::Storage("search index"))?;
     let journal = HopJournal::open(location).map_err(hop_error)?;
-    let sources: Vec<(String, String)> = scope.sessions.iter().map(|(harness, _, native_id)| (harness.clone(), native_id.clone())).collect();
+    let sources: Vec<(String, String)> = scope
+        .sessions
+        .iter()
+        .map(|(harness, _, native_id)| (harness.clone(), native_id.clone()))
+        .collect();
     // shortcut: a hop planned between this read and the delete below keeps its row and files;
     // the window is the length of this call, upgrade to a journal-side tombstone if hops ever start unattended.
-    let hops = journal.for_threads(&scope.thread_ids, &sources).map_err(hop_error)?;
+    let hops = journal
+        .for_threads(&scope.thread_ids, &sources)
+        .map_err(hop_error)?;
     let mut report = ForgetReport::default();
     for (hop_id, seed) in &hops {
-        report.handoff_files += remove_handoff(hop_id, Path::new(seed)).map_err(|_| ForgetError::Storage("hand-off files"))?;
+        report.handoff_files += remove_handoff(hop_id, Path::new(seed))
+            .map_err(|_| ForgetError::Storage("hand-off files"))?;
     }
     let ids: Vec<String> = hops.into_iter().map(|(id, _)| id).collect();
     report.hops = journal.forget(&ids).map_err(hop_error)?;
@@ -120,7 +135,9 @@ pub fn forget_thread(location: &StorageLocation, database: &Database, thread_id:
     let removed = database.forget_thread_records(thread_id, scope.revision, at)?;
     report.thread_ids = removed.thread_ids;
     for (_, root_id, native_id) in &removed.sessions {
-        report.index_rows += index.forget_document(root_id, native_id).map_err(|_| ForgetError::IndexNotUpdated)?;
+        report.index_rows += index
+            .forget_document(root_id, native_id)
+            .map_err(|_| ForgetError::IndexNotUpdated)?;
     }
     // A stale id in this list is harmless, so a failure here does not fail the forget.
     if let Ok(excluded) = database.summaries_excluded() {
@@ -145,11 +162,23 @@ mod tests {
         std::fs::write(dir.join("full.md"), "f").unwrap();
         let stray = base.join("seed.md");
         std::fs::write(&stray, "keep").unwrap();
-        assert_eq!(remove_handoff(hop, &stray).unwrap(), 0, "a path outside handoffs/<hop> is ignored");
-        assert_eq!(remove_handoff("ffffffffffffffffffffffffffffffff", &dir.join("seed.md")).unwrap(), 0, "another hop's folder is ignored");
+        assert_eq!(
+            remove_handoff(hop, &stray).unwrap(),
+            0,
+            "a path outside handoffs/<hop> is ignored"
+        );
+        assert_eq!(
+            remove_handoff("ffffffffffffffffffffffffffffffff", &dir.join("seed.md")).unwrap(),
+            0,
+            "another hop's folder is ignored"
+        );
         assert_eq!(remove_handoff(hop, &dir.join("seed.md")).unwrap(), 2);
         assert!(!dir.exists() && stray.exists());
-        assert_eq!(remove_handoff(hop, &dir.join("seed.md")).unwrap(), 0, "running again is harmless");
+        assert_eq!(
+            remove_handoff(hop, &dir.join("seed.md")).unwrap(),
+            0,
+            "running again is harmless"
+        );
         std::fs::remove_dir_all(base).unwrap();
     }
 }

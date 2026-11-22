@@ -10,7 +10,9 @@
 //! source instance, thread and activation are never touched.
 use crate::channel::Delivery;
 use crate::preview::{Preview, sha256, verify_send};
-use shinatama_state::hops::{HopError, HopJournal, HopMode, HopPlan, HopRecord, HopState, HopStrategy};
+use shinatama_state::hops::{
+    HopError, HopJournal, HopMode, HopPlan, HopRecord, HopState, HopStrategy,
+};
 
 /// What the runtime can see of a started destination.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -76,7 +78,9 @@ pub trait Clock {
 pub struct SystemClock;
 impl Clock for SystemClock {
     fn now_ms(&mut self) -> i64 {
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as i64)
     }
     fn pause(&mut self, ms: u64) {
         std::thread::sleep(std::time::Duration::from_millis(ms));
@@ -89,12 +93,21 @@ pub enum CoordinatorError {
     /// The bytes about to be sent differ from the preview; nothing was sent.
     SnapshotChanged,
     /// The destination failed to start or exited; the source is untouched (R49).
-    SpawnFailed { output: String },
-    DestinationExited { output: String },
+    SpawnFailed {
+        output: String,
+    },
+    DestinationExited {
+        output: String,
+    },
     /// The stored first user entry is not what was sent (R49).
-    SeedMismatch { expected: String, found: Option<String> },
+    SeedMismatch {
+        expected: String,
+        found: Option<String>,
+    },
     /// No native session within the timeout; the destination was killed (R38, R49).
-    NoSession { output: String },
+    NoSession {
+        output: String,
+    },
     /// Session exists but the reply lacks the nonce; the user may switch anyway (R38).
     ReceiptMissing,
     /// The source is still working (R39, R50): wait, interrupt or cancel.
@@ -118,19 +131,54 @@ impl std::fmt::Display for CoordinatorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoordinatorError::Journal(error) => write!(f, "{error}"),
-            CoordinatorError::SnapshotChanged => write!(f, "The seed changed after the preview; nothing was sent. Prepare a new preview."),
-            CoordinatorError::SpawnFailed { .. } => write!(f, "The destination did not start; the source is untouched."),
-            CoordinatorError::DestinationExited { .. } => write!(f, "The destination exited while starting; the source is untouched."),
-            CoordinatorError::SeedMismatch { .. } => write!(f, "The destination stored a different first message than the seed; the hop failed."),
-            CoordinatorError::NoSession { .. } => write!(f, "The destination never created its session within 90 seconds; it was stopped."),
-            CoordinatorError::ReceiptMissing => write!(f, "The destination did not confirm the hand-off. Ask it once more, switch anyway, or cancel."),
-            CoordinatorError::SourceBusy => write!(f, "The source is still working. Wait for it, interrupt it (its current turn stops and that unfinished reply is lost), or cancel the hop."),
-            CoordinatorError::Cancelled => write!(f, "The hop was cancelled; the source is untouched."),
-            CoordinatorError::SourceKeepsChanging => write!(f, "The source kept changing after two catch-ups. Switch now, wait for it, or cancel."),
-            CoordinatorError::SourceHistoryChanged => write!(f, "The source conversation was rewritten after the preview; prepare a new preview."),
-            CoordinatorError::DeliveryFailed(message) => write!(f, "The catch-up could not be sent: {message}"),
-            CoordinatorError::SourceNeedsConfirmation => write!(f, "The source has a draft or a running command. Confirm closing it, or keep it open."),
-            CoordinatorError::SourceAction(message) => write!(f, "The source could not be updated: {message}"),
+            CoordinatorError::SnapshotChanged => write!(
+                f,
+                "The seed changed after the preview; nothing was sent. Prepare a new preview."
+            ),
+            CoordinatorError::SpawnFailed { .. } => {
+                write!(f, "The destination did not start; the source is untouched.")
+            }
+            CoordinatorError::DestinationExited { .. } => write!(
+                f,
+                "The destination exited while starting; the source is untouched."
+            ),
+            CoordinatorError::SeedMismatch { .. } => write!(
+                f,
+                "The destination stored a different first message than the seed; the hop failed."
+            ),
+            CoordinatorError::NoSession { .. } => write!(
+                f,
+                "The destination never created its session within 90 seconds; it was stopped."
+            ),
+            CoordinatorError::ReceiptMissing => write!(
+                f,
+                "The destination did not confirm the hand-off. Ask it once more, switch anyway, or cancel."
+            ),
+            CoordinatorError::SourceBusy => write!(
+                f,
+                "The source is still working. Wait for it, interrupt it (its current turn stops and that unfinished reply is lost), or cancel the hop."
+            ),
+            CoordinatorError::Cancelled => {
+                write!(f, "The hop was cancelled; the source is untouched.")
+            }
+            CoordinatorError::SourceKeepsChanging => write!(
+                f,
+                "The source kept changing after two catch-ups. Switch now, wait for it, or cancel."
+            ),
+            CoordinatorError::SourceHistoryChanged => write!(
+                f,
+                "The source conversation was rewritten after the preview; prepare a new preview."
+            ),
+            CoordinatorError::DeliveryFailed(message) => {
+                write!(f, "The catch-up could not be sent: {message}")
+            }
+            CoordinatorError::SourceNeedsConfirmation => write!(
+                f,
+                "The source has a draft or a running command. Confirm closing it, or keep it open."
+            ),
+            CoordinatorError::SourceAction(message) => {
+                write!(f, "The source could not be updated: {message}")
+            }
         }
     }
 }
@@ -165,16 +213,30 @@ pub struct Coordinator<'a, C: Clock> {
 
 impl<'a, C: Clock> Coordinator<'a, C> {
     pub fn new(journal: &'a HopJournal, clock: C) -> Self {
-        Self { journal, clock, ready_timeout_ms: shinatama_state::hops::READY_TIMEOUT_MS, poll_ms: 250 }
+        Self {
+            journal,
+            clock,
+            ready_timeout_ms: shinatama_state::hops::READY_TIMEOUT_MS,
+            poll_ms: 250,
+        }
     }
 
-    fn step(&mut self, hop: &HopRecord, next: HopState, detail: Option<&str>) -> Outcome<HopRecord> {
+    fn step(
+        &mut self,
+        hop: &HopRecord,
+        next: HopState,
+        detail: Option<&str>,
+    ) -> Outcome<HopRecord> {
         let now = self.clock.now_ms();
-        Ok(self.journal.transition(&hop.plan.id, hop.state, hop.revision, next, detail, now)?)
+        Ok(self
+            .journal
+            .transition(&hop.plan.id, hop.state, hop.revision, next, detail, now)?)
     }
 
     fn current(&self, hop_id: &str) -> Outcome<HopRecord> {
-        self.journal.hop(hop_id)?.ok_or(CoordinatorError::Journal(HopError::NotFound))
+        self.journal
+            .hop(hop_id)?
+            .ok_or(CoordinatorError::Journal(HopError::NotFound))
     }
 
     /// PLANNED then PREVIEWED: takes the thread (I1) and freezes the preview's hashes.
@@ -206,16 +268,29 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         self.step(&hop, HopState::Confirmed, None)
     }
 
-    pub fn abort(&mut self, hop_id: &str, destination: Option<&mut dyn Destination>, reason: &str) -> Outcome<HopRecord> {
+    pub fn abort(
+        &mut self,
+        hop_id: &str,
+        destination: Option<&mut dyn Destination>,
+        reason: &str,
+    ) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
-        if let (Some(destination), Some(instance)) = (destination, hop.destination_instance.as_deref()) {
+        if let (Some(destination), Some(instance)) =
+            (destination, hop.destination_instance.as_deref())
+        {
             // Only an instance this hop provably started is stopped.
             destination.kill(instance);
         }
         self.step(&hop, HopState::Aborted, Some(reason))
     }
 
-    fn fail(&mut self, hop_id: &str, destination: &mut dyn Destination, kill: bool, detail: &str) -> Outcome<()> {
+    fn fail(
+        &mut self,
+        hop_id: &str,
+        destination: &mut dyn Destination,
+        kill: bool,
+        detail: &str,
+    ) -> Outcome<()> {
         let hop = self.current(hop_id)?;
         if kill && let Some(instance) = hop.destination_instance.as_deref() {
             destination.kill(instance);
@@ -226,35 +301,65 @@ impl<'a, C: Clock> Coordinator<'a, C> {
 
     /// PREPARING: verify the snapshot, journal the spawn, start the destination, wait for the
     /// technical evidence and the receipt, then READY (R38).
-    pub fn prepare(&mut self, hop_id: &str, preview: &Preview, destination: &mut dyn Destination) -> Outcome<HopRecord> {
+    pub fn prepare(
+        &mut self,
+        hop_id: &str,
+        preview: &Preview,
+        destination: &mut dyn Destination,
+    ) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
         if hop.state != HopState::Confirmed {
-            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Preparing }));
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition {
+                from: hop.state,
+                to: HopState::Preparing,
+            }));
         }
         if preview.hop_id != hop.plan.id
             || preview.seed_sha256 != hop.plan.snapshot_sha256
             || !verify_send(preview, preview.bootstrap.as_bytes())
         {
-            self.step(&hop, HopState::Aborted, Some("snapshot changed after preview"))?;
+            self.step(
+                &hop,
+                HopState::Aborted,
+                Some("snapshot changed after preview"),
+            )?;
             return Err(CoordinatorError::SnapshotChanged);
         }
         let hop = self.step(&hop, HopState::Preparing, None)?;
         let now = self.clock.now_ms();
-        self.journal.record_effect(&hop.plan.id, "spawn_attempted", Some(&preview.destination), now)?;
+        self.journal.record_effect(
+            &hop.plan.id,
+            "spawn_attempted",
+            Some(&preview.destination),
+            now,
+        )?;
         let instance = match destination.spawn(&hop.plan, &preview.delivery) {
             Ok(instance) => instance,
             Err(output) => {
-                self.fail(hop_id, destination, false, &format!("spawn failed: {}", tail(&output)))?;
+                self.fail(
+                    hop_id,
+                    destination,
+                    false,
+                    &format!("spawn failed: {}", tail(&output)),
+                )?;
                 return Err(CoordinatorError::SpawnFailed { output });
             }
         };
         let now = self.clock.now_ms();
-        self.journal.set_destination(hop_id, Some(&instance), None, now)?;
-        self.journal.record_effect(hop_id, "spawn_observed", Some(&instance), now)?;
+        self.journal
+            .set_destination(hop_id, Some(&instance), None, now)?;
+        self.journal
+            .record_effect(hop_id, "spawn_observed", Some(&instance), now)?;
         self.await_ready(hop_id, preview, destination, &instance)
     }
 
-    fn await_ready(&mut self, hop_id: &str, preview: &Preview, destination: &mut dyn Destination, instance: &str) -> Outcome<HopRecord> {
+    fn await_ready(
+        &mut self,
+        hop_id: &str,
+        preview: &Preview,
+        destination: &mut dyn Destination,
+        instance: &str,
+    ) -> Outcome<HopRecord> {
         let expected = sha256(first_entry_bytes(preview).as_bytes());
         let receipt = format!("ready {}", preview.nonce);
         let started = self.clock.now_ms();
@@ -262,24 +367,46 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         loop {
             let evidence = destination.evidence(instance);
             if !evidence.alive {
-                self.fail(hop_id, destination, false, &format!("destination exited: {}", tail(&evidence.last_output)))?;
-                return Err(CoordinatorError::DestinationExited { output: evidence.last_output });
+                self.fail(
+                    hop_id,
+                    destination,
+                    false,
+                    &format!("destination exited: {}", tail(&evidence.last_output)),
+                )?;
+                return Err(CoordinatorError::DestinationExited {
+                    output: evidence.last_output,
+                });
             }
             if let Some(native) = evidence.native_session_id.as_deref()
                 && !session_recorded
             {
                 let now = self.clock.now_ms();
-                self.journal.set_destination(hop_id, None, Some(native), now)?;
+                self.journal
+                    .set_destination(hop_id, None, Some(native), now)?;
                 session_recorded = true;
             }
             if let Some(found) = evidence.first_user_sha256.as_deref()
                 && found != expected
             {
-                self.fail(hop_id, destination, true, &format!("seed mismatch: expected {expected}, found {found}"))?;
-                return Err(CoordinatorError::SeedMismatch { expected, found: Some(found.to_owned()) });
+                self.fail(
+                    hop_id,
+                    destination,
+                    true,
+                    &format!("seed mismatch: expected {expected}, found {found}"),
+                )?;
+                return Err(CoordinatorError::SeedMismatch {
+                    expected,
+                    found: Some(found.to_owned()),
+                });
             }
-            let technical = evidence.native_session_id.is_some() && evidence.first_user_sha256.as_deref() == Some(expected.as_str());
-            if technical && evidence.first_reply.as_deref().is_some_and(|reply| reply.contains(&receipt)) {
+            let technical = evidence.native_session_id.is_some()
+                && evidence.first_user_sha256.as_deref() == Some(expected.as_str());
+            if technical
+                && evidence
+                    .first_reply
+                    .as_deref()
+                    .is_some_and(|reply| reply.contains(&receipt))
+            {
                 let hop = self.current(hop_id)?;
                 return self.step(&hop, HopState::Ready, Some("evidence and receipt"));
             }
@@ -287,11 +414,19 @@ impl<'a, C: Clock> Coordinator<'a, C> {
                 if technical {
                     // The hop stays PREPARING: the user asks again, switches anyway or cancels.
                     let now = self.clock.now_ms();
-                    self.journal.record_effect(hop_id, "receipt_missing", None, now)?;
+                    self.journal
+                        .record_effect(hop_id, "receipt_missing", None, now)?;
                     return Err(CoordinatorError::ReceiptMissing);
                 }
-                self.fail(hop_id, destination, true, &format!("no session in time: {}", tail(&evidence.last_output)))?;
-                return Err(CoordinatorError::NoSession { output: evidence.last_output });
+                self.fail(
+                    hop_id,
+                    destination,
+                    true,
+                    &format!("no session in time: {}", tail(&evidence.last_output)),
+                )?;
+                return Err(CoordinatorError::NoSession {
+                    output: evidence.last_output,
+                });
             }
             self.clock.pause(self.poll_ms);
         }
@@ -300,8 +435,16 @@ impl<'a, C: Clock> Coordinator<'a, C> {
     /// After ReceiptMissing: the user chose to switch anyway (R38).
     pub fn accept_without_receipt(&mut self, hop_id: &str) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
-        if !self.journal.events(hop_id)?.iter().any(|e| e.kind == "receipt_missing") {
-            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Ready }));
+        if !self
+            .journal
+            .events(hop_id)?
+            .iter()
+            .any(|e| e.kind == "receipt_missing")
+        {
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition {
+                from: hop.state,
+                to: HopState::Ready,
+            }));
         }
         self.step(&hop, HopState::Ready, Some("user switched without receipt"))
     }
@@ -310,7 +453,10 @@ impl<'a, C: Clock> Coordinator<'a, C> {
     pub fn switch(&mut self, hop_id: &str, source: &mut dyn Source) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
         if hop.state != HopState::Ready {
-            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Switching }));
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition {
+                from: hop.state,
+                to: HopState::Switching,
+            }));
         }
         let live_source = hop.plan.source_instance.is_some();
         if live_source && hop.plan.mode == HopMode::Close && !source.is_idle() {
@@ -319,8 +465,11 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         let hop = self.step(&hop, HopState::Switching, None)?;
         if live_source && hop.plan.mode == HopMode::Close {
             let now = self.clock.now_ms();
-            self.journal.record_effect(hop_id, "source_activation_end", Some("hop_out"), now)?;
-            source.end_activation().map_err(CoordinatorError::SourceAction)?;
+            self.journal
+                .record_effect(hop_id, "source_activation_end", Some("hop_out"), now)?;
+            source
+                .end_activation()
+                .map_err(CoordinatorError::SourceAction)?;
         }
         Ok(hop)
     }
@@ -341,42 +490,66 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         use crate::catchup::{self, MAX_CATCHUP_ROUNDS, NativeCursor};
         let hop = self.current(hop_id)?;
         if hop.state != HopState::Ready {
-            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Switching }));
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition {
+                from: hop.state,
+                to: HopState::Switching,
+            }));
         }
         let live_close = hop.plan.source_instance.is_some() && hop.plan.mode == HopMode::Close;
         if live_close && !source.is_idle() {
             match busy {
                 BusyDecision::Wait => return Err(CoordinatorError::SourceBusy),
                 BusyDecision::Cancel => {
-                    self.abort(hop_id, Some(destination), "cancelled while the source was busy")?;
+                    self.abort(
+                        hop_id,
+                        Some(destination),
+                        "cancelled while the source was busy",
+                    )?;
                     return Err(CoordinatorError::Cancelled);
                 }
                 BusyDecision::Interrupt => {
                     let now = self.clock.now_ms();
-                    self.journal.record_effect(hop_id, "source_interrupt", None, now)?;
+                    self.journal
+                        .record_effect(hop_id, "source_interrupt", None, now)?;
                     source.interrupt().map_err(CoordinatorError::SourceAction)?;
                 }
             }
         }
-        let instance = hop.destination_instance.clone().ok_or(CoordinatorError::Journal(HopError::Invalid("destination")))?;
+        let instance = hop
+            .destination_instance
+            .clone()
+            .ok_or(CoordinatorError::Journal(HopError::Invalid("destination")))?;
         let mut cursor = preview.source_cursor.clone();
         for round in 1..=MAX_CATCHUP_ROUNDS + 1 {
             let items = history.items().map_err(CoordinatorError::SourceAction)?;
-            let new = catchup::items_since(&cursor, &items).map_err(|_| CoordinatorError::SourceHistoryChanged)?;
+            let new = catchup::items_since(&cursor, &items)
+                .map_err(|_| CoordinatorError::SourceHistoryChanged)?;
             let nonce = catchup::round_nonce(&hop.plan.nonce, round);
-            let Some(message) = catchup::render(new, &hop.plan.source_agent, &nonce, window_tokens) else { break };
+            let Some(message) = catchup::render(new, &hop.plan.source_agent, &nonce, window_tokens)
+            else {
+                break;
+            };
             let now = self.clock.now_ms();
             if round > MAX_CATCHUP_ROUNDS {
-                self.journal.record_effect(hop_id, "catchup_limit", None, now)?;
+                self.journal
+                    .record_effect(hop_id, "catchup_limit", None, now)?;
                 return Err(CoordinatorError::SourceKeepsChanging);
             }
-            self.journal.record_effect(hop_id, "catchup_sent", Some(&format!("round {round}, {} turns", message.turns)), now)?;
-            destination.deliver(&instance, &message.text).map_err(CoordinatorError::DeliveryFailed)?;
+            self.journal.record_effect(
+                hop_id,
+                "catchup_sent",
+                Some(&format!("round {round}, {} turns", message.turns)),
+                now,
+            )?;
+            destination
+                .deliver(&instance, &message.text)
+                .map_err(CoordinatorError::DeliveryFailed)?;
             let started = self.clock.now_ms();
             while !destination.replied(&instance, &format!("ready {nonce}")) {
                 if self.clock.now_ms() - started >= self.ready_timeout_ms {
                     let now = self.clock.now_ms();
-                    self.journal.record_effect(hop_id, "catchup_receipt_missing", None, now)?;
+                    self.journal
+                        .record_effect(hop_id, "catchup_receipt_missing", None, now)?;
                     return Err(CoordinatorError::ReceiptMissing);
                 }
                 self.clock.pause(self.poll_ms);
@@ -387,10 +560,18 @@ impl<'a, C: Clock> Coordinator<'a, C> {
     }
 
     /// COMMITTED: close mode closes the source after the draft check; fork never touches it (R40).
-    pub fn commit(&mut self, hop_id: &str, source: &mut dyn Source, close_confirmed: bool) -> Outcome<HopRecord> {
+    pub fn commit(
+        &mut self,
+        hop_id: &str,
+        source: &mut dyn Source,
+        close_confirmed: bool,
+    ) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
         if hop.state != HopState::Switching {
-            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Committed }));
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition {
+                from: hop.state,
+                to: HopState::Committed,
+            }));
         }
         let close = hop.plan.mode == HopMode::Close && hop.plan.source_instance.is_some();
         if close && !close_confirmed && source.has_draft_or_running() {
@@ -400,8 +581,12 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         if close {
             let now = self.clock.now_ms();
             // The hop is committed; a failed close leaves the source open and visible, never lost.
-            let _ = self.journal.record_effect(hop_id, "source_close", None, now);
-            source.close_instance().map_err(CoordinatorError::SourceAction)?;
+            let _ = self
+                .journal
+                .record_effect(hop_id, "source_close", None, now);
+            source
+                .close_instance()
+                .map_err(CoordinatorError::SourceAction)?;
         }
         Ok(hop)
     }
@@ -467,7 +652,12 @@ mod tests {
     impl FakeDestination {
         /// Behaves like a destination that stored exactly what it got and confirmed.
         fn honest(preview: &Preview) -> Self {
-            Self { stored: Some(first_entry_bytes(preview).to_owned()), reply: Some(format!("ready {}\ncontinuing", preview.nonce)), session: true, ..Self::default() }
+            Self {
+                stored: Some(first_entry_bytes(preview).to_owned()),
+                reply: Some(format!("ready {}\ncontinuing", preview.nonce)),
+                session: true,
+                ..Self::default()
+            }
         }
     }
 
@@ -505,7 +695,11 @@ mod tests {
     struct FakeHistory(Vec<Vec<shinatama_export::ExportItem>>);
     impl SourceHistory for FakeHistory {
         fn items(&mut self) -> Result<Vec<shinatama_export::ExportItem>, String> {
-            Ok(if self.0.len() > 1 { self.0.remove(0) } else { self.0[0].clone() })
+            Ok(if self.0.len() > 1 {
+                self.0.remove(0)
+            } else {
+                self.0[0].clone()
+            })
         }
     }
 
@@ -531,7 +725,11 @@ mod tests {
             Ok(())
         }
         fn replied(&mut self, _: &str, needle: &str) -> bool {
-            !self.silent && self.delivered.last().is_some_and(|t| t.contains(&needle.replace("ready ", "nonce=")))
+            !self.silent
+                && self
+                    .delivered
+                    .last()
+                    .is_some_and(|t| t.contains(&needle.replace("ready ", "nonce=")))
         }
     }
 
@@ -546,19 +744,33 @@ mod tests {
         }
     }
     fn fixture() -> Fixture {
-        let base = std::env::temp_dir().join(format!("shinatama-coord-{}", uuid::Uuid::new_v4().simple()));
+        let base =
+            std::env::temp_dir().join(format!("shinatama-coord-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(base.join("data")).unwrap();
-        let items = [item(ItemKind::UserText, "do the thing"), item(ItemKind::AssistantText, "ok")];
+        let items = [
+            item(ItemKind::UserText, "do the thing"),
+            item(ItemKind::AssistantText, "ok"),
+        ];
         let preview = prepare(PreviewInput {
             items: &items,
-            facts: HeaderFacts { source_agent: "claude_code".into(), source_session: "src".into(), destination_agent: "codex".into(), time: "t".into(), ..Default::default() },
+            facts: HeaderFacts {
+                source_agent: "claude_code".into(),
+                source_session: "src".into(),
+                destination_agent: "codex".into(),
+                time: "t".into(),
+                ..Default::default()
+            },
             window_tokens: None,
             export_redactions: &Redactions::new(),
             project: None,
             data_dir: &base.join("data"),
         })
         .unwrap();
-        Fixture { base, preview, journal: HopJournal::open_in_memory().unwrap() }
+        Fixture {
+            base,
+            preview,
+            journal: HopJournal::open_in_memory().unwrap(),
+        }
     }
     fn request<'a>(preview: &'a Preview, mode: HopMode) -> HopRequest<'a> {
         HopRequest {
@@ -578,25 +790,55 @@ mod tests {
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
         let mut destination = FakeDestination::honest(&f.preview);
         let mut source = FakeSource::default();
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Close))
+            .unwrap();
         assert_eq!(hop.state, HopState::Previewed);
-        assert!(destination.spawned.is_empty(), "nothing runs before CONFIRMED");
-        assert!(coordinator.prepare(&hop.plan.id, &f.preview, &mut destination).is_err(), "prepare needs CONFIRMED");
+        assert!(
+            destination.spawned.is_empty(),
+            "nothing runs before CONFIRMED"
+        );
+        assert!(
+            coordinator
+                .prepare(&hop.plan.id, &f.preview, &mut destination)
+                .is_err(),
+            "prepare needs CONFIRMED"
+        );
         assert!(destination.spawned.is_empty());
         coordinator.confirm(&hop.plan.id).unwrap();
-        let ready = coordinator.prepare(&hop.plan.id, &f.preview, &mut destination).unwrap();
+        let ready = coordinator
+            .prepare(&hop.plan.id, &f.preview, &mut destination)
+            .unwrap();
         assert_eq!(ready.state, HopState::Ready);
         assert_eq!(ready.destination_native_id.as_deref(), Some("dest-native"));
-        assert_eq!(destination.spawned, std::slice::from_ref(&f.preview.delivery));
+        assert_eq!(
+            destination.spawned,
+            std::slice::from_ref(&f.preview.delivery)
+        );
         assert_eq!((source.ended, source.closed), (0, 0));
         coordinator.switch(&hop.plan.id, &mut source).unwrap();
-        assert_eq!((source.ended, source.closed), (1, 0), "the source runs until COMMITTED");
-        let committed = coordinator.commit(&hop.plan.id, &mut source, false).unwrap();
+        assert_eq!(
+            (source.ended, source.closed),
+            (1, 0),
+            "the source runs until COMMITTED"
+        );
+        let committed = coordinator
+            .commit(&hop.plan.id, &mut source, false)
+            .unwrap();
         assert_eq!(committed.state, HopState::Committed);
         assert_eq!((source.ended, source.closed), (1, 1));
-        let kinds: Vec<_> = f.journal.events(&hop.plan.id).unwrap().into_iter().map(|e| e.kind).collect();
+        let kinds: Vec<_> = f
+            .journal
+            .events(&hop.plan.id)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.kind)
+            .collect();
         let attempted = kinds.iter().position(|k| k == "spawn_attempted").unwrap();
-        assert!(kinds.iter().position(|k| k == "confirmed").unwrap() < attempted, "{kinds:?}");
+        assert!(
+            kinds.iter().position(|k| k == "confirmed").unwrap() < attempted,
+            "{kinds:?}"
+        );
     }
 
     #[test]
@@ -604,13 +846,23 @@ mod tests {
         let f = fixture();
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
         let mut destination = FakeDestination::honest(&f.preview);
-        let mut source = FakeSource { busy: true, draft: true, ..Default::default() };
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Fork)).unwrap();
+        let mut source = FakeSource {
+            busy: true,
+            draft: true,
+            ..Default::default()
+        };
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Fork))
+            .unwrap();
         assert_eq!(hop.plan.destination_thread_id.as_deref(), Some("t_forked"));
         coordinator.confirm(&hop.plan.id).unwrap();
-        coordinator.prepare(&hop.plan.id, &f.preview, &mut destination).unwrap();
+        coordinator
+            .prepare(&hop.plan.id, &f.preview, &mut destination)
+            .unwrap();
         coordinator.switch(&hop.plan.id, &mut source).unwrap();
-        coordinator.commit(&hop.plan.id, &mut source, false).unwrap();
+        coordinator
+            .commit(&hop.plan.id, &mut source, false)
+            .unwrap();
         assert_eq!((source.ended, source.closed), (0, 0));
     }
 
@@ -619,54 +871,110 @@ mod tests {
         // Spawn refused.
         let f = fixture();
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Close))
+            .unwrap();
         coordinator.confirm(&hop.plan.id).unwrap();
-        let mut destination = FakeDestination { fail_spawn: true, ..Default::default() };
-        assert!(matches!(coordinator.prepare(&hop.plan.id, &f.preview, &mut destination), Err(CoordinatorError::SpawnFailed { .. })));
-        assert_eq!(f.journal.hop(&hop.plan.id).unwrap().unwrap().state, HopState::Failed);
+        let mut destination = FakeDestination {
+            fail_spawn: true,
+            ..Default::default()
+        };
+        assert!(matches!(
+            coordinator.prepare(&hop.plan.id, &f.preview, &mut destination),
+            Err(CoordinatorError::SpawnFailed { .. })
+        ));
+        assert_eq!(
+            f.journal.hop(&hop.plan.id).unwrap().unwrap().state,
+            HopState::Failed
+        );
         assert!(destination.killed.is_empty());
         // Seed mismatch: failed and the destination stopped.
         let g = fixture();
         let mut coordinator = Coordinator::new(&g.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&g.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&g.preview, HopMode::Close))
+            .unwrap();
         coordinator.confirm(&hop.plan.id).unwrap();
-        let mut destination = FakeDestination { stored: Some("something else".into()), session: true, ..Default::default() };
-        assert!(matches!(coordinator.prepare(&hop.plan.id, &g.preview, &mut destination), Err(CoordinatorError::SeedMismatch { .. })));
+        let mut destination = FakeDestination {
+            stored: Some("something else".into()),
+            session: true,
+            ..Default::default()
+        };
+        assert!(matches!(
+            coordinator.prepare(&hop.plan.id, &g.preview, &mut destination),
+            Err(CoordinatorError::SeedMismatch { .. })
+        ));
         assert_eq!(destination.killed, ["i_dest"]);
         // No session in 90 s: failed and stopped.
         let h = fixture();
         let mut coordinator = Coordinator::new(&h.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&h.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&h.preview, HopMode::Close))
+            .unwrap();
         coordinator.confirm(&hop.plan.id).unwrap();
         let mut destination = FakeDestination::default();
-        assert!(matches!(coordinator.prepare(&hop.plan.id, &h.preview, &mut destination), Err(CoordinatorError::NoSession { .. })));
+        assert!(matches!(
+            coordinator.prepare(&hop.plan.id, &h.preview, &mut destination),
+            Err(CoordinatorError::NoSession { .. })
+        ));
         assert_eq!(destination.killed, ["i_dest"]);
-        assert_eq!(h.journal.hop(&hop.plan.id).unwrap().unwrap().state, HopState::Failed);
+        assert_eq!(
+            h.journal.hop(&hop.plan.id).unwrap().unwrap().state,
+            HopState::Failed
+        );
     }
 
     #[test]
     fn missing_receipt_waits_for_the_user_and_busy_source_blocks_the_switch() {
         let f = fixture();
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Close))
+            .unwrap();
         coordinator.confirm(&hop.plan.id).unwrap();
-        let mut destination = FakeDestination { reply: Some("hello".into()), ..FakeDestination::honest(&f.preview) };
-        assert_eq!(coordinator.prepare(&hop.plan.id, &f.preview, &mut destination), Err(CoordinatorError::ReceiptMissing));
-        assert_eq!(f.journal.hop(&hop.plan.id).unwrap().unwrap().state, HopState::Preparing);
+        let mut destination = FakeDestination {
+            reply: Some("hello".into()),
+            ..FakeDestination::honest(&f.preview)
+        };
+        assert_eq!(
+            coordinator.prepare(&hop.plan.id, &f.preview, &mut destination),
+            Err(CoordinatorError::ReceiptMissing)
+        );
+        assert_eq!(
+            f.journal.hop(&hop.plan.id).unwrap().unwrap().state,
+            HopState::Preparing
+        );
         coordinator.accept_without_receipt(&hop.plan.id).unwrap();
-        let mut source = FakeSource { busy: true, draft: true, ..Default::default() };
-        assert_eq!(coordinator.switch(&hop.plan.id, &mut source), Err(CoordinatorError::SourceBusy));
-        assert_eq!(f.journal.hop(&hop.plan.id).unwrap().unwrap().state, HopState::Ready, "unchanged");
+        let mut source = FakeSource {
+            busy: true,
+            draft: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            coordinator.switch(&hop.plan.id, &mut source),
+            Err(CoordinatorError::SourceBusy)
+        );
+        assert_eq!(
+            f.journal.hop(&hop.plan.id).unwrap().unwrap().state,
+            HopState::Ready,
+            "unchanged"
+        );
         source.busy = false;
         coordinator.switch(&hop.plan.id, &mut source).unwrap();
-        assert_eq!(coordinator.commit(&hop.plan.id, &mut source, false), Err(CoordinatorError::SourceNeedsConfirmation));
+        assert_eq!(
+            coordinator.commit(&hop.plan.id, &mut source, false),
+            Err(CoordinatorError::SourceNeedsConfirmation)
+        );
         assert_eq!(source.closed, 0);
         coordinator.commit(&hop.plan.id, &mut source, true).unwrap();
         assert_eq!(source.closed, 1);
     }
 
     fn source_items(n: usize) -> Vec<shinatama_export::ExportItem> {
-        let mut items = vec![item(ItemKind::UserText, "do the thing"), item(ItemKind::AssistantText, "ok")];
+        let mut items = vec![
+            item(ItemKind::UserText, "do the thing"),
+            item(ItemKind::AssistantText, "ok"),
+        ];
         for i in 0..n {
             items.push(item(ItemKind::UserText, &format!("later {i}")));
         }
@@ -675,73 +983,178 @@ mod tests {
 
     fn ready_hop(f: &Fixture, destination: &mut Echo) -> String {
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Close))
+            .unwrap();
         coordinator.confirm(&hop.plan.id).unwrap();
-        coordinator.prepare(&hop.plan.id, &f.preview, destination).unwrap();
+        coordinator
+            .prepare(&hop.plan.id, &f.preview, destination)
+            .unwrap();
         hop.plan.id
     }
 
     #[test]
     fn new_source_turns_are_caught_up_at_most_twice() {
         let f = fixture();
-        let mut destination = Echo { inner: FakeDestination::honest(&f.preview), ..Default::default() };
+        let mut destination = Echo {
+            inner: FakeDestination::honest(&f.preview),
+            ..Default::default()
+        };
         let id = ready_hop(&f, &mut destination);
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
         let mut source = FakeSource::default();
         let mut history = FakeHistory(vec![source_items(1), source_items(1)]);
-        let hop = coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None).unwrap();
+        let hop = coordinator
+            .catch_up_and_switch(
+                &id,
+                &f.preview,
+                &mut source,
+                &mut history,
+                &mut destination,
+                BusyDecision::Wait,
+                None,
+            )
+            .unwrap();
         assert_eq!(hop.state, HopState::Switching);
         assert_eq!(destination.delivered.len(), 1);
         assert!(destination.delivered[0].contains("While you were away (1 turn, via claude_code)"));
         assert!(destination.delivered[0].contains("[user] later 0"));
         // A source that keeps talking: two rounds, then the user decides; the hop stays READY.
         let g = fixture();
-        let mut destination = Echo { inner: FakeDestination::honest(&g.preview), ..Default::default() };
+        let mut destination = Echo {
+            inner: FakeDestination::honest(&g.preview),
+            ..Default::default()
+        };
         let id = ready_hop(&g, &mut destination);
         let mut coordinator = Coordinator::new(&g.journal, FakeClock(0));
         let mut history = FakeHistory(vec![source_items(1), source_items(2), source_items(3)]);
         assert_eq!(
-            coordinator.catch_up_and_switch(&id, &g.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None),
+            coordinator.catch_up_and_switch(
+                &id,
+                &g.preview,
+                &mut source,
+                &mut history,
+                &mut destination,
+                BusyDecision::Wait,
+                None
+            ),
             Err(CoordinatorError::SourceKeepsChanging)
         );
         assert_eq!(destination.delivered.len(), 2);
-        assert!(destination.delivered[1].contains("[user] later 1") && !destination.delivered[1].contains("later 0"), "only the missed turns");
+        assert!(
+            destination.delivered[1].contains("[user] later 1")
+                && !destination.delivered[1].contains("later 0"),
+            "only the missed turns"
+        );
         assert_eq!(g.journal.hop(&id).unwrap().unwrap().state, HopState::Ready);
     }
 
     #[test]
     fn busy_source_waits_interrupts_or_cancels_and_rewritten_history_refuses() {
         let f = fixture();
-        let mut destination = Echo { inner: FakeDestination::honest(&f.preview), ..Default::default() };
+        let mut destination = Echo {
+            inner: FakeDestination::honest(&f.preview),
+            ..Default::default()
+        };
         let id = ready_hop(&f, &mut destination);
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
-        let mut source = FakeSource { busy: true, ..Default::default() };
+        let mut source = FakeSource {
+            busy: true,
+            ..Default::default()
+        };
         let mut history = FakeHistory(vec![source_items(0)]);
-        assert_eq!(coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None), Err(CoordinatorError::SourceBusy));
-        assert_eq!(source.interrupted, 0, "the source is never stopped silently");
-        coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Interrupt, None).unwrap();
+        assert_eq!(
+            coordinator.catch_up_and_switch(
+                &id,
+                &f.preview,
+                &mut source,
+                &mut history,
+                &mut destination,
+                BusyDecision::Wait,
+                None
+            ),
+            Err(CoordinatorError::SourceBusy)
+        );
+        assert_eq!(
+            source.interrupted, 0,
+            "the source is never stopped silently"
+        );
+        coordinator
+            .catch_up_and_switch(
+                &id,
+                &f.preview,
+                &mut source,
+                &mut history,
+                &mut destination,
+                BusyDecision::Interrupt,
+                None,
+            )
+            .unwrap();
         assert_eq!(source.interrupted, 1);
         let g = fixture();
-        let mut destination = Echo { inner: FakeDestination::honest(&g.preview), ..Default::default() };
+        let mut destination = Echo {
+            inner: FakeDestination::honest(&g.preview),
+            ..Default::default()
+        };
         let id = ready_hop(&g, &mut destination);
         let mut coordinator = Coordinator::new(&g.journal, FakeClock(0));
-        let mut source = FakeSource { busy: true, ..Default::default() };
-        assert_eq!(coordinator.catch_up_and_switch(&id, &g.preview, &mut source, &mut history, &mut destination, BusyDecision::Cancel, None), Err(CoordinatorError::Cancelled));
-        assert_eq!(g.journal.hop(&id).unwrap().unwrap().state, HopState::Aborted);
+        let mut source = FakeSource {
+            busy: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            coordinator.catch_up_and_switch(
+                &id,
+                &g.preview,
+                &mut source,
+                &mut history,
+                &mut destination,
+                BusyDecision::Cancel,
+                None
+            ),
+            Err(CoordinatorError::Cancelled)
+        );
+        assert_eq!(
+            g.journal.hop(&id).unwrap().unwrap().state,
+            HopState::Aborted
+        );
         assert_eq!(destination.inner.killed, ["i_dest"]);
         let h = fixture();
-        let mut destination = Echo { inner: FakeDestination::honest(&h.preview), ..Default::default() };
+        let mut destination = Echo {
+            inner: FakeDestination::honest(&h.preview),
+            ..Default::default()
+        };
         let id = ready_hop(&h, &mut destination);
         let mut coordinator = Coordinator::new(&h.journal, FakeClock(0));
         let mut rewritten = FakeHistory(vec![vec![item(ItemKind::UserText, "something else")]]);
         assert_eq!(
-            coordinator.catch_up_and_switch(&id, &h.preview, &mut FakeSource::default(), &mut rewritten, &mut destination, BusyDecision::Wait, None),
+            coordinator.catch_up_and_switch(
+                &id,
+                &h.preview,
+                &mut FakeSource::default(),
+                &mut rewritten,
+                &mut destination,
+                BusyDecision::Wait,
+                None
+            ),
             Err(CoordinatorError::SourceHistoryChanged)
         );
-        let mut silent = Echo { inner: FakeDestination::honest(&h.preview), silent: true, ..Default::default() };
+        let mut silent = Echo {
+            inner: FakeDestination::honest(&h.preview),
+            silent: true,
+            ..Default::default()
+        };
         let mut gained = FakeHistory(vec![source_items(1)]);
         assert_eq!(
-            coordinator.catch_up_and_switch(&id, &h.preview, &mut FakeSource::default(), &mut gained, &mut silent, BusyDecision::Wait, None),
+            coordinator.catch_up_and_switch(
+                &id,
+                &h.preview,
+                &mut FakeSource::default(),
+                &mut gained,
+                &mut silent,
+                BusyDecision::Wait,
+                None
+            ),
             Err(CoordinatorError::ReceiptMissing)
         );
     }
@@ -750,7 +1163,9 @@ mod tests {
     fn a_changed_seed_file_aborts_before_any_spawn_and_a_second_hop_of_the_thread_loses() {
         let f = fixture();
         let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
-        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        let hop = coordinator
+            .plan(&request(&f.preview, HopMode::Close))
+            .unwrap();
         let g = fixture();
         assert!(matches!(
             coordinator.plan(&request(&g.preview, HopMode::Close)),
@@ -760,8 +1175,14 @@ mod tests {
         let mut tampered = f.preview.clone();
         tampered.bootstrap.push('x');
         let mut destination = FakeDestination::honest(&f.preview);
-        assert_eq!(coordinator.prepare(&hop.plan.id, &tampered, &mut destination), Err(CoordinatorError::SnapshotChanged));
+        assert_eq!(
+            coordinator.prepare(&hop.plan.id, &tampered, &mut destination),
+            Err(CoordinatorError::SnapshotChanged)
+        );
         assert!(destination.spawned.is_empty());
-        assert_eq!(f.journal.hop(&hop.plan.id).unwrap().unwrap().state, HopState::Aborted);
+        assert_eq!(
+            f.journal.hop(&hop.plan.id).unwrap().unwrap().state,
+            HopState::Aborted
+        );
     }
 }

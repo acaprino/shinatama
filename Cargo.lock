@@ -1619,6 +1619,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "imago-shell"
+version = "0.2.0"
+source = "git+https://github.com/acaprino/imago.git?rev=8418ccac391ffb56dc1a997b996e7237b714b606#8418ccac391ffb56dc1a997b996e7237b714b606"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "webview2-com",
+ "windows-core",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3289,6 +3302,7 @@ dependencies = [
 name = "shinatama-cli"
 version = "0.2.1"
 dependencies = [
+ "embed-resource",
  "rusqlite",
  "serde_json",
  "shinatama-adapter",
@@ -3315,6 +3329,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "chrono",
+ "imago-shell",
  "serde",
  "serde_json",
  "sha2",
@@ -3346,6 +3361,7 @@ dependencies = [
  "anyhow",
  "getrandom 0.4.3",
  "mukade",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

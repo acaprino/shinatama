@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { browserCommand, confirmsField, keepsContextMenu, keepsSelectAll, nextZoom, savedZoom, zoomCommand, ZOOM_STEPS } from '../src/desktop-shell-model.ts';
+import { clampZoom, guardDesktop, stepZoom, zoomDirection } from '@acaprino/imago/shell';
+import { confirmsField, ENGINE_SURFACES, keepsSelectAll, ZOOM_STEPS } from '../src/desktop-shell-model.ts';
 
 const src = new URL('../src/', import.meta.url);
 const files = readdirSync(src).filter(name => /\.(ts|css)$/.test(name));
@@ -28,10 +29,10 @@ test('chrome uses the arrow cursor: no hand outside links in rendered content', 
 });
 
 test('the interface is not selectable text; fields, panels and code are', () => {
-  const css = read('styles.css');
-  assert.match(css, /html \{ cursor: default; -webkit-user-select: none; user-select: none; \}/);
-  for (const content of ['input', 'textarea', 'dialog', 'pre', 'code', '.cm-editor', '#notice > span']) {
-    assert.match(css, new RegExp(`${content.replace(/[.*+?^${}()|[\]\\>]/g, '\\$&')}[^{]*\\{ -webkit-user-select: text; user-select: text; \\}`), content);
+  const css = readFileSync(new URL(import.meta.resolve('@acaprino/imago/css/base.css')), 'utf8');
+  assert.match(css, /\.im-shell\s*\{[^}]*user-select:\s*none/);
+  for (const selector of ['.im-content-text', 'input', 'textarea', '[contenteditable="true"]']) {
+    assert.ok(css.split('user-select: text')[0].includes(selector), selector);
   }
 });
 
@@ -49,7 +50,7 @@ test('no page closes its window with window.close(), which bypasses CloseRequest
 
 test('every window is built by the shared bootstrap', () => {
   const recovery = readRust('webview_recovery.rs');
-  for (const step of ['.on_navigation(crate::native_frame::navigation_policy(app))', '.on_new_window(', 'crate::native_frame::prepare(&window)', 'SetIsBuiltInErrorPageEnabled(false)']) {
+  for (const step of ['guard_navigation(', 'watch_process_failures(window', 'crate::native_frame::prepare(&window)']) {
     assert.ok(recovery.includes(step), `webview_recovery::build lacks ${step}`);
   }
   for (const name of readdirSync(rust, { recursive: true }).map(String).filter(name => name.endsWith('.rs') && name !== 'webview_recovery.rs')) {
@@ -61,45 +62,71 @@ test('every window is built by the shared bootstrap', () => {
   }
 });
 
-test('the navigation policy compares the origin exactly', () => {
-  const policy = readRust('native_frame.rs');
-  assert.match(policy, /url\.host_str\(\) == Some\("tauri\.localhost"\)/);
-  assert.doesNotMatch(policy, /starts_with\("http/);
+test('only development adds its configured server to Imago’s embedded origin guard', () => {
+  const recovery = readRust('webview_recovery.rs');
+  assert.match(recovery, /dev_url\s*\.as_ref\(\)\s*\.filter\(\|_\| tauri::is_dev\(\)\)/);
+  assert.match(recovery, /guard_navigation\(\s*tauri::WebviewWindowBuilder::from_config\(app, config\)\?,\s*&origins/);
 });
+
+test('the main frame uses Imago’s snap overlay and save-before-reload menu', () => {
+  const frame = readRust('native_frame.rs');
+  assert.match(frame, /if !tauri::is_dev\(\) \{\s*let _ = disable_browser_accelerators\(window\)/);
+  assert.match(frame, /if window.label\(\) == "main" \{\s*let overlay = install_snap_layouts\(window\)/);
+  assert.match(frame, /install_reload_menu\(window, "Reload interface"/);
+  assert.match(frame, /overlay\.set_rect\(x, y, width, height\)/);
+  assert.match(frame, /"interface-reload-requested", token/);
+  assert.match(frame, /if take_pending\(token\) \{\s*let _ = main.reload\(\)/);
+});
+
+// The guard as desktop-shell.ts mounts it, on a document that only records its listeners.
+function guarded(selection: { isCollapsed: boolean; containsNode: () => boolean } | null = null) {
+  const listeners = new Map<string, (event: object) => void>();
+  const doc = { addEventListener: (type: string, listener: (event: object) => void) => { listeners.set(type, listener); },
+    removeEventListener() {}, getSelection: () => selection } as unknown as Document;
+  guardDesktop(doc, { allowReloadIn: ENGINE_SURFACES });
+  return (type: string, event: object): boolean => {
+    let refused = false;
+    listeners.get(type)!({ ...event, preventDefault() { refused = true; } });
+    return refused;
+  };
+}
+const inside = (selector: string) => ({ closest: (query: string) => (query.includes(selector) ? {} : null) });
+const chrome = { closest: () => null };
 
 test('zoom keys follow Ctrl+= / Ctrl+- / Ctrl+0 on any layout', () => {
-  assert.equal(zoomCommand(key('=', 'Equal')), 'in');
-  assert.equal(zoomCommand(key('+', 'BracketRight', { shiftKey: true })), 'in'); // Italian layout
-  assert.equal(zoomCommand(key('+', 'NumpadAdd')), 'in');
-  assert.equal(zoomCommand(key('-', 'Slash')), 'out'); // Italian layout
-  assert.equal(zoomCommand(key('-', 'NumpadSubtract')), 'out');
-  assert.equal(zoomCommand(key('0', 'Digit0')), 'reset');
-  assert.equal(zoomCommand(key('_', 'Minus', { shiftKey: true })), null);
-  assert.equal(zoomCommand(key('0', 'Digit0', { altKey: true })), null);
-  assert.equal(zoomCommand({ ...key('=', 'Equal'), ctrlKey: false }), null);
+  assert.equal(zoomDirection(key('=', 'Equal')), 1);
+  assert.equal(zoomDirection(key('+', 'BracketRight', { shiftKey: true })), 1); // Italian layout
+  assert.equal(zoomDirection(key('+', 'NumpadAdd')), 1);
+  assert.equal(zoomDirection(key('-', 'Slash')), -1); // Italian layout
+  assert.equal(zoomDirection(key('-', 'NumpadSubtract')), -1);
+  assert.equal(zoomDirection(key('0', 'Digit0')), 0);
+  assert.equal(zoomDirection(key('_', 'Minus', { shiftKey: true })), null);
+  assert.equal(zoomDirection(key('0', 'Digit0', { altKey: true })), null);
+  assert.equal(zoomDirection({ ...key('=', 'Equal'), ctrlKey: false }), null);
 });
 
-test('zoom reaches 200% and returns to 100%', () => {
-  assert.equal(ZOOM_STEPS.at(-1), 2);
+test('zoom steps by 10% from 50 to 200%, and a level saved before is rounded to one', () => {
+  assert.deepEqual(ZOOM_STEPS, [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2]);
   let level = 1;
-  for (let i = 0; i < 20; i++) level = nextZoom(level, 'in');
+  for (let i = 0; i < 20; i++) level = stepZoom(level, 1);
   assert.equal(level, 2);
-  assert.equal(nextZoom(2, 'in'), 2);
-  assert.equal(nextZoom(1.3, 'out'), 1.25);
-  assert.equal(nextZoom(1.75, 'reset'), 1);
-  assert.equal(savedZoom('1.5'), 1.5);
-  assert.equal(savedZoom('7'), 1);
-  assert.equal(savedZoom(null), 1);
+  assert.equal(stepZoom(2, 1), 2);
+  assert.equal(stepZoom(1.3, -1), 1.2);
+  assert.equal(stepZoom(1.75, 0), 1);
+  // shinatama.zoom as earlier versions saved it: rounded to the nearest 10%, half up.
+  for (const [saved, kept] of [['0.67', 0.7], ['0.75', 0.8], ['1.25', 1.3], ['1.75', 1.8], ['1.5', 1.5]] as const) assert.equal(clampZoom(Number(saved)), kept);
+  assert.equal(clampZoom(Number('7')), 2);
+  assert.equal(clampZoom(Number.NaN), 1);
 });
 
-test('the engine menu and Select All stay in fields and over selected text only', () => {
-  const inside = (selector: string) => ({ closest: (query: string) => (query.includes(selector) ? {} : null) });
-  const chrome = { closest: () => null };
-  assert.equal(keepsContextMenu(inside('textarea'), false), true);
-  assert.equal(keepsContextMenu(inside('.xterm'), false), true);
-  assert.equal(keepsContextMenu(chrome, true), true);
-  assert.equal(keepsContextMenu(chrome, false), false);
-  assert.equal(keepsContextMenu(null, false), false);
+test('the engine menu stays in fields, terminals and over selected text only; Select All in fields', () => {
+  const menu = (target: object | null, selected = false) =>
+    guarded({ isCollapsed: !selected, containsNode: () => selected })('contextmenu', { target });
+  assert.equal(menu(inside('textarea')), false);
+  assert.equal(menu(inside('.xterm')), false);
+  assert.equal(menu(chrome, true), false);
+  assert.equal(menu(chrome), true);
+  assert.equal(menu(null), true);
   assert.equal(keepsSelectAll(inside('input')), true);
   assert.equal(keepsSelectAll(chrome), false);
 });
@@ -111,15 +138,20 @@ test('an Enter that picks an IME candidate does not confirm', () => {
   assert.equal(confirmsField({ key: 'a', isComposing: false, keyCode: 65 }), false);
 });
 
-test('browser keys are refused, editing and app keys are not', () => {
+test('browser keys are refused, editing and app keys are not, and terminals keep theirs', () => {
   const k = (key: string, extra: Partial<{ ctrlKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) =>
     ({ key, code: '', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...extra });
+  const refused = guarded();
   for (const event of [k('F5'), k('F5', { ctrlKey: true }), k('r', { ctrlKey: true }), k('R', { ctrlKey: true, shiftKey: true }), k('p', { ctrlKey: true }),
     k('f', { ctrlKey: true }), k('u', { ctrlKey: true }), k('ArrowLeft', { altKey: true }), k('F12'), k('F7'), k('BrowserBack')]) {
-    assert.equal(browserCommand(event), true, JSON.stringify(event));
+    assert.equal(refused('keydown', { ...event, target: chrome }), true, JSON.stringify(event));
   }
   for (const event of [k('c', { ctrlKey: true }), k('v', { ctrlKey: true }), k('x', { ctrlKey: true }), k('z', { ctrlKey: true }), k('a', { ctrlKey: true }),
     k('F', { ctrlKey: true, shiftKey: true }), k('T', { ctrlKey: true, shiftKey: true }), k('ArrowLeft', { ctrlKey: true, shiftKey: true }), k('F3'), k('r'), k('ArrowLeft')]) {
-    assert.equal(browserCommand(event), false, JSON.stringify(event));
+    assert.equal(refused('keydown', { ...event, target: chrome }), false, JSON.stringify(event));
   }
+  for (const surface of ['.xterm', '.browser-canvas', '.cm-editor']) {
+    assert.equal(refused('keydown', { ...k('r', { ctrlKey: true }), target: inside(surface) }), false, surface);
+  }
+  assert.equal(refused('mouseup', { button: 3 }), true);
 });

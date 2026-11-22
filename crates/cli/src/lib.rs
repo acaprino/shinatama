@@ -63,7 +63,9 @@ pub fn parse(args: &[String]) -> Result<Command, ParseError> {
         return Ok(Command::Mcp);
     }
     if let Some(result) = sessions::parse(args) {
-        return result.map(Command::Sessions).map_err(|()| ParseError::UnknownOption);
+        return result
+            .map(Command::Sessions)
+            .map_err(|()| ParseError::UnknownOption);
     }
     if args.len() > 6 || args.iter().any(|argument| argument.len() > 128) {
         return Err(ParseError::TooManyArguments);

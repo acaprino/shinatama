@@ -6,12 +6,15 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, delimiter, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startSession } from './session-flow.mjs';
 import { promisify } from 'node:util';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This new-project proof qualifies the real Windows app only.');
 const workspace = process.cwd();
@@ -26,7 +29,7 @@ await mkdir(seed, { recursive: true }); await mkdir(rootB); await mkdir(futureRo
 const projectName = 'My project à'; const createdPath = resolve(rootB, projectName);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const resultPath = resolve(output, 'new-project.json');
-const evidence = { check: 'C05-connected-Windows-new-project', checks: {}, status: 'running', git: { requested: withGit, status: withGit ? 'pending' : 'not-requested' },
+const evidence = { check: 'C05-connected-Windows-new-project', checks: {}, rootsReadMs: [], status: 'running', git: { requested: withGit, status: withGit ? 'pending' : 'not-requested' },
   gaps: [...(withGit ? [] : ['Real git init is not exercised without --with-git.']), 'Real synced/network drives, the complete U3 key matrix and C09R adaptive resource calibration remain separate qualifications.'] };
 await writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`);
 const port = 19234; const live = new Set(); let launches = 0;
@@ -141,7 +144,7 @@ async function closeApp(instance) {
   const closing = Promise.all([instance.page.waitForEvent('close', { timeout: 10000 }), exitWithin(instance.app, 10000)]);
   void closing.catch(() => {});
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (hasTerminals) await instance.page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+  if (hasTerminals) await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closing; expect(instance.app.exitCode).toBe(0); expect(instance.errors).toEqual([]);
   await instance.browser.close().catch(() => {}); live.delete(instance);
 }
@@ -152,9 +155,41 @@ async function openCreator(instance, fromPicker = false) {
     await instance.page.locator('#refresh-projects').focus();
   }
   else await instance.page.locator('#project').focus();
+  const opened = performance.now();
   await instance.page.keyboard.press('n');
   await expect(instance.page.locator('#new-project-dialog')).toBeVisible();
-  await expect(instance.page.locator('#new-project-root')).toBeEnabled();
+  try {
+    await expect(instance.page.locator('#new-project-root')).toBeEnabled();
+    evidence.rootsReadMs.push(Math.round(performance.now() - opened));
+  } catch (failure) {
+    // Disabled means reading the roots or an operation still running: the dialog's status says which.
+    // A second read straight from the page, and how long the dialog's own read still takes, tell a
+    // slow or held store from a read the dialog lost.
+    const state = await instance.page.evaluate(() => ({
+      status: document.querySelector('#new-project-status')?.textContent,
+      error: document.querySelector('#new-project-error')?.textContent,
+      busy: document.querySelector('#new-project-dialog form')?.getAttribute('aria-busy'),
+      modals: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
+    }));
+    const timed = command => instance.page.evaluate(async command => {
+      const started = performance.now();
+      try { await window.__TAURI_INTERNALS__.invoke(command); return Math.round(performance.now() - started); }
+      catch (error) { return `failed after ${Math.round(performance.now() - started)} ms: ${String(error).slice(0, 200)}`; }
+    }, command);
+    const [direct, list] = await Promise.all([timed('new_project_options'), timed('terminal_list')]);
+    const enabled = await expect(instance.page.locator('#new-project-root')).toBeEnabled({ timeout: 30000 }).then(() => true, () => false);
+    // Closed and opened again: a read that never settles is shared by the next opening and stays stuck; a read that
+    // ended without repainting is replaced by a fresh one, which enables the field.
+    let reopened = 'not tried';
+    if (!enabled) {
+      await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click().catch(() => {});
+      await expect(instance.page.locator('#new-project-dialog')).not.toBeVisible().catch(() => {});
+      await instance.page.locator('#project').focus(); await instance.page.keyboard.press('n');
+      reopened = await expect(instance.page.locator('#new-project-root')).toBeEnabled({ timeout: 10000 }).then(() => 'enabled', () => 'still disabled');
+    }
+    throw new Error('The project root stayed disabled: ' + JSON.stringify({ ...state, directOptionsMs: direct, terminalListMs: list,
+      dialogReadEnded: enabled ? `${Math.round(performance.now() - opened)} ms after opening` : 'not within 30 s more', reopened }), { cause: failure });
+  }
   await expect(instance.page.locator('#new-project-git')).not.toBeChecked();
 }
 async function rootFolders() {
@@ -179,7 +214,7 @@ try {
   await expect(page.locator('.catalog-root-status')).toHaveCount(2, { timeout: 10000 });
   await page.locator('.catalog-root-status').nth(1).getByRole('button', { name: /^Make default/ }).click();
   await expect(page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   const configuration = await invoke(instance, 'new_project_options');
   const defaultId = configuration.defaultRootId;
   expect(key(configuration.roots.find(root => root.id === defaultId).path)).toBe(key(rootB));
@@ -190,7 +225,7 @@ try {
   await expect(page.locator('#new-project-dialog')).not.toBeVisible();
   await page.locator('#folder').fill('typed-'); await page.locator('#folder').focus(); await page.keyboard.press('n');
   await expect(page.locator('#folder')).toHaveValue('typed-n'); await expect(page.locator('#new-project-dialog')).not.toBeVisible();
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await (await startSession(page, { project: seed, harness: 'powershell' })).done(30000); await expect(page.locator('.xterm-accessibility')).toContainText('PS ', { timeout: 20000 });
   const originalSession = (await invoke(instance, 'terminal_list'))[0];
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.type("Write-Output ('C05_KEY_' + '");

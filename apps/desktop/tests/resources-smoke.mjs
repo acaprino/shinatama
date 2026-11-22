@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from '@playwright/test';
+import { mainPage } from './main-page.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This resource observer check qualifies Windows only.');
 const workspace = process.cwd();
@@ -49,7 +53,7 @@ try {
   }
   assert.ok(browser, 'Owned observer-test WebView startup deadline exceeded.');
   const context = browser.contexts()[0];
-  page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+  page = await mainPage(browser);
   await page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
   const storage = await invoke('storage_location');
   const pathKey = value => value.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').toLowerCase();
@@ -107,7 +111,11 @@ try {
   assert.equal(governed.policy.active_native_workloads, 0);
   assert.ok(governed.policy.monitor_age_ms < 3000);
   assert.ok(governed.resources.owned_private_commit_bytes > 0);
-  assert.ok((await page.locator('#resource-status').getAttribute('title')).includes('Native agent launches: unavailable'));
+  // The badge says what it measured and what a new session waits for (resource-status.ts); the
+  // "Native agent launches" line this checked was dropped from it before the history restart.
+  const badgeTitle = await page.locator('#resource-status').getAttribute('title');
+  assert.ok(badgeTitle.includes('Observed process memory: ') && !badgeTitle.includes('Observed process memory: unavailable'), badgeTitle);
+  assert.match(badgeTitle, /New sessions: (waiting for measurements|waiting for resources|checked individually against available limits)/);
   evidence.checks.liveGovernorAndHonestStatus = true;
   evidence.checks.nativeCountersAndProcessCoverage = true;
   evidence.checks.frontendFrameInputAndIpcMeasurements = true;

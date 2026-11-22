@@ -1,4 +1,5 @@
-import { openModal } from './modal.ts';
+import { claimKey, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { closeControl, iconControl } from './controls.ts';
 import { parseMuroStatus, pluginsButtons, pluginsLine, type MuroStatus } from './muro-status.ts';
 import { createModelSettingsPanel } from './model-settings-panel.ts';
 import type { Save as ModelSave } from './model-settings-model.ts';
@@ -6,7 +7,6 @@ import {
   buildMemory, buildSave, DEFAULT_MEMORY, formFromView, memorySummary, parseMemory, parseView, summary, MAX_MARGIN_MIB, MAX_VARIABLES,
   type Form, type MemorySafety, type Row, type SaveRequest,
 } from './settings-model.ts';
-import './settings-panel.css';
 
 /** Where each part of Settings sits, in order: the id after #settings-section-, the index label, the heading. */
 export const SETTINGS_SECTIONS = [
@@ -21,6 +21,9 @@ type Options = {
   invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
   notify(message: unknown, tone?: 'info' | 'error'): void;
   restoreFocus?: () => void;
+  /** Shows Settings, the title bar's last view tab; `close` goes back to the workspace tab. */
+  select: () => void;
+  close: () => void;
   /** The theme and the terminal controls (presentation.ts). They apply and save as they change. */
   appearance: { theme: HTMLElement; terminal: HTMLElement; reset(): void; reload(): void };
   /** The desktop alert controls (attention-control.ts). They apply and save as they change. */
@@ -29,48 +32,47 @@ type Options = {
   zoom: { levels: readonly number[]; current(): number; available(): boolean; set(level: number): Promise<boolean>; subscribe(listener: () => void): void };
 };
 
-const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
-  const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
-};
 const message = (error: unknown) => typeof error === 'string' ? error : (error as { message?: string } | null)?.message ?? 'The settings could not be saved.';
 const percent = (level: number) => `${Math.round(level * 100)}%`;
 
-/** Settings: one drawer for every preference of the app. Each section keeps saving the way its owner
+/** Settings: the view of the title bar's last tab, one page for every preference of the app (look and theme are the
+ * palette's Appearance commands, not here). Each section keeps saving the way its owner
  * always has: Appearance, Alerts and Sessions apply as they change; Agents, Models, Memory, GitHub and the
  * variables wait for Save. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
-  const dialog = el('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
-  const top = el('div', 'settings-top');
-  const heading = el('div', 'dialog-heading'); const title = el('h1', undefined, 'Settings'); title.id = 'settings-title';
-  const closeButton = el('button', undefined, '×'); closeButton.type = 'button'; closeButton.setAttribute('aria-label', 'Close settings');
+  // The view fills the content region (shell-content.css); main.ts hides it until the Settings tab is selected.
+  const dialog = uiPart('stack', undefined, 'settings-view'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title'); dialog.hidden = true;
+  const top = uiPart('stack');
+  const heading = uiPart('row'); const title = uiPart('minorHeading', 'Settings'); title.id = 'settings-title';
+  const closeButton = closeControl('Close settings');
   heading.append(title, closeButton);
-  const index = el('nav', 'settings-index'); index.setAttribute('aria-label', 'Settings sections');
+  const index = uiTraits(uiPart('nav'), 'row'); index.setAttribute('aria-label', 'Settings sections');
   top.append(heading, index);
-  const intro = el('p', 'hint settings-intro', 'Appearance, Alerts and Sessions apply as you change them. Agents, Models, Memory, GitHub and Environment variables apply when you press Save.');
+  const intro = uiPart('hint', 'Appearance, Alerts and Sessions apply as you change them. Agents, Models, Memory, GitHub and Environment variables apply when you press Save.');
   intro.id = 'settings-intro';
 
   const parts = new Map<SettingsSection, { section: HTMLElement; heading: HTMLHeadingElement; link: HTMLButtonElement }>();
   for (const [id, label, text] of SETTINGS_SECTIONS) {
-    const section = el('section', 'settings-section'); section.id = `settings-section-${id}`;
-    const sectionHeading = el('h2', undefined, text); sectionHeading.id = `settings-section-${id}-title`; sectionHeading.tabIndex = -1;
+    const section = uiTraits(uiPart('region'), 'stack', 'section'); section.id = `settings-section-${id}`;
+    const sectionHeading = uiPart('heading', text); sectionHeading.id = `settings-section-${id}-title`; sectionHeading.tabIndex = -1;
     section.setAttribute('aria-labelledby', sectionHeading.id); section.append(sectionHeading);
-    const link = el('button', 'settings-index-link', label); link.type = 'button'; link.setAttribute('aria-controls', section.id);
+    const link = uiButton(label, { cls: 'settings-index-link', sm: true }); link.setAttribute('aria-controls', section.id);
     link.onclick = () => go(id);
     index.append(link); parts.set(id, { section, heading: sectionHeading, link });
   }
   const part = (id: SettingsSection) => parts.get(id)!.section;
 
   // Appearance: the theme, the interface zoom, then the terminals.
-  const zoomLabel = el('label', undefined, 'Interface zoom'); zoomLabel.htmlFor = 'settings-zoom';
-  const zoom = el('select'); zoom.id = 'settings-zoom'; zoom.setAttribute('aria-describedby', 'settings-zoom-hint');
-  for (const level of options.zoom.levels) { const option = el('option', undefined, percent(level)); option.value = String(level); zoom.append(option); }
-  const zoomHint = el('p', 'hint', 'Ctrl+= and Ctrl+- change it too; Ctrl+0 returns to 100%.'); zoomHint.id = 'settings-zoom-hint';
+  const zoomLabel = uiPart('label', 'Interface zoom'); zoomLabel.htmlFor = 'settings-zoom';
+  const zoom = uiSelect(); zoom.id = 'settings-zoom'; zoom.setAttribute('aria-describedby', 'settings-zoom-hint');
+  for (const level of options.zoom.levels) { const option = uiOption(String(level), percent(level)); zoom.append(option); }
+  const zoomHint = uiPart('hint', 'Ctrl+= and Ctrl+- change it too; Ctrl+0 returns to 100%.'); zoomHint.id = 'settings-zoom-hint';
   part('appearance').append(options.appearance.theme, zoomLabel, zoom, zoomHint, options.appearance.terminal);
 
   // Agents
-  const fullLabel = el('label', 'settings-check'); const full = el('input'); full.type = 'checkbox'; full.id = 'settings-full-access';
+  const fullLabel = uiPart('label'); const full = uiInput('checkbox'); full.id = 'settings-full-access';
   fullLabel.append(full, document.createTextNode(' Full access: start agents without their own protections'));
-  const fullHint = el('p', 'hint', 'Claude starts in bypass-permissions mode, Codex without its sandbox and approvals, OpenCode allows every tool. '
+  const fullHint = uiPart('hint', 'Claude starts in bypass-permissions mode, Codex without its sandbox and approvals, OpenCode allows every tool. '
     + 'Pi and PowerShell never asked. An agent can then change or delete anything your Windows account can, inside or outside the project. '
     + 'The private home keeps their settings and sign-ins apart; it does not confine their files. Applies to sessions started after you save.');
   part('agents').append(fullLabel, fullHint);
@@ -79,11 +81,11 @@ export function createSettingsPanel(options: Options) {
   part('models').append(models.element);
 
   // Memory
-  const memoryLabel = el('label', 'settings-check'); const memoryCheck = el('input'); memoryCheck.type = 'checkbox'; memoryCheck.id = 'settings-memory-safety';
+  const memoryLabel = uiPart('label'); const memoryCheck = uiInput('checkbox'); memoryCheck.id = 'settings-memory-safety';
   memoryLabel.append(memoryCheck, document.createTextNode(' Check free memory before a session, shell or harness check starts'));
-  const marginLabel = el('label', undefined, 'Memory kept free (MiB)'); marginLabel.htmlFor = 'settings-memory-margin';
-  const margin = el('input'); margin.id = 'settings-memory-margin'; margin.type = 'number'; margin.min = '0'; margin.max = String(MAX_MARGIN_MIB); margin.step = '64'; margin.inputMode = 'numeric';
-  const memoryHint = el('p', 'hint', 'On: a start waits a few seconds for a fresh measurement and is refused when free RAM or allocatable memory '
+  const marginLabel = uiPart('label', 'Memory kept free (MiB)'); marginLabel.htmlFor = 'settings-memory-margin';
+  const margin = uiInput(); margin.id = 'settings-memory-margin'; margin.type = 'number'; margin.min = '0'; margin.max = String(MAX_MARGIN_MIB); margin.step = '64'; margin.inputMode = 'numeric';
+  const memoryHint = uiPart('hint', 'On: a start waits a few seconds for a fresh measurement and is refused when free RAM or allocatable memory '
     + 'would drop below what it needs to start plus this margin. Off: nothing waits for or is refused on memory; Windows may then page or close apps '
     + 'when memory runs out. Running sessions are never stopped by this setting. Applies to the next start after you save.');
   part('memory').append(memoryLabel, marginLabel, margin, memoryHint);
@@ -92,54 +94,53 @@ export function createSettingsPanel(options: Options) {
   part('alerts').append(options.alerts.fields);
 
   // GitHub
-  const userLabel = el('label', undefined, 'Username'); userLabel.htmlFor = 'settings-github-user';
-  const user = el('input'); user.id = 'settings-github-user'; user.autocomplete = 'off'; user.spellcheck = false; user.maxLength = 39;
-  const tokenLabel = el('label', undefined, 'Personal access token'); tokenLabel.htmlFor = 'settings-github-token';
-  const token = el('input'); token.id = 'settings-github-token'; token.type = 'password'; token.autocomplete = 'new-password'; token.spellcheck = false; token.maxLength = 255;
-  const tokenRow = el('div', 'settings-inline'); const removeToken = el('button', undefined, 'Remove token'); removeToken.type = 'button'; removeToken.id = 'settings-github-remove';
+  const userLabel = uiPart('label', 'Username'); userLabel.htmlFor = 'settings-github-user';
+  const user = uiInput(); user.id = 'settings-github-user'; user.autocomplete = 'off'; user.spellcheck = false; user.maxLength = 39;
+  const tokenLabel = uiPart('label', 'Personal access token'); tokenLabel.htmlFor = 'settings-github-token';
+  const token = uiInput(); token.id = 'settings-github-token'; token.type = 'password'; token.autocomplete = 'new-password'; token.spellcheck = false; token.maxLength = 255;
+  const tokenRow = uiPart('row'); const removeToken = uiButton('Remove token'); removeToken.id = 'settings-github-remove';
   tokenRow.append(token, removeToken);
-  const githubHint = el('p', 'hint', 'GitHub no longer accepts an account password, so use a personal access token (a fine-grained one limited to the repositories you need is safest). '
+  const githubHint = uiPart('hint', 'GitHub no longer accepts an account password, so use a personal access token (a fine-grained one limited to the repositories you need is safest). '
     + 'Agents receive it as GH_TOKEN and as the Git credential for github.com, so git push and gh never ask. Stored encrypted for this Windows user; any agent you start can read it.');
   part('github').append(userLabel, user, tokenLabel, tokenRow, githubHint);
 
   // Environment variables
-  const list = el('div', 'settings-vars'); list.setAttribute('role', 'list'); list.setAttribute('aria-label', 'Environment variables');
-  const add = el('button', undefined, 'Add variable'); add.type = 'button'; add.id = 'settings-add-variable';
-  const varsHint = el('p', 'hint', 'Added to every new agent session. A secret value is stored encrypted and is never shown again; type a new one to replace it.');
+  const list = uiPart('stack'); list.setAttribute('role', 'list'); list.setAttribute('aria-label', 'Environment variables');
+  const add = uiButton('Add variable'); add.id = 'settings-add-variable';
+  const varsHint = uiPart('hint', 'Added to every new agent session. A secret value is stored encrypted and is never shown again; type a new one to replace it.');
   part('variables').append(list, add, varsHint);
 
   // Sessions
-  const titlesLabel = el('label', 'settings-check'); const titles = el('input'); titles.type = 'checkbox'; titles.id = 'settings-titles';
+  const titlesLabel = uiPart('label'); const titles = uiInput('checkbox'); titles.id = 'settings-titles';
   titlesLabel.append(titles, document.createTextNode(' Activity titles'));
-  const titlesHint = el('p', 'hint', 'Sessions shows what each running session is doing, verbatim from its last tool call or message. Nothing leaves this computer.');
-  const indexingLabel = el('label', 'settings-check'); const indexing = el('input'); indexing.type = 'checkbox'; indexing.id = 'settings-indexing';
+  const titlesHint = uiPart('hint', 'Sessions shows what each running session is doing, verbatim from its last tool call or message. Nothing leaves this computer.');
+  const indexingLabel = uiPart('label'); const indexing = uiInput('checkbox'); indexing.id = 'settings-indexing';
   indexingLabel.append(indexing, document.createTextNode(' Index session text for search'));
-  const indexingHint = el('p', 'hint', 'Lets Search index read your session archives. Off stops indexing; text already indexed stays searchable until you forget it there.');
-  const sessionsStatus = el('p', 'hint'); sessionsStatus.id = 'settings-sessions-status'; sessionsStatus.setAttribute('role', 'status');
+  const indexingHint = uiPart('hint', 'Lets Search index read your session archives. Off stops indexing; text already indexed stays searchable until you forget it there.');
+  const sessionsStatus = uiPart('hint'); sessionsStatus.id = 'settings-sessions-status'; sessionsStatus.setAttribute('role', 'status');
   part('sessions').append(titlesLabel, titlesHint, indexingLabel, indexingHint, sessionsStatus);
 
   // Plugins: Shinatama's own Muro keeps the plugins of its agents in sync (muro.rs).
-  const pluginsStatus = el('p', 'hint'); pluginsStatus.id = 'settings-plugins-status'; pluginsStatus.setAttribute('role', 'status');
-  const pluginsRow = el('div', 'settings-row');
-  const syncNow = el('button', undefined, 'Sync now'); syncNow.type = 'button'; syncNow.id = 'settings-plugins-sync';
-  const openMuro = el('button', undefined, 'Open Muro'); openMuro.type = 'button'; openMuro.id = 'settings-plugins-open';
+  const pluginsStatus = uiPart('hint'); pluginsStatus.id = 'settings-plugins-status'; pluginsStatus.setAttribute('role', 'status');
+  const pluginsRow = uiPart('row');
+  const syncNow = uiButton('Sync now'); syncNow.id = 'settings-plugins-sync';
+  const openMuro = uiButton('Open Muro'); openMuro.id = 'settings-plugins-open';
   pluginsRow.append(syncNow, openMuro);
-  const pluginsHint = el('p', 'hint', 'Muro installs and updates the plugins you choose for the agents Shinatama launches, in their homes inside Shinatama only: '
+  const pluginsHint = uiPart('hint', 'Muro installs and updates the plugins you choose for the agents Shinatama launches, in their homes inside Shinatama only: '
     + "your own Muro and your agents' usual homes are left alone. Open Muro to choose them; a session already open gets a new plugin at its next start.");
   pluginsHint.id = 'settings-plugins-hint';
   syncNow.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`); openMuro.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`);
   part('plugins').append(pluginsStatus, pluginsRow, pluginsHint);
 
-  const actions = el('div', 'dialog-actions settings-actions');
-  const status = el('p', 'settings-status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
-  const reload = el('button', undefined, 'Reload'); reload.type = 'button'; reload.title = 'Read every saved setting again';
-  const save = el('button', 'primary', 'Save'); save.type = 'button'; save.id = 'settings-save'; save.setAttribute('aria-describedby', intro.id);
-  const close = el('button', undefined, 'Close'); close.type = 'button';
+  const actions = uiPart('actions');
+  const status = uiPart('status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
+  const reload = uiButton('Reload'); reload.title = 'Read every saved setting again';
+  const save = uiButton('Save', { primary: true }); save.id = 'settings-save'; save.setAttribute('aria-describedby', intro.id);
+  const close = uiButton('Close');
   actions.append(status, reload, save, close);
   // The title and index above, the actions below, and only the sections between them scroll.
-  const body = el('div', 'settings-body'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
+  const body = uiTraits(uiPart('scroll'), 'grow'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
   dialog.append(top, body, actions);
-  (document.querySelector('#app') ?? document.body).append(dialog);
 
   // The index follows the scroll; a section picked from it stays marked until the user scrolls.
   let picked: SettingsSection | null = null; let spyFrame = 0;
@@ -174,11 +175,12 @@ export function createSettingsPanel(options: Options) {
 
   let form: Form = { fullAccess: true, githubUsername: '', tokenInput: '', removeToken: false, hasToken: false, rows: [] };
   let memory: MemorySafety = { ...DEFAULT_MEMORY };
+  const shown = () => !dialog.hidden;
   let loaded = false; let busy = false;
   const statusLine = () => `${summary(form)} · ${memorySummary(memory)}`;
   function paintMemory() { memoryCheck.checked = memory.enabled; margin.value = String(memory.marginMib); margin.disabled = !memory.enabled; }
 
-  const say = (text: string, error = false) => { status.textContent = text; status.dataset.tone = error ? 'error' : 'info'; };
+  const say = (text: string, error = false) => { status.textContent = text; status.dataset.tone = error ? 'error' : 'info'; uiTone(status, error ? 'err' : null); };
   function paintToken() {
     token.placeholder = form.hasToken && !form.removeToken ? 'Saved. Type to replace' : 'ghp_… or github_pat_…';
     removeToken.hidden = !form.hasToken || form.removeToken || Boolean(token.value);
@@ -189,16 +191,16 @@ export function createSettingsPanel(options: Options) {
     add.disabled = form.rows.length >= MAX_VARIABLES;
   }
   function rowView(row: Row, index: number) {
-    const line = el('div', 'settings-var'); line.setAttribute('role', 'listitem');
-    const name = el('input'); name.placeholder = 'NAME'; name.value = row.name; name.setAttribute('aria-label', 'Variable name'); name.autocomplete = 'off'; name.spellcheck = false; name.maxLength = 128;
+    const line = uiPart('row', undefined, 'settings-var'); line.setAttribute('role', 'listitem');
+    const name = uiInput(); name.placeholder = 'NAME'; name.value = row.name; name.setAttribute('aria-label', 'Variable name'); name.autocomplete = 'off'; name.spellcheck = false; name.maxLength = 128;
     name.oninput = () => { row.name = name.value; };
-    const value = el('input'); value.value = row.value; value.setAttribute('aria-label', `Value of ${row.name || 'the variable'}`); value.autocomplete = 'off'; value.spellcheck = false;
+    const value = uiInput(); value.value = row.value; value.setAttribute('aria-label', `Value of ${row.name || 'the variable'}`); value.autocomplete = 'off'; value.spellcheck = false;
     const paintValue = () => { value.type = row.secret ? 'password' : 'text'; value.placeholder = row.hasValue && !row.touched && row.secret ? 'Saved. Type to replace' : 'value'; };
     value.oninput = () => { row.value = value.value; row.touched = true; };
-    const secretLabel = el('label', 'settings-secret'); const secret = el('input'); secret.type = 'checkbox'; secret.checked = row.secret;
+    const secretLabel = uiPart('label', undefined, 'settings-secret'); const secret = uiInput('checkbox'); secret.checked = row.secret;
     secret.onchange = () => { row.secret = secret.checked; paintValue(); };
     secretLabel.append(secret, document.createTextNode(' Secret'));
-    const remove = el('button', undefined, '×'); remove.type = 'button'; remove.setAttribute('aria-label', `Remove ${row.name || 'variable'}`);
+    const remove = iconControl(`Remove ${row.name || 'variable'}`, 'close', 'remove');
     remove.onclick = () => { form.rows.splice(index, 1); paintRows(); };
     paintValue();
     line.append(name, value, secretLabel, remove);
@@ -265,7 +267,7 @@ export function createSettingsPanel(options: Options) {
 
   // Sessions: each switch applies at once through the command its view always used.
   let sessionsBusy = 0;
-  const saySessions = (text: string, error = false) => { sessionsStatus.textContent = text; sessionsStatus.dataset.tone = error ? 'error' : 'info'; };
+  const saySessions = (text: string, error = false) => { sessionsStatus.textContent = text; sessionsStatus.dataset.tone = error ? 'error' : 'info'; uiTone(sessionsStatus, error ? 'err' : null); };
   async function loadSessions() {
     if (!options.desktop) { titles.disabled = indexing.disabled = true; saySessions('Open the desktop app to change these.'); return; }
     const mine = ++sessionsBusy; titles.disabled = indexing.disabled = true;
@@ -295,7 +297,7 @@ export function createSettingsPanel(options: Options) {
     const today = at.toDateString() === new Date().toDateString();
     return at.toLocaleString([], today ? { hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
-  const sayPlugins = (text: string, error = false) => { pluginsStatus.textContent = text; pluginsStatus.dataset.tone = error ? 'error' : 'info'; };
+  const sayPlugins = (text: string, error = false) => { pluginsStatus.textContent = text; pluginsStatus.dataset.tone = error ? 'error' : 'info'; uiTone(pluginsStatus, error ? 'err' : null); };
   function paintPlugins(status: MuroStatus | null, problem?: string) {
     const why = pluginsButtons(status, options.desktop);
     syncNow.disabled = why.sync !== null; syncNow.title = why.sync ?? 'Ask Muro to check and apply the plugins now';
@@ -306,7 +308,7 @@ export function createSettingsPanel(options: Options) {
     else { const line = pluginsLine(status, clock); sayPlugins(line.text, line.tone === 'error'); }
     // A Muro that is still starting is asked again while Settings is open.
     clearTimeout(pluginsTimer);
-    if (status?.state === 'starting' && dialog.open) pluginsTimer = setTimeout(() => { void loadPlugins(); }, 2000);
+    if (status?.state === 'starting' && shown()) pluginsTimer = setTimeout(() => { void loadPlugins(); }, 2000);
   }
   async function loadPlugins() {
     if (!options.desktop) { paintPlugins(null); return; }
@@ -345,21 +347,35 @@ export function createSettingsPanel(options: Options) {
   };
   save.onclick = () => { void submit(); };
   reload.onclick = () => { options.appearance.reload(); void loadSessions(); void loadPlugins(); if (!busy) void load(); };
-  closeButton.onclick = close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  closeButton.onclick = close.onclick = () => options.close();
   dialog.addEventListener('submit', event => event.preventDefault());
+  // Escape is the way back to the workspace, unless a list of choices is open: that one's Escape closes it.
+  dialog.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.target instanceof HTMLSelectElement) return;
+    event.preventDefault(); claimKey(event); options.close(); options.restoreFocus?.();
+  });
+  closeButton.addEventListener('click', () => options.restoreFocus?.());
+  close.addEventListener('click', () => options.restoreFocus?.());
 
   return {
-    /** Opens Settings, at one section when given. */
-    show(section?: SettingsSection) {
-      const opening = !dialog.open;
-      if (opening) { openModal(dialog); body.scrollTop = 0; picked = null; mark('appearance'); }
+    element: dialog,
+    /** Settings became the shown view (its tab was selected): read every setting again, at one section when given. */
+    enter(section?: SettingsSection) {
+      body.scrollTop = 0; picked = null; mark('appearance');
       options.appearance.reset(); options.alerts.reset(); paintZoom();
       if (!loaded || !busy) void load();
       void loadSessions();
       void loadPlugins();
       if (section) go(section);
-      else if (opening) index.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+      else index.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    },
+    /** Settings is no longer the shown view: what was typed in a secret field goes, and the Muro poll stops. */
+    leave() { clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); },
+    /** Shows Settings (the title bar's last tab), at one section when given. */
+    show(section?: SettingsSection) {
+      if (shown()) { if (section) go(section); return; }
+      options.select();
+      if (section) go(section);
     },
   };
 }

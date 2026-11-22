@@ -44,6 +44,7 @@ changes:
   - "2026-11-19: Smooth (e2f0bbe) is the default look beside ONI MODE, with rounded corners and a light theme, scoped to data-look=smooth; this version records it."
   - "2026-11-19: The window theme follows the look instead of being always dark (user: \"il light non deve sembrare grigio con il glass\")."
   - "2026-11-19: Smooth's frame is one sheet of glass in its own tint (user: \"la nuova ui di shinatama non applica l'effetto glass della vecchia\", \"la toolbar è ancora quasi come un frame window nativo\")."
+  - "2026-11-22: Imago v0.2.0's canon: ONI has a light theme too, and the look and the theme are the window's five Appearance commands (Ctrl+K). A skin paints ONI dark only; under ONI light the skin control is disabled and says why. An ONI saved before (no shinatama.look-version 2) stays dark. INV-012 reads accordingly."
 ---
 
 # ADR-0039: Two looks colour a glass chrome whose window theme follows the look; panels open in place; per-harness terminal profiles; truecolour never rewritten
@@ -192,7 +193,7 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - **INV-009**: a drawer or a sheet never makes a terminal inert; only a modal does, and only the workspace close confirmation and the hop preview are modals.
 - **INV-010**: starting a session in the selected project takes one choice, the harness, and opens no dialog.
 - **INV-011**: no surface covers the window frame or makes it inert.
-- **INV-012**: the desktop window's theme is the look's: dark for ONI MODE and Smooth dark, light for Smooth light, the system's for Smooth's Windows theme; the window opens with the theme its page chose last.
+- **INV-012**: the desktop window's theme is the one the page draws: light for a light theme, dark for a dark one, the system's for Smooth's Windows theme and dark for ONI's (Imago's `windowThemeFor`); the window opens with the theme its page chose last. A skin is ONI dark's only.
 - **INV-013**: a terminal paints its default background when it is created, not only when it is restored or its profile changes.
 - **INV-014**: in Smooth the frame bars paint no fill over the glass ground, and the dark glass tint stays darker and bluer than the Windows caption grey.
 

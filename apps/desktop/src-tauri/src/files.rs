@@ -12,7 +12,12 @@ use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{State, WebviewWindow};
 
 fn same(a: &Path, b: &Path) -> bool {
-    let norm = |p: &Path| p.to_string_lossy().trim_start_matches(r"\\?\").trim_end_matches(['\\', '/']).to_lowercase();
+    let norm = |p: &Path| {
+        p.to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .trim_end_matches(['\\', '/'])
+            .to_lowercase()
+    };
     norm(a) == norm(b)
 }
 
@@ -21,7 +26,10 @@ fn root(services: &Services, project: &str) -> Result<Root, String> {
     let state = services.load()?;
     let known = state.store.recent().map_err(|e| format!("{e:#}"))?;
     let path = PathBuf::from(project);
-    if !known.iter().any(|p| p.available && same(Path::new(&p.path), &path)) {
+    if !known
+        .iter()
+        .any(|p| p.available && same(Path::new(&p.path), &path))
+    {
         return Err("This folder is not one of your projects.".into());
     }
     Root::open(&path).map_err(|e| e.to_string())
@@ -33,11 +41,18 @@ fn cancels() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
 }
 
 fn token(request_id: &str) -> Result<Arc<AtomicBool>, String> {
-    if request_id.is_empty() || request_id.len() > 64 || !request_id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-') {
+    if request_id.is_empty()
+        || request_id.len() > 64
+        || !request_id
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-')
+    {
         return Err("Invalid request id.".into());
     }
     let flag = Arc::new(AtomicBool::new(false));
-    let mut map = cancels().lock().map_err(|_| "Cancellation is unavailable.")?;
+    let mut map = cancels()
+        .lock()
+        .map_err(|_| "Cancellation is unavailable.")?;
     if map.len() > 64 {
         map.clear();
     }
@@ -51,26 +66,52 @@ fn done(request_id: &str) {
     }
 }
 
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(work).await.map_err(|_| "The file worker stopped.".to_owned())?
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|_| "The file worker stopped.".to_owned())?
 }
 
 #[tauri::command]
-pub async fn files_list(window: WebviewWindow, services: State<'_, Services>, project: String, path: String, request_id: String) -> Result<Listing, String> {
+pub async fn files_list(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    path: String,
+    request_id: String,
+) -> Result<Listing, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     let flag = token(&request_id)?;
-    let result = blocking(move || root(&services, &project)?.list(&path, &flag).map_err(|e: NavError| e.to_string())).await;
+    let result = blocking(move || {
+        root(&services, &project)?
+            .list(&path, &flag)
+            .map_err(|e: NavError| e.to_string())
+    })
+    .await;
     done(&request_id);
     result
 }
 
 #[tauri::command]
-pub async fn files_search(window: WebviewWindow, services: State<'_, Services>, project: String, query: String, request_id: String) -> Result<SearchResult, String> {
+pub async fn files_search(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    query: String,
+    request_id: String,
+) -> Result<SearchResult, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     let flag = token(&request_id)?;
-    let result = blocking(move || root(&services, &project)?.search(&query, &flag).map_err(|e| e.to_string())).await;
+    let result = blocking(move || {
+        root(&services, &project)?
+            .search(&query, &flag)
+            .map_err(|e| e.to_string())
+    })
+    .await;
     done(&request_id);
     result
 }
@@ -78,17 +119,31 @@ pub async fn files_search(window: WebviewWindow, services: State<'_, Services>, 
 #[tauri::command(async)]
 pub fn files_cancel(window: WebviewWindow, request_id: String) -> Result<(), String> {
     crate::local(&window)?;
-    if let Some(flag) = cancels().lock().map_err(|_| "Cancellation is unavailable.")?.get(&request_id) {
+    if let Some(flag) = cancels()
+        .lock()
+        .map_err(|_| "Cancellation is unavailable.")?
+        .get(&request_id)
+    {
         flag.store(true, Ordering::Relaxed);
     }
     Ok(())
 }
 
 #[tauri::command]
-pub async fn files_read(window: WebviewWindow, services: State<'_, Services>, project: String, path: String) -> Result<TextFile, String> {
+pub async fn files_read(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    path: String,
+) -> Result<TextFile, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    blocking(move || root(&services, &project)?.read(&path).map_err(|e| e.to_string())).await
+    blocking(move || {
+        root(&services, &project)?
+            .read(&path)
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -110,17 +165,36 @@ pub enum SaveOutcome {
 }
 
 #[tauri::command]
-pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, attention: State<'_, crate::attention::Controller>, request: SaveRequest) -> Result<SaveOutcome, String> {
+pub async fn files_save(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    attention: State<'_, crate::attention::Controller>,
+    request: SaveRequest,
+) -> Result<SaveOutcome, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     let outcome = blocking(move || {
         let root = root(&services, &request.project)?;
-        let overwrite = if request.overwrite { Overwrite::Always } else { Overwrite::IfUnchanged };
-        Ok(match save_text(&root, &request.path, &request.text, &request.base_sha256, overwrite) {
-            Ok(sha256) => SaveOutcome::Saved { sha256 },
-            Err(SaveError::Conflict { disk_sha256 }) => SaveOutcome::Conflict { disk_sha256 },
-            Err(error) => SaveOutcome::Failed { message: error.to_string() },
-        })
+        let overwrite = if request.overwrite {
+            Overwrite::Always
+        } else {
+            Overwrite::IfUnchanged
+        };
+        Ok(
+            match save_text(
+                &root,
+                &request.path,
+                &request.text,
+                &request.base_sha256,
+                overwrite,
+            ) {
+                Ok(sha256) => SaveOutcome::Saved { sha256 },
+                Err(SaveError::Conflict { disk_sha256 }) => SaveOutcome::Conflict { disk_sha256 },
+                Err(error) => SaveOutcome::Failed {
+                    message: error.to_string(),
+                },
+            },
+        )
     })
     .await;
     if matches!(outcome, Ok(SaveOutcome::Saved { .. })) {
@@ -132,19 +206,30 @@ pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, at
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase", tag = "state")]
 pub enum ImageOutcome {
-    Ready { image: shinatama_files::preview::ImagePreview },
-    Refused { message: String },
+    Ready {
+        image: shinatama_files::preview::ImagePreview,
+    },
+    Refused {
+        message: String,
+    },
 }
 
 #[tauri::command]
-pub async fn files_image(window: WebviewWindow, services: State<'_, Services>, project: String, path: String) -> Result<ImageOutcome, String> {
+pub async fn files_image(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    path: String,
+) -> Result<ImageOutcome, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     blocking(move || {
         let root = root(&services, &project)?;
         Ok(match shinatama_files::preview::image(&root, &path) {
             Ok(image) => ImageOutcome::Ready { image },
-            Err(error) => ImageOutcome::Refused { message: error.to_string() },
+            Err(error) => ImageOutcome::Refused {
+                message: error.to_string(),
+            },
         })
     })
     .await
@@ -158,7 +243,10 @@ pub struct MarkdownView {
 }
 
 #[tauri::command]
-pub async fn files_visual_parse(window: WebviewWindow, text: String) -> Result<shinatama_files::visual::VisualDocument, String> {
+pub async fn files_visual_parse(
+    window: WebviewWindow,
+    text: String,
+) -> Result<shinatama_files::visual::VisualDocument, String> {
     crate::local(&window)?;
     if text.len() > shinatama_files::buffers::MAX_BUFFER_BYTES {
         return Err("The document is too large for visual editing.".into());
@@ -174,7 +262,11 @@ pub struct VisualEdit {
 }
 
 #[tauri::command]
-pub async fn files_visual_apply(window: WebviewWindow, text: String, edits: Vec<VisualEdit>) -> Result<String, String> {
+pub async fn files_visual_apply(
+    window: WebviewWindow,
+    text: String,
+    edits: Vec<VisualEdit>,
+) -> Result<String, String> {
     crate::local(&window)?;
     if text.len() > shinatama_files::buffers::MAX_BUFFER_BYTES || edits.len() > 64 {
         return Err("The edit is too large.".into());

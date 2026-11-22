@@ -193,7 +193,9 @@ pub fn validate(f: &Formation) -> Result<(), String> {
             || agent.name.chars().count() > MAX_NAME
             || has_control(&agent.name)
         {
-            return Err(format!("An agent's name takes 1 to {MAX_NAME} characters, on one line."));
+            return Err(format!(
+                "An agent's name takes 1 to {MAX_NAME} characters, on one line."
+            ));
         }
         if agent.name.contains('@') {
             return Err("An agent's name cannot hold @.".into());
@@ -201,13 +203,21 @@ pub fn validate(f: &Formation) -> Result<(), String> {
         if agent.notes.len() > MAX_NOTES {
             return Err(format!("An agent's notes take at most {MAX_NOTES} bytes."));
         }
-        if agent.notes.chars().any(|c| is_unsafe_char(c) && c != '\n' && c != '\t') {
+        if agent
+            .notes
+            .chars()
+            .any(|c| is_unsafe_char(c) && c != '\n' && c != '\t')
+        {
             return Err("An agent's notes cannot hold control characters.".into());
         }
         if agent.notes.contains('@') {
             return Err("An agent's notes cannot hold @.".into());
         }
-        if agent.session.as_deref().is_some_and(|session| session.is_empty() || has_control(session)) {
+        if agent
+            .session
+            .as_deref()
+            .is_some_and(|session| session.is_empty() || has_control(session))
+        {
             return Err("An agent's session cannot be empty.".into());
         }
         if let Some(session) = agent.session.as_deref()
@@ -216,10 +226,14 @@ pub fn validate(f: &Formation) -> Result<(), String> {
             return Err("Two agents cannot hold the same session.".into());
         }
         if let Some(model) = &agent.model
-            && [Some(model.program.as_str()), model.connection.as_deref(), model.model.as_deref()]
-                .into_iter()
-                .flatten()
-                .any(has_control)
+            && [
+                Some(model.program.as_str()),
+                model.connection.as_deref(),
+                model.model.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .any(has_control)
         {
             return Err("An agent's model cannot hold control characters.".into());
         }
@@ -241,7 +255,9 @@ pub fn validate(f: &Formation) -> Result<(), String> {
             return Err("Two agents have at most one relation between them.".into());
         }
         if link.words.chars().count() > MAX_WORDS || has_control(&link.words) {
-            return Err(format!("The words of a relation take at most {MAX_WORDS} characters, on one line."));
+            return Err(format!(
+                "The words of a relation take at most {MAX_WORDS} characters, on one line."
+            ));
         }
         if link.words.contains('@') {
             return Err("The words of a relation cannot hold @.".into());
@@ -325,10 +341,14 @@ fn names(f: &Formation, ids: &[String]) -> String {
 }
 
 fn name_of<'a>(f: &'a Formation, id: &'a str) -> &'a str {
-    f.agents.iter().find(|a| a.id == id).map_or(id, |a| a.name.as_str())
+    f.agents
+        .iter()
+        .find(|a| a.id == id)
+        .map_or(id, |a| a.name.as_str())
 }
 
 /// The groups of agents that give each other work in a circle, each with the arrows inside it.
+#[allow(clippy::needless_range_loop)]
 fn loops(f: &Formation) -> Vec<(Vec<String>, Vec<usize>)> {
     let index = |id: &str| f.agents.iter().position(|a| a.id == id);
     let n = f.agents.len();
@@ -356,7 +376,9 @@ fn loops(f: &Formation) -> Vec<(Vec<String>, Vec<usize>)> {
         if seen[i] || !reach[i][i] {
             continue;
         }
-        let group: Vec<usize> = (0..n).filter(|&j| j == i || (reach[i][j] && reach[j][i])).collect();
+        let group: Vec<usize> = (0..n)
+            .filter(|&j| j == i || (reach[i][j] && reach[j][i]))
+            .collect();
         for &j in &group {
             seen[j] = true;
         }
@@ -371,7 +393,10 @@ fn loops(f: &Formation) -> Vec<(Vec<String>, Vec<usize>)> {
             })
             .map(|(k, _)| k)
             .collect();
-        found.push((group.iter().map(|&j| f.agents[j].id.clone()).collect(), links));
+        found.push((
+            group.iter().map(|&j| f.agents[j].id.clone()).collect(),
+            links,
+        ));
     }
     found
 }
@@ -397,7 +422,9 @@ pub fn check(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelK
         f.links
             .iter()
             .enumerate()
-            .filter(|(_, l)| (l.from == id || l.to == id) && !(l.to == id && l.kind == Kind::Observes))
+            .filter(|(_, l)| {
+                (l.from == id || l.to == id) && !(l.to == id && l.kind == Kind::Observes)
+            })
             .map(|(k, _)| k)
             .collect()
     };
@@ -456,7 +483,10 @@ pub fn check(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelK
             issues.push(Issue {
                 level: Level::Warning,
                 code: "two_givers",
-                text: format!("Two agents give work to {}: their instructions may conflict.", agent.name),
+                text: format!(
+                    "Two agents give work to {}: their instructions may conflict.",
+                    agent.name
+                ),
                 agents: vec![agent.id.clone()],
                 links: incoming(&agent.id),
             });
@@ -471,12 +501,24 @@ pub fn check(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelK
             None => issues.push(Issue {
                 level: Level::Error,
                 code: "no_model",
-                text: format!("{} has no session and no model, so it cannot be opened.", agent.name),
+                text: format!(
+                    "{} has no session and no model, so it cannot be opened.",
+                    agent.name
+                ),
                 agents: vec![agent.id.clone()],
                 links: Vec::new(),
             }),
-            Some(model) if !models.contains(&(model.program.clone(), model.connection.clone(), model.model.clone())) => {
-                let held = model.model.clone().unwrap_or_else(|| program_label(&model.program).to_owned());
+            Some(model)
+                if !models.contains(&(
+                    model.program.clone(),
+                    model.connection.clone(),
+                    model.model.clone(),
+                )) =>
+            {
+                let held = model
+                    .model
+                    .clone()
+                    .unwrap_or_else(|| program_label(&model.program).to_owned());
                 issues.push(Issue {
                     level: Level::Error,
                     code: "model_gone",
@@ -536,7 +578,10 @@ fn user_adds(link: &Link, max_words: usize) -> String {
     if link.words.is_empty() || max_words == 0 {
         String::new()
     } else {
-        format!(" The user adds: \u{201c}{}\u{201d}.", cut(&link.words, max_words))
+        format!(
+            " The user adds: \u{201c}{}\u{201d}.",
+            cut(&link.words, max_words)
+        )
     }
 }
 
@@ -589,26 +634,35 @@ fn hand_out(f: &Formation, agent: &str) -> Option<String> {
     if receivers.len() < 2 {
         return None;
     }
-    Some(format!("You give work to {}: {}", names(f, &receivers), share_how(f, agent)?))
+    Some(format!(
+        "You give work to {}: {}",
+        names(f, &receivers),
+        share_how(f, agent)?
+    ))
 }
 
 /// The same, for a message whose sentences are grouped: the receivers are already named there.
 fn hand_out_short(f: &Formation, agent: &str) -> Option<String> {
-    let receivers = f.links.iter().filter(|l| l.kind == Kind::Work && l.from == agent).count();
+    let receivers = f
+        .links
+        .iter()
+        .filter(|l| l.kind == Kind::Work && l.from == agent)
+        .count();
     (receivers >= 2).then_some(())?;
     Some(format!("You hand that work out: {}", share_how(f, agent)?))
 }
 
 fn share_how(f: &Formation, agent: &str) -> Option<&'static str> {
     Some(match f.agents.iter().find(|a| a.id == agent)?.share {
-        Share::Split => "split it among them, a different part to each, and put their results together.",
+        Share::Split => {
+            "split it among them, a different part to each, and put their results together."
+        }
         Share::Same => "give the same task to each, then compare their results.",
         Share::Free => "give each task to whichever of them is free.",
     })
 }
 
-const LEFT_OUT_POINTER: &str =
-    "\nSome names are left out above: the `team` object of shinatama_thread_peers names every agent and relation.";
+const LEFT_OUT_POINTER: &str = "\nSome names are left out above: the `team` object of shinatama_thread_peers names every agent and relation.";
 
 /// `names` of at most `max` of the agents (in the order given), then how many were left out;
 /// `true` when some were.
@@ -620,7 +674,10 @@ fn some_names(f: &Formation, ids: &[String], max: usize) -> (String, bool) {
         return (format!("{} agents", ids.len()), true);
     }
     let shown: Vec<&str> = ids[..max].iter().map(|id| name_of(f, id)).collect();
-    (format!("{} and {} more", shown.join(", "), ids.len() - max), true)
+    (
+        format!("{} and {} more", shown.join(", "), ids.len() - max),
+        true,
+    )
 }
 
 /// The agent's own relations, one sentence for each kind of relation and side (the same meaning
@@ -631,7 +688,11 @@ fn grouped_with(f: &Formation, agent: &str, max_names: usize) -> (Vec<String>, b
     let mut cut_names = false;
     let mut keys: Vec<(Kind, Report, bool)> = Vec::new();
     for l in f.links.iter().filter(|l| l.from == agent || l.to == agent) {
-        let report = if l.kind == Kind::Observes { Report::Done } else { l.report };
+        let report = if l.kind == Kind::Observes {
+            Report::Done
+        } else {
+            l.report
+        };
         let key = (l.kind, report, l.from == agent);
         if !keys.contains(&key) {
             keys.push(key);
@@ -653,7 +714,10 @@ fn grouped_with(f: &Formation, agent: &str, max_names: usize) -> (Vec<String>, b
             sentences.push(told_with(f, k, giver, 0));
             continue;
         }
-        let others: Vec<String> = of_kind.iter().map(|(_, l)| if giver { l.to.clone() } else { l.from.clone() }).collect();
+        let others: Vec<String> = of_kind
+            .iter()
+            .map(|(_, l)| if giver { l.to.clone() } else { l.from.clone() })
+            .collect();
         let (who, left_out) = some_names(f, &others, max_names);
         cut_names |= left_out;
         sentences.push(match (kind, report, giver) {
@@ -698,7 +762,11 @@ fn listed(title: &str, lines: &[String], budget: usize) -> Option<String> {
     for (i, line) in lines.iter().enumerate() {
         let item = format!("\n- {line}");
         let left = total - i - 1;
-        let reserve = if left > 0 { format!("\n\u{2026} and {left} more").len() } else { 0 };
+        let reserve = if left > 0 {
+            format!("\n\u{2026} and {left} more").len()
+        } else {
+            0
+        };
         if out.len() + item.len() + reserve > budget {
             break;
         }
@@ -732,7 +800,12 @@ pub fn personal(f: &Formation, agent: &str, members: &BTreeMap<String, String>) 
     let Some(me) = f.agents.iter().find(|a| a.id == agent) else {
         return String::new();
     };
-    let in_room = |id: &str| members.get(id).cloned().unwrap_or_else(|| "not in the room yet".into());
+    let in_room = |id: &str| {
+        members
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| "not in the room yet".into())
+    };
     let view = role(f, agent);
     let mut out = format!(
         "TEAM revision {}\nYou are {} in this thread's team; in the room you are the member {}. Your place: {}.",
@@ -752,7 +825,10 @@ pub fn personal(f: &Formation, agent: &str, members: &BTreeMap<String, String>) 
     let mut hand = hand_out(f, agent);
     let mut pointer = "";
     let size = |own: &[String], hand: &Option<String>, pointer: &str| {
-        out.len() + own.iter().map(|s| s.len() + 3).sum::<usize>() + hand.as_ref().map_or(0, |h| h.len() + 1) + pointer.len()
+        out.len()
+            + own.iter().map(|s| s.len() + 3).sum::<usize>()
+            + hand.as_ref().map_or(0, |h| h.len() + 1)
+            + pointer.len()
     };
     // The agent's own sentences keep their meaning as they shrink: when they pass the limit, first
     // the user's words in them are cut, then the sentences of one kind of relation become one
@@ -798,7 +874,14 @@ pub fn personal(f: &Formation, agent: &str, members: &BTreeMap<String, String>) 
     let team: Vec<String> = f
         .agents
         .iter()
-        .map(|a| format!("{}: {}, {}", a.name, in_room(&a.id), role_label(role(f, &a.id))))
+        .map(|a| {
+            format!(
+                "{}: {}, {}",
+                a.name,
+                in_room(&a.id),
+                role_label(role(f, &a.id))
+            )
+        })
         .collect();
     let relations: Vec<String> = f.links.iter().map(|l| relation_line(f, l)).collect();
     // The members first, then what is left for the arrows.
@@ -824,7 +907,11 @@ pub struct Changes {
 }
 
 fn pair_of(l: &Link) -> (&str, &str) {
-    if l.from < l.to { (&l.from, &l.to) } else { (&l.to, &l.from) }
+    if l.from < l.to {
+        (&l.from, &l.to)
+    } else {
+        (&l.to, &l.from)
+    }
 }
 
 fn said(f: &Formation, l: &Link) -> String {
@@ -897,11 +984,15 @@ pub fn changes(before: Option<&Formation>, after: &Formation) -> Changes {
         let line = match old {
             None => Some(format!("{}.", said(after, l))),
             Some(o) if o == l => None,
-            Some(o) if o.from == l.from && o.to == l.to && o.kind == l.kind && o.report == l.report => Some(format!(
-                "The words of the relation between {} and {} changed.",
-                name_of(after, &l.from),
-                name_of(after, &l.to)
-            )),
+            Some(o)
+                if o.from == l.from && o.to == l.to && o.kind == l.kind && o.report == l.report =>
+            {
+                Some(format!(
+                    "The words of the relation between {} and {} changed.",
+                    name_of(after, &l.from),
+                    name_of(after, &l.to)
+                ))
+            }
             Some(_) => Some(format!(
                 "The relation between {} and {} changed: {}.",
                 name_of(after, &l.from),
@@ -926,13 +1017,26 @@ pub fn changes(before: Option<&Formation>, after: &Formation) -> Changes {
         }
         if survives(&o.from) && survives(&o.to) {
             lines.push(match o.kind {
-                Kind::Work => format!("{} no longer gives work to {}.", name_of(before, &o.from), name_of(before, &o.to)),
-                Kind::Observes => format!("{} no longer observes {}.", name_of(before, &o.from), name_of(before, &o.to)),
+                Kind::Work => format!(
+                    "{} no longer gives work to {}.",
+                    name_of(before, &o.from),
+                    name_of(before, &o.to)
+                ),
+                Kind::Observes => format!(
+                    "{} no longer observes {}.",
+                    name_of(before, &o.from),
+                    name_of(before, &o.to)
+                ),
             });
         }
     }
     Changes {
-        touched: after.agents.iter().filter(|a| touched.contains(&a.id)).map(|a| a.id.clone()).collect(),
+        touched: after
+            .agents
+            .iter()
+            .filter(|a| touched.contains(&a.id))
+            .map(|a| a.id.clone())
+            .collect(),
         removed,
         lines,
     }
@@ -968,7 +1072,11 @@ pub struct Evaluation {
 }
 
 /// Everything the window shows about a formation, computed once, here.
-pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelKey>) -> Evaluation {
+pub fn evaluate(
+    f: &Formation,
+    stopped: &BTreeSet<String>,
+    models: &BTreeSet<ModelKey>,
+) -> Evaluation {
     let roles = f
         .agents
         .iter()
@@ -983,16 +1091,25 @@ pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<Mod
                     Share::Free => " \u{b7} gives work to whoever is free",
                 });
             }
-            (a.id.clone(), RoleView { role: kind, detail, mukade: mukade_role(f, &a.id), hand_out: hand })
+            (
+                a.id.clone(),
+                RoleView {
+                    role: kind,
+                    detail,
+                    mukade: mukade_role(f, &a.id),
+                    hand_out: hand,
+                },
+            )
         })
         .collect();
     Evaluation {
         roles,
         issues: check(f, stopped, models),
-        sentences: (0..f.links.len()).map(|k| [told(f, k, true), told(f, k, false)]).collect(),
+        sentences: (0..f.links.len())
+            .map(|k| [told(f, k, true), told(f, k, false)])
+            .collect(),
     }
 }
-
 
 // ---- The model menu ----
 
@@ -1008,12 +1125,19 @@ pub struct ModelChoice {
 }
 
 /// (program, label), in the order the menu lists the programs' own sign-ins.
-pub const PROGRAMS: [(&str, &str); 4] =
-    [("claude_code", "Claude Code"), ("codex", "Codex"), ("opencode", "OpenCode"), ("pi", "Pi")];
+pub const PROGRAMS: [(&str, &str); 4] = [
+    ("claude_code", "Claude Code"),
+    ("codex", "Codex"),
+    ("opencode", "OpenCode"),
+    ("pi", "Pi"),
+];
 
 /// A program's name for people; an unknown program is named as it is.
 pub fn program_label(program: &str) -> &str {
-    PROGRAMS.iter().find(|(id, _)| *id == program).map_or(program, |(_, label)| label)
+    PROGRAMS
+        .iter()
+        .find(|(id, _)| *id == program)
+        .map_or(program, |(_, label)| label)
 }
 
 /// (program, connection, model): what `check` looks a model up by.
@@ -1049,7 +1173,9 @@ pub fn model_menu(configuration: &crate::model_config::Configuration) -> Vec<Mod
 
 /// What `check` is given of a menu.
 pub fn model_keys(menu: &[ModelChoice]) -> BTreeSet<ModelKey> {
-    menu.iter().map(|c| (c.program.clone(), c.connection.clone(), c.model.clone())).collect()
+    menu.iter()
+        .map(|c| (c.program.clone(), c.connection.clone(), c.model.clone()))
+        .collect()
 }
 
 /// The first message of a session opened for an agent: who it is, where the room is, and where
@@ -1093,10 +1219,21 @@ const REMOVED: &str = "removed";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Delivery {
-    SetRole { member_id: String, role: MukadeRole },
-    Personal { agent: String, member_name: String, text: String },
-    Notice { text: String },
-    Retire { member_id: String },
+    SetRole {
+        member_id: String,
+        role: MukadeRole,
+    },
+    Personal {
+        agent: String,
+        member_name: String,
+        text: String,
+    },
+    Notice {
+        text: String,
+    },
+    Retire {
+        member_id: String,
+    },
 }
 
 /// FNV-1a: stable across Rust versions, which a stored fingerprint needs.
@@ -1167,13 +1304,19 @@ pub fn deliveries(
         if let Some(seat) = present(&agent.id) {
             let wanted = mukade_role(now, &agent.id);
             if seat.role != wanted.as_str() {
-                out.push(Delivery::SetRole { member_id: seat.member_id.clone(), role: wanted });
+                out.push(Delivery::SetRole {
+                    member_id: seat.member_id.clone(),
+                    role: wanted,
+                });
             }
         }
     }
     for id in &gone {
         if let Some(seat) = present(id).filter(|seat| seat.role != MukadeRole::Peer.as_str()) {
-            out.push(Delivery::SetRole { member_id: seat.member_id.clone(), role: MukadeRole::Peer });
+            out.push(Delivery::SetRole {
+                member_id: seat.member_id.clone(),
+                role: MukadeRole::Peer,
+            });
         }
     }
     let members: BTreeMap<String, String> = seats
@@ -1182,7 +1325,9 @@ pub fn deliveries(
         .map(|(id, seat)| (id.clone(), seat.member_name.clone()))
         .collect();
     for agent in &now.agents {
-        let Some(seat) = present(&agent.id) else { continue };
+        let Some(seat) = present(&agent.id) else {
+            continue;
+        };
         let owed = match told.get(&agent.id) {
             None => true,
             Some(t) => t.member != seat.member_id || t.digest != digest(now, &agent.id),
@@ -1205,22 +1350,30 @@ pub fn deliveries(
         }
     }
     let change = changes(before, now);
-    let noticed = told.get(NOTICE_KEY).is_some_and(|t| t.revision >= now.revision);
+    let noticed = told
+        .get(NOTICE_KEY)
+        .is_some_and(|t| t.revision >= now.revision);
     let others = now
         .agents
         .iter()
         .any(|a| present(&a.id).is_some() && !change.touched.contains(&a.id));
     if !change.lines.is_empty() && !noticed && others {
-        out.push(Delivery::Notice { text: notice(now.revision, &change.lines) });
+        out.push(Delivery::Notice {
+            text: notice(now.revision, &change.lines),
+        });
     }
     if !closed.is_empty() {
         let lines: Vec<String> = closed
             .iter()
             .map(|seat| format!("{} closed its session and left the room.", seat.member_name))
             .collect();
-        out.push(Delivery::Notice { text: notice(now.revision, &lines) });
+        out.push(Delivery::Notice {
+            text: notice(now.revision, &lines),
+        });
         for seat in closed {
-            out.push(Delivery::Retire { member_id: seat.member_id.clone() });
+            out.push(Delivery::Retire {
+                member_id: seat.member_id.clone(),
+            });
         }
     }
     out
@@ -1228,32 +1381,49 @@ pub fn deliveries(
 
 /// Record that one delivery succeeded, so that `deliveries` does not owe it again. A notice of a
 /// closed session shares the change notice's mark: both say "the room was told at this revision".
-pub fn mark(now: &Formation, seats: &BTreeMap<String, Seat>, delivery: &Delivery, told: &mut BTreeMap<String, Told>) {
+pub fn mark(
+    now: &Formation,
+    seats: &BTreeMap<String, Seat>,
+    delivery: &Delivery,
+    told: &mut BTreeMap<String, Told>,
+) {
     match delivery {
         Delivery::Personal { agent, .. } => {
             if let Some(seat) = seats.get(agent) {
                 told.insert(
                     agent.clone(),
-                    Told { revision: now.revision, member: seat.member_id.clone(), digest: digest(now, agent) },
+                    Told {
+                        revision: now.revision,
+                        member: seat.member_id.clone(),
+                        digest: digest(now, agent),
+                    },
                 );
             }
         }
         Delivery::Notice { .. } => {
             told.insert(
                 NOTICE_KEY.into(),
-                Told { revision: now.revision, member: String::new(), digest: String::new() },
+                Told {
+                    revision: now.revision,
+                    member: String::new(),
+                    digest: String::new(),
+                },
             );
         }
         Delivery::SetRole { .. } | Delivery::Retire { .. } => {}
     }
 }
 
-
 /// Forget what was told to agents that are no longer on the map and need nothing more: those
 /// told that they have no place whose member is gone (no seat), and those whose member now
 /// belongs to an agent on the map (a session dropped back as a new agent). `seats` and `closed`
 /// are as `deliveries` takes them. Whether anything was removed.
-pub fn prune(now: &Formation, seats: &BTreeMap<String, Seat>, closed: &[Seat], told: &mut BTreeMap<String, Told>) -> bool {
+pub fn prune(
+    now: &Formation,
+    seats: &BTreeMap<String, Seat>,
+    closed: &[Seat],
+    told: &mut BTreeMap<String, Told>,
+) -> bool {
     let on_map = |id: &str| now.agents.iter().any(|a| a.id == id);
     let held: BTreeSet<&str> = seats
         .iter()
@@ -1265,7 +1435,8 @@ pub fn prune(now: &Formation, seats: &BTreeMap<String, Seat>, closed: &[Seat], t
     told.retain(|agent, was| {
         agent == NOTICE_KEY
             || on_map(agent)
-            || !(held.contains(was.member.as_str()) || (was.digest == REMOVED && !seats.contains_key(agent)))
+            || !(held.contains(was.member.as_str())
+                || (was.digest == REMOVED && !seats.contains_key(agent)))
     });
     told.len() != before
 }
@@ -1297,7 +1468,10 @@ fn valid_template_id(id: &str) -> bool {
 /// An id for a new template from 12 random bytes.
 pub fn template_id(random: &[u8; 12]) -> String {
     const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
-    let tail: String = random.iter().map(|b| char::from(ALPHABET[usize::from(b % 32)])).collect();
+    let tail: String = random
+        .iter()
+        .map(|b| char::from(ALPHABET[usize::from(b % 32)]))
+        .collect();
     format!("tm_{tail}")
 }
 
@@ -1311,7 +1485,9 @@ pub fn template_of(id: String, name: &str, f: &Formation) -> Result<Template, St
     }
     let name = name.trim();
     if name.is_empty() || name.chars().count() > MAX_TEMPLATE_NAME || has_control(name) {
-        return Err(format!("A template's name takes 1 to {MAX_TEMPLATE_NAME} characters, on one line."));
+        return Err(format!(
+            "A template's name takes 1 to {MAX_TEMPLATE_NAME} characters, on one line."
+        ));
     }
     if name.contains('@') {
         return Err("A template's name cannot hold @.".into());
@@ -1322,14 +1498,23 @@ pub fn template_of(id: String, name: &str, f: &Formation) -> Result<Template, St
     }
     if let Some(error) = check(f, &BTreeSet::new(), &BTreeSet::new())
         .into_iter()
-        .find(|issue| issue.level == Level::Error && !matches!(issue.code, "no_model" | "model_gone"))
+        .find(|issue| {
+            issue.level == Level::Error && !matches!(issue.code, "no_model" | "model_gone")
+        })
     {
         return Err(error.text);
     }
     Ok(Template {
         id,
         name: name.to_owned(),
-        agents: f.agents.iter().map(|agent| Agent { session: None, ..agent.clone() }).collect(),
+        agents: f
+            .agents
+            .iter()
+            .map(|agent| Agent {
+                session: None,
+                ..agent.clone()
+            })
+            .collect(),
         links: f.links.clone(),
     })
 }
@@ -1343,9 +1528,14 @@ fn same_name(a: &str, b: &str) -> bool {
 /// that writes the list, so two windows cannot both take the last place or the same name.
 pub fn add_template(list: &mut Vec<Template>, template: Template) -> Result<(), String> {
     if list.len() >= MAX_TEMPLATES {
-        return Err(format!("A team keeps at most {MAX_TEMPLATES} templates. Delete one first."));
+        return Err(format!(
+            "A team keeps at most {MAX_TEMPLATES} templates. Delete one first."
+        ));
     }
-    if let Some(taken) = list.iter().find(|kept| same_name(&kept.name, &template.name)) {
+    if let Some(taken) = list
+        .iter()
+        .find(|kept| same_name(&kept.name, &template.name))
+    {
         return Err(format!("A template named {} already exists.", taken.name));
     }
     if list.iter().any(|kept| kept.id == template.id) {
@@ -1406,19 +1596,31 @@ mod tests {
     }
 
     fn codes(f: &Formation) -> Vec<(Level, &'static str)> {
-        check(f, &none(), &own()).iter().map(|i| (i.level, i.code)).collect()
+        check(f, &none(), &own())
+            .iter()
+            .map(|i| (i.level, i.code))
+            .collect()
     }
 
     /// A formation that passes `validate`: real ids, `n` agents named by letter, no arrows.
     fn proper(n: usize) -> Formation {
         let id = |i: usize| {
-            let tail: String = [(b'a' + (i / 26) as u8) as char, (b'a' + (i % 26) as u8) as char].iter().collect();
+            let tail: String = [
+                (b'a' + (i / 26) as u8) as char,
+                (b'a' + (i % 26) as u8) as char,
+            ]
+            .iter()
+            .collect();
             format!("a_{}{tail}", "a".repeat(10))
         };
         Formation {
             revision: 0,
             agents: (0..n)
-                .map(|i| Agent { name: format!("Agent {i}"), session: Some(format!("t_{i}")), ..agent(&id(i)) })
+                .map(|i| Agent {
+                    name: format!("Agent {i}"),
+                    session: Some(format!("t_{i}")),
+                    ..agent(&id(i))
+                })
                 .collect(),
             links: Vec::new(),
         }
@@ -1428,7 +1630,11 @@ mod tests {
     fn roles_follow_the_arrows() {
         let f = team(
             &["a", "b", "c", "d"],
-            &[("a", "b", Work, Done), ("b", "c", Work, Strict), ("d", "a", Observes, Done)],
+            &[
+                ("a", "b", Work, Done),
+                ("b", "c", Work, Strict),
+                ("d", "a", Observes, Done),
+            ],
         );
         assert_eq!(role(&f, "a"), Role::Lead);
         assert_eq!(mukade_role(&f, "a"), MukadeRole::Peer);
@@ -1443,15 +1649,25 @@ mod tests {
     #[test]
     fn an_agent_without_arrows_and_one_taking_plain_work_are_peers_to_mukade() {
         let f = team(&["a", "b", "c"], &[("a", "b", Work, Steps)]);
-        assert_eq!((role(&f, "c"), mukade_role(&f, "c")), (Role::Peer, MukadeRole::Peer));
-        assert_eq!((role(&f, "b"), mukade_role(&f, "b")), (Role::Worker, MukadeRole::Peer));
+        assert_eq!(
+            (role(&f, "c"), mukade_role(&f, "c")),
+            (Role::Peer, MukadeRole::Peer)
+        );
+        assert_eq!(
+            (role(&f, "b"), mukade_role(&f, "b")),
+            (Role::Worker, MukadeRole::Peer)
+        );
     }
 
     #[test]
     fn a_loop_of_work_is_an_error_naming_its_arrows() {
         let f = team(
             &["a", "b", "c"],
-            &[("a", "b", Work, Done), ("b", "c", Work, Done), ("c", "a", Work, Done)],
+            &[
+                ("a", "b", Work, Done),
+                ("b", "c", Work, Done),
+                ("c", "a", Work, Done),
+            ],
         );
         let issue = &check(&f, &none(), &own())[0];
         assert_eq!((issue.level, issue.code), (Level::Error, "loop"));
@@ -1463,38 +1679,83 @@ mod tests {
     fn a_chain_and_a_diamond_are_not_loops() {
         let f = team(
             &["a", "b", "c", "d"],
-            &[("a", "b", Work, Done), ("a", "c", Work, Done), ("b", "d", Work, Done), ("c", "d", Work, Done)],
+            &[
+                ("a", "b", Work, Done),
+                ("a", "c", Work, Done),
+                ("b", "d", Work, Done),
+                ("c", "d", Work, Done),
+            ],
         );
         assert!(!codes(&f).iter().any(|(_, code)| *code == "loop"));
     }
 
     #[test]
     fn who_only_executes_holds_nothing_else_but_being_observed() {
-        let f = team(&["a", "b", "c"], &[("a", "b", Work, Strict), ("b", "c", Work, Done)]);
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Work, Strict), ("b", "c", Work, Done)],
+        );
         assert!(codes(&f).contains(&(Level::Error, "only_executes")));
-        let f = team(&["a", "b", "c"], &[("a", "b", Work, Strict), ("c", "b", Observes, Done)]);
-        assert!(!codes(&f).iter().any(|(level, _)| *level == Level::Error), "{:?}", codes(&f));
-        let f = team(&["a", "b", "c"], &[("a", "b", Work, Strict), ("c", "b", Work, Done)]);
-        assert!(codes(&f).contains(&(Level::Error, "only_executes")), "another giver is another relation");
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Work, Strict), ("c", "b", Observes, Done)],
+        );
+        assert!(
+            !codes(&f).iter().any(|(level, _)| *level == Level::Error),
+            "{:?}",
+            codes(&f)
+        );
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Work, Strict), ("c", "b", Work, Done)],
+        );
+        assert!(
+            codes(&f).contains(&(Level::Error, "only_executes")),
+            "another giver is another relation"
+        );
     }
 
     #[test]
     fn an_observer_does_not_work() {
-        let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("c", "a", Work, Done)]);
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Observes, Done), ("c", "a", Work, Done)],
+        );
         assert!(codes(&f).contains(&(Level::Error, "observer_writes")));
-        let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("a", "c", Work, Done)]);
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Observes, Done), ("a", "c", Work, Done)],
+        );
         assert!(codes(&f).contains(&(Level::Error, "observer_writes")));
-        let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("c", "b", Observes, Done)]);
-        assert!(check(&f, &none(), &own()).is_empty(), "two observers of one agent");
-        let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("b", "c", Work, Done)]);
-        assert!(!codes(&f).contains(&(Level::Error, "observer_writes")), "being observed is allowed");
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Observes, Done), ("c", "b", Observes, Done)],
+        );
+        assert!(
+            check(&f, &none(), &own()).is_empty(),
+            "two observers of one agent"
+        );
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "b", Observes, Done), ("b", "c", Work, Done)],
+        );
+        assert!(
+            !codes(&f).contains(&(Level::Error, "observer_writes")),
+            "being observed is allowed"
+        );
     }
 
     #[test]
     fn two_strict_givers_is_an_error_two_plain_givers_a_warning() {
-        let f = team(&["a", "b", "c"], &[("a", "c", Work, Strict), ("b", "c", Work, Strict)]);
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "c", Work, Strict), ("b", "c", Work, Strict)],
+        );
         assert!(codes(&f).contains(&(Level::Error, "two_givers")));
-        let f = team(&["a", "b", "c"], &[("a", "c", Work, Done), ("b", "c", Work, Steps)]);
+        let f = team(
+            &["a", "b", "c"],
+            &[("a", "c", Work, Done), ("b", "c", Work, Steps)],
+        );
         assert_eq!(codes(&f), vec![(Level::Warning, "two_givers")]);
     }
 
@@ -1503,9 +1764,16 @@ mod tests {
         let mut f = team(&["a", "b"], &[]);
         f.agents[0].session = None;
         let issues = check(&f, &none(), &own());
-        assert_eq!((issues[0].level, issues[0].code), (Level::Error, "no_model"));
+        assert_eq!(
+            (issues[0].level, issues[0].code),
+            (Level::Error, "no_model")
+        );
         assert_eq!(issues[0].agents, vec!["a"]);
-        f.agents[0].model = Some(ModelRef { program: "pi".into(), connection: None, model: None });
+        f.agents[0].model = Some(ModelRef {
+            program: "pi".into(),
+            connection: None,
+            model: None,
+        });
         assert!(check(&f, &none(), &own()).is_empty());
     }
 
@@ -1513,9 +1781,18 @@ mod tests {
     fn an_agent_without_a_session_needs_a_model() {
         let mut f = team(&["a", "b"], &[]);
         f.agents[0].session = None;
-        let codes = |f: &Formation| check(f, &none(), &own()).iter().map(|i| i.code).collect::<Vec<_>>();
+        let codes = |f: &Formation| {
+            check(f, &none(), &own())
+                .iter()
+                .map(|i| i.code)
+                .collect::<Vec<_>>()
+        };
         assert_eq!(codes(&f), vec!["no_model"]);
-        f.agents[0].model = Some(ModelRef { program: "codex".into(), connection: None, model: None });
+        f.agents[0].model = Some(ModelRef {
+            program: "codex".into(),
+            connection: None,
+            model: None,
+        });
         assert!(codes(&f).is_empty(), "its own sign-in and model is a model");
         // The agent that has a session needs none.
         assert!(codes(&team(&["a"], &[])).is_empty());
@@ -1525,11 +1802,21 @@ mod tests {
     fn a_model_no_longer_configured_is_an_error_naming_it() {
         let mut f = team(&["a"], &[]);
         f.agents[0].session = None;
-        f.agents[0].model =
-            Some(ModelRef { program: "pi".into(), connection: Some("home".into()), model: Some("qwen-9".into()) });
+        f.agents[0].model = Some(ModelRef {
+            program: "pi".into(),
+            connection: Some("home".into()),
+            model: Some("qwen-9".into()),
+        });
         let issues = check(&f, &none(), &own());
-        assert_eq!((issues[0].level, issues[0].code), (Level::Error, "model_gone"));
-        assert!(issues[0].text.contains("qwen-9") && issues[0].text.contains("A uses"), "{}", issues[0].text);
+        assert_eq!(
+            (issues[0].level, issues[0].code),
+            (Level::Error, "model_gone")
+        );
+        assert!(
+            issues[0].text.contains("qwen-9") && issues[0].text.contains("A uses"),
+            "{}",
+            issues[0].text
+        );
         assert_eq!(issues[0].agents, vec!["a"]);
         // The panel holds it again: no issue. Another program running it is another entry.
         let mut held = own();
@@ -1538,15 +1825,22 @@ mod tests {
         f.agents[0].model.as_mut().unwrap().program = "opencode".into();
         assert_eq!(check(&f, &none(), &held)[0].code, "model_gone");
         // An unknown program is named as it is.
-        f.agents[0].model = Some(ModelRef { program: "hermes".into(), connection: None, model: None });
+        f.agents[0].model = Some(ModelRef {
+            program: "hermes".into(),
+            connection: None,
+            model: None,
+        });
         assert!(check(&f, &none(), &own())[0].text.contains("hermes"));
     }
 
     #[test]
     fn a_running_agent_s_model_is_not_checked() {
         let mut f = team(&["a"], &[]);
-        f.agents[0].model =
-            Some(ModelRef { program: "pi".into(), connection: Some("gone".into()), model: Some("gone".into()) });
+        f.agents[0].model = Some(ModelRef {
+            program: "pi".into(),
+            connection: Some("gone".into()),
+            model: Some("gone".into()),
+        });
         assert!(f.agents[0].session.is_some());
         assert!(check(&f, &none(), &own()).is_empty());
     }
@@ -1554,7 +1848,13 @@ mod tests {
     #[test]
     fn the_menu_lists_the_own_sign_ins_then_each_model_once_per_program() {
         use crate::model_config::{Api, Configuration, Connection, Model};
-        let model = |id: &str| Model { id: id.into(), context_window: 1000, max_tokens: 100, reasoning: false, vision: false };
+        let model = |id: &str| Model {
+            id: id.into(),
+            context_window: 1000,
+            max_tokens: 100,
+            reasoning: false,
+            vision: false,
+        };
         let configuration = Configuration {
             connections: vec![Connection {
                 id: "home".into(),
@@ -1566,19 +1866,48 @@ mod tests {
             ..Configuration::default()
         };
         let menu = model_menu(&configuration);
-        let heads: Vec<_> = menu.iter().take(4).map(|c| (c.program.as_str(), c.connection.is_none(), c.model.is_none())).collect();
+        let heads: Vec<_> = menu
+            .iter()
+            .take(4)
+            .map(|c| {
+                (
+                    c.program.as_str(),
+                    c.connection.is_none(),
+                    c.model.is_none(),
+                )
+            })
+            .collect();
         assert_eq!(
             heads,
-            [("claude_code", true, true), ("codex", true, true), ("opencode", true, true), ("pi", true, true)]
+            [
+                ("claude_code", true, true),
+                ("codex", true, true),
+                ("opencode", true, true),
+                ("pi", true, true)
+            ]
         );
-        assert_eq!(menu[0].label, "Claude Code \u{b7} its own sign-in and model");
+        assert_eq!(
+            menu[0].label,
+            "Claude Code \u{b7} its own sign-in and model"
+        );
         assert_eq!(menu.len(), 4 + 2 * 2);
         assert_eq!(menu[4].label, "qwen-9 \u{b7} runs in OpenCode");
         assert_eq!(menu[5].label, "qwen-9 \u{b7} runs in Pi");
-        assert_eq!((menu[5].program.as_str(), menu[5].connection.as_deref(), menu[5].model.as_deref()), ("pi", Some("home"), Some("qwen-9")));
+        assert_eq!(
+            (
+                menu[5].program.as_str(),
+                menu[5].connection.as_deref(),
+                menu[5].model.as_deref()
+            ),
+            ("pi", Some("home"), Some("qwen-9"))
+        );
         let keys = model_keys(&menu);
         assert_eq!(keys.len(), menu.len(), "no entry twice");
-        assert!(keys.contains(&("opencode".into(), Some("home".into()), Some("llama-3".into()))));
+        assert!(keys.contains(&(
+            "opencode".into(),
+            Some("home".into()),
+            Some("llama-3".into())
+        )));
     }
 
     #[test]
@@ -1598,21 +1927,35 @@ mod tests {
         let stopped: BTreeSet<String> = ["b".to_string()].into();
         let issues = check(&f, &stopped, &own());
         assert_eq!(issues.len(), 1);
-        assert_eq!((issues[0].level, issues[0].code), (Level::Warning, "stopped"));
+        assert_eq!(
+            (issues[0].level, issues[0].code),
+            (Level::Warning, "stopped")
+        );
         assert_eq!(issues[0].links, vec![0]);
         let stopped: BTreeSet<String> = ["a".to_string()].into();
-        assert!(check(&f, &stopped, &own()).is_empty(), "the giver being stopped is not the receiver's wait");
+        assert!(
+            check(&f, &stopped, &own()).is_empty(),
+            "the giver being stopped is not the receiver's wait"
+        );
     }
 
     #[test]
     fn a_sound_formation_validates() {
         let f = proper(3);
         assert_eq!(validate(&f), Ok(()));
-        assert_eq!(validate(&Formation { revision: 0, agents: vec![], links: vec![] }), Ok(()));
+        assert_eq!(
+            validate(&Formation {
+                revision: 0,
+                agents: vec![],
+                links: vec![]
+            }),
+            Ok(())
+        );
     }
 
     #[test]
-    fn validate_refuses_at_signs_long_words_blank_names_unknown_ends_and_two_arrows_between_two_agents() {
+    fn validate_refuses_at_signs_long_words_blank_names_unknown_ends_and_two_arrows_between_two_agents()
+     {
         let link = |f: &Formation, a: usize, b: usize| Link {
             from: f.agents[a].id.clone(),
             to: f.agents[b].id.clone(),
@@ -1625,13 +1968,22 @@ mod tests {
             assert!(!error.is_empty(), "{why}");
         };
         let mut f = proper(3);
-        f.links.push(Link { words: "tell @all".into(), ..link(&f, 0, 1) });
+        f.links.push(Link {
+            words: "tell @all".into(),
+            ..link(&f, 0, 1)
+        });
         refused(&f, "@all in words");
         let mut f = proper(3);
-        f.links.push(Link { words: "x".repeat(121), ..link(&f, 0, 1) });
+        f.links.push(Link {
+            words: "x".repeat(121),
+            ..link(&f, 0, 1)
+        });
         refused(&f, "121 characters of words");
         let mut f = proper(3);
-        f.links.push(Link { words: "é".repeat(120), ..link(&f, 0, 1) });
+        f.links.push(Link {
+            words: "é".repeat(120),
+            ..link(&f, 0, 1)
+        });
         assert_eq!(validate(&f), Ok(()), "120 characters, not bytes");
         let mut f = proper(3);
         f.agents[1].name = "   ".into();
@@ -1649,7 +2001,10 @@ mod tests {
         f.agents[1].notes = "x".repeat(1025);
         refused(&f, "notes over 1024 bytes");
         let mut f = proper(3);
-        f.links.push(Link { to: "a_missing".into(), ..link(&f, 0, 1) });
+        f.links.push(Link {
+            to: "a_missing".into(),
+            ..link(&f, 0, 1)
+        });
         refused(&f, "a link to a missing agent");
         let mut f = proper(3);
         f.links.push(link(&f, 0, 1));
@@ -1657,7 +2012,10 @@ mod tests {
         refused(&f, "a→b and b→a together");
         let mut f = proper(3);
         f.links.push(link(&f, 0, 1));
-        f.links.push(Link { kind: Observes, ..link(&f, 0, 1) });
+        f.links.push(Link {
+            kind: Observes,
+            ..link(&f, 0, 1)
+        });
         refused(&f, "two arrows between the same two agents");
         let mut f = proper(3);
         f.links.push(link(&f, 0, 0));
@@ -1665,7 +2023,9 @@ mod tests {
         refused(&proper(25), "25 agents");
         let mut f = proper(24);
         assert_eq!(validate(&f), Ok(()));
-        f.links = (0..65).map(|i| link(&f, i % 24, (i + 1 + i / 24) % 24)).collect();
+        f.links = (0..65)
+            .map(|i| link(&f, i % 24, (i + 1 + i / 24) % 24))
+            .collect();
         refused(&f, "65 links");
         let mut f = proper(3);
         f.agents[2].id = f.agents[0].id.clone();
@@ -1680,7 +2040,16 @@ mod tests {
 
     #[test]
     fn validate_refuses_separators_format_characters_odd_models_and_one_session_for_two_agents() {
-        for hidden in ['\u{2028}', '\u{2029}', '\u{202e}', '\u{2066}', '\u{200b}', '\u{feff}', '\u{00ad}', '\u{e0041}'] {
+        for hidden in [
+            '\u{2028}',
+            '\u{2029}',
+            '\u{202e}',
+            '\u{2066}',
+            '\u{200b}',
+            '\u{feff}',
+            '\u{00ad}',
+            '\u{e0041}',
+        ] {
             let mut f = proper(3);
             f.agents[1].name = format!("Ann{hidden}Bob");
             assert!(validate(&f).is_err(), "{hidden:?} in a name");
@@ -1699,13 +2068,29 @@ mod tests {
         }
         let mut f = proper(3);
         f.agents[1].notes = "line one\n\tline two".into();
-        assert_eq!(validate(&f), Ok(()), "a newline and a tab stay allowed in notes");
+        assert_eq!(
+            validate(&f),
+            Ok(()),
+            "a newline and a tab stay allowed in notes"
+        );
         let mut f = proper(3);
-        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: None, model: Some("opus\n4".into()) });
+        f.agents[1].model = Some(ModelRef {
+            program: "claude_code".into(),
+            connection: None,
+            model: Some("opus\n4".into()),
+        });
         assert!(validate(&f).is_err(), "a control character in a model");
-        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: Some("a\u{2028}b".into()), model: None });
+        f.agents[1].model = Some(ModelRef {
+            program: "claude_code".into(),
+            connection: Some("a\u{2028}b".into()),
+            model: None,
+        });
         assert!(validate(&f).is_err(), "a separator in a connection");
-        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: None, model: Some("opus-4".into()) });
+        f.agents[1].model = Some(ModelRef {
+            program: "claude_code".into(),
+            connection: None,
+            model: Some("opus-4".into()),
+        });
         assert_eq!(validate(&f), Ok(()));
         let mut f = proper(3);
         f.agents[2].session = f.agents[0].session.clone();
@@ -1725,35 +2110,62 @@ mod tests {
     }
 
     fn two(kind: Kind, report: Report) -> Formation {
-        named(team(&["a", "b"], &[("a", "b", kind, report)]), &[("a", "Ada"), ("b", "Bo")])
+        named(
+            team(&["a", "b"], &[("a", "b", kind, report)]),
+            &[("a", "Ada"), ("b", "Bo")],
+        )
     }
 
     #[test]
     fn work_when_done_is_told_to_both_ends() {
         let f = two(Work, Done);
-        assert_eq!(told(&f, 0, true), "You give work to Bo; Bo reports back to you when it is done.");
-        assert_eq!(told(&f, 0, false), "You wait for work from Ada, do it, and report back to Ada when it is done.");
+        assert_eq!(
+            told(&f, 0, true),
+            "You give work to Bo; Bo reports back to you when it is done."
+        );
+        assert_eq!(
+            told(&f, 0, false),
+            "You wait for work from Ada, do it, and report back to Ada when it is done."
+        );
     }
 
     #[test]
     fn work_at_every_step_is_told_to_both_ends() {
         let f = two(Work, Steps);
-        assert_eq!(told(&f, 0, false), "You wait for work from Ada, do it, and tell Ada what you are doing at every step.");
-        assert_eq!(told(&f, 0, true), "You give work to Bo; Bo tells you what it is doing at every step.");
+        assert_eq!(
+            told(&f, 0, false),
+            "You wait for work from Ada, do it, and tell Ada what you are doing at every step."
+        );
+        assert_eq!(
+            told(&f, 0, true),
+            "You give work to Bo; Bo tells you what it is doing at every step."
+        );
     }
 
     #[test]
     fn work_only_done_or_blocked_is_told_to_both_ends() {
         let f = two(Work, Strict);
-        assert_eq!(told(&f, 0, false), "You wait for instructions from Ada, execute them, and answer only done or blocked.");
-        assert_eq!(told(&f, 0, true), "You give work to Bo; Bo answers only done or blocked.");
+        assert_eq!(
+            told(&f, 0, false),
+            "You wait for instructions from Ada, execute them, and answer only done or blocked."
+        );
+        assert_eq!(
+            told(&f, 0, true),
+            "You give work to Bo; Bo answers only done or blocked."
+        );
     }
 
     #[test]
     fn observing_is_told_to_both_ends() {
         let f = two(Observes, Done);
-        assert_eq!(told(&f, 0, true), "You observe Bo: follow what it does, to explain it to the user when asked. Do not write to it.");
-        assert_eq!(told(&f, 0, false), "Ada observes you and may read what you do.");
+        assert_eq!(
+            told(&f, 0, true),
+            "You observe Bo: follow what it does, to explain it to the user when asked. Do not write to it."
+        );
+        assert_eq!(
+            told(&f, 0, false),
+            "Ada observes you and may read what you do."
+        );
     }
 
     #[test]
@@ -1770,19 +2182,30 @@ mod tests {
     #[test]
     fn handing_work_out_is_told_in_one_of_three_ways() {
         let mut f = named(
-            team(&["a", "b", "c", "d"], &[("a", "b", Work, Done), ("a", "c", Work, Done), ("a", "d", Work, Done)]),
+            team(
+                &["a", "b", "c", "d"],
+                &[
+                    ("a", "b", Work, Done),
+                    ("a", "c", Work, Done),
+                    ("a", "d", Work, Done),
+                ],
+            ),
             &[("a", "Ada"), ("b", "Bo"), ("c", "Cy"), ("d", "Di")],
         );
         let view = |f: &Formation| evaluate(f, &none(), &own()).roles["a"].clone();
         assert_eq!(
             view(&f).hand_out.as_deref(),
-            Some("You give work to Bo, Cy and Di: split it among them, a different part to each, and put their results together.")
+            Some(
+                "You give work to Bo, Cy and Di: split it among them, a different part to each, and put their results together."
+            )
         );
         assert_eq!(view(&f).detail, "Lead \u{b7} splits the work");
         f.agents[0].share = Share::Same;
         assert_eq!(
             view(&f).hand_out.as_deref(),
-            Some("You give work to Bo, Cy and Di: give the same task to each, then compare their results.")
+            Some(
+                "You give work to Bo, Cy and Di: give the same task to each, then compare their results."
+            )
         );
         f.agents[0].share = Share::Free;
         assert_eq!(
@@ -1790,28 +2213,53 @@ mod tests {
             Some("You give work to Bo, Cy and Di: give each task to whichever of them is free.")
         );
         let one = two(Work, Done);
-        assert_eq!(evaluate(&one, &none(), &own()).roles["a"].hand_out, None, "one receiver is not a hand-out");
+        assert_eq!(
+            evaluate(&one, &none(), &own()).roles["a"].hand_out,
+            None,
+            "one receiver is not a hand-out"
+        );
     }
 
     #[test]
     fn personal_names_the_agent_its_member_its_role_then_the_formation() {
         let mut f = named(
-            team(&["a", "b", "c"], &[("a", "b", Work, Done), ("c", "a", Observes, Done)]),
+            team(
+                &["a", "b", "c"],
+                &[("a", "b", Work, Done), ("c", "a", Observes, Done)],
+            ),
             &[("a", "Ada"), ("b", "Bo"), ("c", "Cy")],
         );
         f.revision = 7;
         f.agents[0].notes = "Keep it short.".into();
-        let members: BTreeMap<String, String> =
-            [("a".to_string(), "claude-1".to_string()), ("b".to_string(), "opencode-1".to_string())].into();
+        let members: BTreeMap<String, String> = [
+            ("a".to_string(), "claude-1".to_string()),
+            ("b".to_string(), "opencode-1".to_string()),
+        ]
+        .into();
         let text = personal(&f, "a", &members);
         assert!(text.starts_with("TEAM revision 7\n"), "{text}");
-        let at = |needle: &str| text.find(needle).unwrap_or_else(|| panic!("{needle} in {text}"));
-        assert!(at("Ada") < at("claude-1") && at("claude-1") < at("Lead"), "{text}");
-        assert!(at("Lead") < at("You give work to Bo; Bo reports back to you when it is done."), "{text}");
-        assert!(text.contains("Cy observes you and may read what you do."), "{text}");
+        let at = |needle: &str| {
+            text.find(needle)
+                .unwrap_or_else(|| panic!("{needle} in {text}"))
+        };
+        assert!(
+            at("Ada") < at("claude-1") && at("claude-1") < at("Lead"),
+            "{text}"
+        );
+        assert!(
+            at("Lead") < at("You give work to Bo; Bo reports back to you when it is done."),
+            "{text}"
+        );
+        assert!(
+            text.contains("Cy observes you and may read what you do."),
+            "{text}"
+        );
         assert!(text.contains("Keep it short."), "{text}");
         assert!(at("Keep it short.") < at("The team:"), "{text}");
-        assert!(text.contains("Bo: opencode-1") && text.contains("Cy: not in the room yet"), "{text}");
+        assert!(
+            text.contains("Bo: opencode-1") && text.contains("Cy: not in the room yet"),
+            "{text}"
+        );
         assert!(at("The team:") < at("Relations:"), "{text}");
         assert!(text.contains("Ada gives work to Bo (when done)"), "{text}");
     }
@@ -1820,7 +2268,11 @@ mod tests {
     fn an_agent_with_no_arrow_is_told_it_is_an_equal() {
         let f = team(&["a"], &[]);
         let members: BTreeMap<String, String> = [("a".to_string(), "pi-1".to_string())].into();
-        assert!(personal(&f, "a", &members).contains("equal"), "{}", personal(&f, "a", &members));
+        assert!(
+            personal(&f, "a", &members).contains("equal"),
+            "{}",
+            personal(&f, "a", &members)
+        );
     }
 
     #[test]
@@ -1844,19 +2296,41 @@ mod tests {
             .collect();
         f.links = links;
         assert_eq!(validate(&f), Ok(()));
-        let members: BTreeMap<String, String> =
-            f.agents.iter().map(|a| (a.id.clone(), format!("member-{}", &a.id[2..])).clone()).collect();
+        let members: BTreeMap<String, String> = f
+            .agents
+            .iter()
+            .map(|a| (a.id.clone(), format!("member-{}", &a.id[2..])).clone())
+            .collect();
         for (i, agent) in f.agents.iter().enumerate() {
             let text = personal(&f, &agent.id, &members);
             assert!(text.len() <= 2048, "agent {i}: {} bytes", text.len());
         }
         // The agent's own sentences are never the part that is cut, when they fit at all.
-        let plain = Formation { links: f.links.iter().map(|l| Link { words: String::new(), ..l.clone() }).collect(), ..f.clone() };
+        let plain = Formation {
+            links: f
+                .links
+                .iter()
+                .map(|l| Link {
+                    words: String::new(),
+                    ..l.clone()
+                })
+                .collect(),
+            ..f.clone()
+        };
         for agent in &f.agents {
             let text = personal(&f, &agent.id, &members);
-            for (k, link) in f.links.iter().enumerate().filter(|(_, l)| l.from == agent.id || l.to == agent.id) {
+            for (k, link) in f
+                .links
+                .iter()
+                .enumerate()
+                .filter(|(_, l)| l.from == agent.id || l.to == agent.id)
+            {
                 let sentence = told(&plain, k, link.from == agent.id);
-                assert!(text.contains(&sentence), "arrow {k} of {} is whole in its message", agent.name);
+                assert!(
+                    text.contains(&sentence),
+                    "arrow {k} of {} is whole in its message",
+                    agent.name
+                );
             }
         }
         let text = personal(&f, &f.agents[0].id, &members);
@@ -1864,52 +2338,107 @@ mod tests {
     }
 
     /// A star of `n` agents: the first gives work to every other, `kind`/`report` on each arrow.
-    fn star(n: usize, name_len: usize, kind: Kind, report: Report) -> (Formation, BTreeMap<String, String>) {
+    fn star(
+        n: usize,
+        name_len: usize,
+        kind: Kind,
+        report: Report,
+    ) -> (Formation, BTreeMap<String, String>) {
         let mut f = proper(n);
         for (i, agent) in f.agents.iter_mut().enumerate() {
             agent.name = format!("{:0>2}{}", i, "n".repeat(name_len - 2));
             agent.share = Share::Split;
         }
         f.links = (1..n)
-            .map(|i| Link { from: f.agents[0].id.clone(), to: f.agents[i].id.clone(), kind, report, words: "w".repeat(120) })
+            .map(|i| Link {
+                from: f.agents[0].id.clone(),
+                to: f.agents[i].id.clone(),
+                kind,
+                report,
+                words: "w".repeat(120),
+            })
             .collect();
         assert_eq!(validate(&f), Ok(()));
-        let members = f.agents.iter().map(|a| (a.id.clone(), format!("member-{}", &a.id[2..]))).collect();
+        let members = f
+            .agents
+            .iter()
+            .map(|a| (a.id.clone(), format!("member-{}", &a.id[2..])))
+            .collect();
         (f, members)
     }
 
     #[test]
     fn a_hub_of_a_crowded_star_is_told_in_grouped_sentences_within_2048_bytes() {
-        for (kind, report) in [(Work, Done), (Work, Steps), (Work, Strict), (Observes, Done)] {
+        for (kind, report) in [
+            (Work, Done),
+            (Work, Steps),
+            (Work, Strict),
+            (Observes, Done),
+        ] {
             for name_len in [10, 25, 40] {
                 let (f, members) = star(24, name_len, kind, report);
                 let hub = personal(&f, &f.agents[0].id, &members);
-                assert!(hub.len() <= 2048, "{kind:?} {report:?} names of {name_len}: hub {} bytes", hub.len());
-                assert!(hub.starts_with("TEAM revision 0\n"));                let own_part = hub.split("\nThe team:").next().unwrap_or_default().split("\nRelations:").next().unwrap_or_default();
-                let named = f.agents[1..].iter().filter(|a| own_part.contains(&a.name)).count();
+                assert!(
+                    hub.len() <= 2048,
+                    "{kind:?} {report:?} names of {name_len}: hub {} bytes",
+                    hub.len()
+                );
+                assert!(hub.starts_with("TEAM revision 0\n"));
+                let own_part = hub
+                    .split("\nThe team:")
+                    .next()
+                    .unwrap_or_default()
+                    .split("\nRelations:")
+                    .next()
+                    .unwrap_or_default();
+                let named = f.agents[1..]
+                    .iter()
+                    .filter(|a| own_part.contains(&a.name))
+                    .count();
                 let left_out = own_part
                     .split("and ")
                     .filter_map(|tail| tail.split_once(" more"))
                     .filter_map(|(n, _)| n.trim().parse::<usize>().ok())
                     .next();
                 match left_out {
-                    Some(n) => assert_eq!(named + n, 23, "{kind:?} names of {name_len}: {named} named and {n} left out"),
-                    None => assert_eq!(named, 23, "{kind:?} names of {name_len}: every receiver is named"),
+                    Some(n) => assert_eq!(
+                        named + n,
+                        23,
+                        "{kind:?} names of {name_len}: {named} named and {n} left out"
+                    ),
+                    None => assert_eq!(
+                        named, 23,
+                        "{kind:?} names of {name_len}: every receiver is named"
+                    ),
                 }
                 if left_out.is_some() {
-                    assert!(hub.contains("shinatama_thread_peers"), "the rest is pointed to");
+                    assert!(
+                        hub.contains("shinatama_thread_peers"),
+                        "the rest is pointed to"
+                    );
                 }
                 for agent in &f.agents {
                     let text = personal(&f, &agent.id, &members);
-                    assert!(text.len() <= 2048, "agent {}: {} bytes", agent.name, text.len());
+                    assert!(
+                        text.len() <= 2048,
+                        "agent {}: {} bytes",
+                        agent.name,
+                        text.len()
+                    );
                 }
             }
         }
         // Ten-character names fit whole in one sentence per kind of relation.
         let (f, members) = star(24, 10, Work, Done);
         let hub = personal(&f, &f.agents[0].id, &members);
-        assert!(hub.contains("each reports back to you when it is done"), "{hub}");
-        assert!(hub.matches("You give work to").count() == 1, "one sentence for the 23 arrows");
+        assert!(
+            hub.contains("each reports back to you when it is done"),
+            "{hub}"
+        );
+        assert!(
+            hub.matches("You give work to").count() == 1,
+            "one sentence for the 23 arrows"
+        );
         // A taker with several givers is grouped the same way.
         let (mut f, members) = star(24, 40, Work, Steps);
         for link in &mut f.links {
@@ -1927,7 +2456,10 @@ mod tests {
         after.agents[0].x = 400;
         after.agents[1].y = -30;
         let changes = changes(Some(&before), &after);
-        assert!(changes.touched.is_empty() && changes.removed.is_empty() && changes.lines.is_empty(), "{changes:?}");
+        assert!(
+            changes.touched.is_empty() && changes.removed.is_empty() && changes.lines.is_empty(),
+            "{changes:?}"
+        );
     }
 
     #[test]
@@ -1942,22 +2474,48 @@ mod tests {
         assert_eq!(changes.touched, vec!["a", "b"]);
         assert!(changes.removed.is_empty());
         assert_eq!(changes.lines.len(), 1, "{:?}", changes.lines);
-        assert!(changes.lines[0].contains("Ada") && changes.lines[0].contains("Bo"), "{:?}", changes.lines);
+        assert!(
+            changes.lines[0].contains("Ada") && changes.lines[0].contains("Bo"),
+            "{:?}",
+            changes.lines
+        );
     }
 
     #[test]
     fn a_new_arrow_a_new_agent_and_a_removed_agent_are_changes() {
-        let before = named(team(&["a", "b", "c"], &[]), &[("a", "Ada"), ("b", "Bo"), ("c", "Cy")]);
+        let before = named(
+            team(&["a", "b", "c"], &[]),
+            &[("a", "Ada"), ("b", "Bo"), ("c", "Cy")],
+        );
         let mut after = before.clone();
-        after.links.push(Link { from: "a".into(), to: "b".into(), kind: Work, report: Done, words: String::new() });
+        after.links.push(Link {
+            from: "a".into(),
+            to: "b".into(),
+            kind: Work,
+            report: Done,
+            words: String::new(),
+        });
         after.agents.remove(2);
-        after.agents.push(Agent { name: "Di".into(), ..agent("d") });
+        after.agents.push(Agent {
+            name: "Di".into(),
+            ..agent("d")
+        });
         let changes = changes(Some(&before), &after);
         assert_eq!(changes.touched, vec!["a", "b", "d"]);
-        assert_eq!(changes.removed.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(), vec!["c"]);
+        assert_eq!(
+            changes
+                .removed
+                .iter()
+                .map(|a| a.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["c"]
+        );
         let all = changes.lines.join("\n");
         assert!(all.contains("Ada now gives work to Bo"), "{all}");
-        assert!(all.contains("Cy left the team") && all.contains("Di joined the team"), "{all}");
+        assert!(
+            all.contains("Cy left the team") && all.contains("Di joined the team"),
+            "{all}"
+        );
     }
 
     #[test]
@@ -1969,24 +2527,45 @@ mod tests {
     }
 
     #[test]
-    fn a_renamed_agent_a_new_model_and_new_notes_touch_that_agent_and_its_neighbours_are_told_the_name() {
+    fn a_renamed_agent_a_new_model_and_new_notes_touch_that_agent_and_its_neighbours_are_told_the_name()
+     {
         let before = two(Work, Done);
         let mut after = before.clone();
         after.agents[1].name = "Bea".into();
         let c = changes(Some(&before), &after);
-        assert_eq!(c.touched, vec!["a", "b"], "a rename changes what the other end's sentences say");
-        assert!(c.lines.iter().any(|l| l.contains("Bo") && l.contains("Bea")), "{:?}", c.lines);
+        assert_eq!(
+            c.touched,
+            vec!["a", "b"],
+            "a rename changes what the other end's sentences say"
+        );
+        assert!(
+            c.lines
+                .iter()
+                .any(|l| l.contains("Bo") && l.contains("Bea")),
+            "{:?}",
+            c.lines
+        );
         let mut after = before.clone();
         after.agents[0].notes = "new".into();
         assert_eq!(changes(Some(&before), &after).touched, vec!["a"]);
         let mut after = before.clone();
-        after.agents[1].model = Some(ModelRef { program: "pi".into(), connection: None, model: None });
+        after.agents[1].model = Some(ModelRef {
+            program: "pi".into(),
+            connection: None,
+            model: None,
+        });
         assert_eq!(changes(Some(&before), &after).touched, vec!["b"]);
     }
 
     #[test]
     fn the_notice_counts_what_it_leaves_out_and_stays_within_2048_bytes() {
-        let lines: Vec<String> = (0..80).map(|i| format!("Agent number {i} now gives work to another agent, in a long sentence of words.")).collect();
+        let lines: Vec<String> = (0..80)
+            .map(|i| {
+                format!(
+                    "Agent number {i} now gives work to another agent, in a long sentence of words."
+                )
+            })
+            .collect();
         let text = notice(9, &lines);
         assert!(text.starts_with("TEAM revision 9 changes\n"), "{text}");
         assert!(text.len() <= 2048, "{}", text.len());
@@ -2011,19 +2590,34 @@ mod tests {
     // ---- What is owed to the room ----
 
     fn seat(member: &str, role: &str, in_room: bool) -> Seat {
-        Seat { member_id: format!("id-{member}"), member_name: member.into(), role: role.into(), in_room }
+        Seat {
+            member_id: format!("id-{member}"),
+            member_name: member.into(),
+            role: role.into(),
+            in_room,
+        }
     }
 
     /// The seats of every agent of `f`, all in the room, with the Mukade role the formation asks for.
     fn seated(f: &Formation) -> BTreeMap<String, Seat> {
         f.agents
             .iter()
-            .map(|a| (a.id.clone(), seat(&format!("m-{}", a.id), mukade_role(f, &a.id).as_str(), true)))
+            .map(|a| {
+                (
+                    a.id.clone(),
+                    seat(&format!("m-{}", a.id), mukade_role(f, &a.id).as_str(), true),
+                )
+            })
             .collect()
     }
 
     /// What the worker does with a run: every delivery succeeds.
-    fn run(before: Option<&Formation>, now: &Formation, told: &mut BTreeMap<String, Told>, seats: &BTreeMap<String, Seat>) -> Vec<Delivery> {
+    fn run(
+        before: Option<&Formation>,
+        now: &Formation,
+        told: &mut BTreeMap<String, Told>,
+        seats: &BTreeMap<String, Seat>,
+    ) -> Vec<Delivery> {
         let owed = deliveries(before, now, told, seats, &[]);
         for delivery in &owed {
             mark(now, seats, delivery, told);
@@ -2043,7 +2637,15 @@ mod tests {
     }
 
     fn personal_for(owed: &[Delivery]) -> Vec<&str> {
-        owed.iter().filter_map(|d| if let Delivery::Personal { agent, .. } = d { Some(agent.as_str()) } else { None }).collect()
+        owed.iter()
+            .filter_map(|d| {
+                if let Delivery::Personal { agent, .. } = d {
+                    Some(agent.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     #[test]
@@ -2056,8 +2658,20 @@ mod tests {
         let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
         assert_eq!(personal_for(&owed), vec!["a", "b", "c"]);
         assert!(!kinds(&owed).contains(&"notice"), "{:?}", kinds(&owed));
-        let roles: Vec<_> = owed.iter().filter_map(|d| if let Delivery::SetRole { member_id, role } = d { Some((member_id.as_str(), *role)) } else { None }).collect();
-        assert_eq!(roles, vec![("id-m-a", MukadeRole::Lead), ("id-m-b", MukadeRole::Worker)]);
+        let roles: Vec<_> = owed
+            .iter()
+            .filter_map(|d| {
+                if let Delivery::SetRole { member_id, role } = d {
+                    Some((member_id.as_str(), *role))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(
+            roles,
+            vec![("id-m-a", MukadeRole::Lead), ("id-m-b", MukadeRole::Worker)]
+        );
     }
 
     #[test]
@@ -2067,7 +2681,11 @@ mod tests {
         seats.get_mut("b").unwrap().role = "peer".into();
         let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
         let k = kinds(&owed);
-        assert!(k.iter().position(|x| *x == "role").unwrap() < k.iter().position(|x| *x == "personal").unwrap(), "{k:?}");
+        assert!(
+            k.iter().position(|x| *x == "role").unwrap()
+                < k.iter().position(|x| *x == "personal").unwrap(),
+            "{k:?}"
+        );
     }
 
     #[test]
@@ -2081,8 +2699,17 @@ mod tests {
         now.links[0].report = Steps;
         let owed = run(Some(&before), &now, &mut told, &seated(&now));
         assert_eq!(personal_for(&owed), vec!["a", "b"]);
-        assert_eq!(kinds(&owed).iter().filter(|k| **k == "notice").count(), 1, "{:?}", kinds(&owed));
-        let Some(Delivery::Notice { text }) = owed.iter().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
+        assert_eq!(
+            kinds(&owed).iter().filter(|k| **k == "notice").count(),
+            1,
+            "{:?}",
+            kinds(&owed)
+        );
+        let Some(Delivery::Notice { text }) =
+            owed.iter().find(|d| matches!(d, Delivery::Notice { .. }))
+        else {
+            panic!()
+        };
         assert!(text.starts_with("TEAM revision 2 changes\n"), "{text}");
     }
 
@@ -2118,7 +2745,10 @@ mod tests {
         // The session was resumed and Mukade gave it another member.
         seats.insert("a".into(), seat("m-new", "peer", true));
         assert_eq!(personal_for(&run(None, &f, &mut told, &seats)), vec!["a"]);
-        assert!(run(None, &f, &mut told, &seats).is_empty(), "told once, not at every check");
+        assert!(
+            run(None, &f, &mut told, &seats).is_empty(),
+            "told once, not at every check"
+        );
     }
 
     #[test]
@@ -2126,7 +2756,13 @@ mod tests {
         let before = team(&["a", "b", "c"], &[("a", "b", Work, Strict)]);
         let mut now = before.clone();
         now.revision = 2;
-        now.links.push(Link { from: "a".into(), to: "c".into(), kind: Work, report: Done, words: "go".into() });
+        now.links.push(Link {
+            from: "a".into(),
+            to: "c".into(),
+            kind: Work,
+            report: Done,
+            words: "go".into(),
+        });
         let mut told = BTreeMap::new();
         run(None, &before, &mut told, &seated(&before));
         let first = run(Some(&before), &now, &mut told, &seated(&now));
@@ -2148,8 +2784,14 @@ mod tests {
             _ => None,
         });
         let text = removed.expect("the removed agent is told");
-        assert!(text.starts_with("TEAM revision 2\n") && text.contains("no place"), "{text}");
-        assert!(personal_for(&owed).contains(&"a"), "its former giver is told the arrow is gone");
+        assert!(
+            text.starts_with("TEAM revision 2\n") && text.contains("no place"),
+            "{text}"
+        );
+        assert!(
+            personal_for(&owed).contains(&"a"),
+            "its former giver is told the arrow is gone"
+        );
         let again = run(Some(&before), &now, &mut told, &seats);
         assert!(again.is_empty(), "{again:?}");
     }
@@ -2161,7 +2803,11 @@ mod tests {
         seats.remove("b");
         let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
         assert_eq!(personal_for(&owed), vec!["a"]);
-        assert!(owed.iter().all(|d| !matches!(d, Delivery::SetRole { member_id, .. } if member_id.contains('b'))));
+        assert!(
+            owed.iter().all(
+                |d| !matches!(d, Delivery::SetRole { member_id, .. } if member_id.contains('b'))
+            )
+        );
     }
 
     #[test]
@@ -2172,9 +2818,18 @@ mod tests {
         let owed = deliveries(Some(&f), &f, &BTreeMap::new(), &seats, &closed);
         let k = kinds(&owed);
         assert_eq!(&k[k.len() - 2..], ["notice", "retire"], "{k:?}");
-        let Some(Delivery::Notice { text }) = owed.iter().rev().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
+        let Some(Delivery::Notice { text }) = owed
+            .iter()
+            .rev()
+            .find(|d| matches!(d, Delivery::Notice { .. }))
+        else {
+            panic!()
+        };
         assert!(text.contains("m-gone") && text.contains("closed"), "{text}");
-        assert!(owed.iter().any(|d| matches!(d, Delivery::Retire { member_id } if member_id == "id-m-gone")));
+        assert!(
+            owed.iter()
+                .any(|d| matches!(d, Delivery::Retire { member_id } if member_id == "id-m-gone"))
+        );
     }
 
     #[test]
@@ -2186,21 +2841,48 @@ mod tests {
         let mut now = team(&["a"], &[]);
         now.revision = 2;
         run(Some(&before), &now, &mut told, &seats);
-        assert!(told.contains_key("b") && told.contains_key("c"), "told that they have no place, still in the room");
+        assert!(
+            told.contains_key("b") && told.contains_key("c"),
+            "told that they have no place, still in the room"
+        );
         // Their members are still there: kept, so that nothing is told twice.
         assert!(!prune(&now, &seats, &[], &mut told));
         assert!(told.contains_key("b"));
         // Their members left: the entries go, and the other agent's and the notice's stay.
-        told.insert(NOTICE_KEY.into(), Told { revision: 2, member: String::new(), digest: String::new() });
+        told.insert(
+            NOTICE_KEY.into(),
+            Told {
+                revision: 2,
+                member: String::new(),
+                digest: String::new(),
+            },
+        );
         let only_a = BTreeMap::from([("a".to_owned(), seats["a"].clone())]);
         assert!(prune(&now, &only_a, &[], &mut told));
-        assert_eq!(told.keys().map(String::as_str).collect::<Vec<_>>(), ["a", NOTICE_KEY]);
+        assert_eq!(
+            told.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["a", NOTICE_KEY]
+        );
         assert!(!prune(&now, &only_a, &[], &mut told), "idempotent");
         // A removed agent never told that it has no place keeps its entry while its member may return.
-        let mut told = BTreeMap::from([("x".to_owned(), Told { revision: 1, member: "id-m-x".into(), digest: "d".into() })]);
+        let mut told = BTreeMap::from([(
+            "x".to_owned(),
+            Told {
+                revision: 1,
+                member: "id-m-x".into(),
+                digest: "d".into(),
+            },
+        )]);
         assert!(!prune(&now, &only_a, &[], &mut told));
         // ...unless its member now belongs to an agent that is on the map (the session was dropped back as a new agent).
-        told.insert("y".into(), Told { revision: 1, member: seats["a"].member_id.clone(), digest: "d".into() });
+        told.insert(
+            "y".into(),
+            Told {
+                revision: 1,
+                member: seats["a"].member_id.clone(),
+                digest: "d".into(),
+            },
+        );
         assert!(prune(&now, &only_a, &[], &mut told));
         assert_eq!(told.keys().map(String::as_str).collect::<Vec<_>>(), ["x"]);
     }
@@ -2230,7 +2912,11 @@ mod tests {
         f.links[0].words = "ship it".into();
         f.agents[0].notes = "plans".into();
         f.agents[0].share = Share::Free;
-        f.agents[0].model = Some(ModelRef { program: "codex".into(), connection: None, model: Some("gpt".into()) });
+        f.agents[0].model = Some(ModelRef {
+            program: "codex".into(),
+            connection: None,
+            model: Some("gpt".into()),
+        });
         (f.agents[1].x, f.agents[1].y) = (140, -20);
         let t = template_of(TEMPLATE.into(), "  Review team  ", &f).unwrap();
         assert_eq!((t.id.as_str(), t.name.as_str()), (TEMPLATE, "Review team"));
@@ -2242,7 +2928,10 @@ mod tests {
         assert_eq!(t.links, f.links);
         let shown = serde_json::to_value(&t).unwrap();
         assert!(shown.get("revision").is_none(), "{shown}");
-        assert!(f.agents.iter().all(|a| a.session.is_some()), "the team itself keeps its sessions");
+        assert!(
+            f.agents.iter().all(|a| a.session.is_some()),
+            "the team itself keeps its sessions"
+        );
         // What was stored reads back as it was.
         assert_eq!(serde_json::from_value::<Template>(shown).unwrap(), t);
     }
@@ -2259,16 +2948,30 @@ mod tests {
 
     #[test]
     fn a_formation_with_a_loop_is_not_saved() {
-        let f = linked(3, &[(0, 1, Work, Done), (1, 2, Work, Done), (2, 0, Work, Done)]);
+        let f = linked(
+            3,
+            &[(0, 1, Work, Done), (1, 2, Work, Done), (2, 0, Work, Done)],
+        );
         let refused = template_of(TEMPLATE.into(), "Circle", &f).unwrap_err();
         assert!(refused.contains("circle"), "{refused}");
         // Nor what cannot be valid, nor nothing.
         let mut at = proper(1);
         at.agents[0].notes = "ask @all".into();
-        assert!(template_of(TEMPLATE.into(), "At", &at).unwrap_err().contains('@'));
-        assert_eq!(template_of(TEMPLATE.into(), "None", &proper(0)).unwrap_err(), "An empty team is not saved.");
+        assert!(
+            template_of(TEMPLATE.into(), "At", &at)
+                .unwrap_err()
+                .contains('@')
+        );
+        assert_eq!(
+            template_of(TEMPLATE.into(), "None", &proper(0)).unwrap_err(),
+            "An empty team is not saved."
+        );
         let observer = linked(3, &[(0, 1, Observes, Done), (2, 0, Work, Done)]);
-        assert!(template_of(TEMPLATE.into(), "Observer", &observer).unwrap_err().contains("observes"));
+        assert!(
+            template_of(TEMPLATE.into(), "Observer", &observer)
+                .unwrap_err()
+                .contains("observes")
+        );
     }
 
     #[test]
@@ -2278,7 +2981,13 @@ mod tests {
             assert!(template_of(TEMPLATE.into(), bad, &f).is_err(), "{bad:?}");
         }
         assert!(template_of(TEMPLATE.into(), &"n".repeat(60), &f).is_ok());
-        for bad in ["", "tm_short", "a_aaaaaaaaaaaa", "tm_AAAAAAAAAAAA", "tm_aaaaaaaaaaa1"] {
+        for bad in [
+            "",
+            "tm_short",
+            "a_aaaaaaaaaaaa",
+            "tm_AAAAAAAAAAAA",
+            "tm_aaaaaaaaaaa1",
+        ] {
             assert!(template_of(bad.into(), "Name", &f).is_err(), "{bad}");
         }
         let made = template_id(&[0, 1, 25, 26, 31, 32, 255, 7, 8, 9, 10, 11]);
@@ -2290,33 +2999,73 @@ mod tests {
     fn a_second_template_of_the_same_name_is_refused() {
         let f = proper(1);
         let mut list = Vec::new();
-        add_template(&mut list, template_of(TEMPLATE.into(), "Review", &f).unwrap()).unwrap();
+        add_template(
+            &mut list,
+            template_of(TEMPLATE.into(), "Review", &f).unwrap(),
+        )
+        .unwrap();
         for same in ["Review", " review ", "REVIEW"] {
             let again = template_of("tm_bbbbbbbbbbbb".into(), same, &f).unwrap();
             let refused = add_template(&mut list, again).unwrap_err();
             assert_eq!(refused, "A template named Review already exists.");
         }
         assert_eq!(list.len(), 1);
-        add_template(&mut list, template_of("tm_bbbbbbbbbbbb".into(), "Review 2", &f).unwrap()).unwrap();
+        add_template(
+            &mut list,
+            template_of("tm_bbbbbbbbbbbb".into(), "Review 2", &f).unwrap(),
+        )
+        .unwrap();
         assert_eq!(list.len(), 2);
         // The same id is refused as well, whatever the name.
-        assert!(add_template(&mut list, template_of(TEMPLATE.into(), "Other", &f).unwrap()).is_err());
+        assert!(
+            add_template(
+                &mut list,
+                template_of(TEMPLATE.into(), "Other", &f).unwrap()
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn the_sixty_fifth_template_is_refused() {
         let mut list = Vec::new();
-        let id = |i: usize| format!("tm_{}{}", "a".repeat(10), [(b'a' + (i / 26) as u8) as char, (b'a' + (i % 26) as u8) as char].iter().collect::<String>());
+        let id = |i: usize| {
+            format!(
+                "tm_{}{}",
+                "a".repeat(10),
+                [
+                    (b'a' + (i / 26) as u8) as char,
+                    (b'a' + (i % 26) as u8) as char
+                ]
+                .iter()
+                .collect::<String>()
+            )
+        };
         for i in 0..64 {
-            add_template(&mut list, template_of(id(i), &format!("Team {i}"), &proper(1)).unwrap()).unwrap();
+            add_template(
+                &mut list,
+                template_of(id(i), &format!("Team {i}"), &proper(1)).unwrap(),
+            )
+            .unwrap();
         }
-        let refused = add_template(&mut list, template_of(id(64), "One more", &proper(1)).unwrap()).unwrap_err();
-        assert_eq!(refused, "A team keeps at most 64 templates. Delete one first.");
+        let refused = add_template(
+            &mut list,
+            template_of(id(64), "One more", &proper(1)).unwrap(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            refused,
+            "A team keeps at most 64 templates. Delete one first."
+        );
         assert_eq!(list.len(), 64);
         // Deleting makes room.
         remove_template(&mut list, &id(3));
         assert_eq!(list.len(), 63);
-        add_template(&mut list, template_of(id(64), "One more", &proper(1)).unwrap()).unwrap();
+        add_template(
+            &mut list,
+            template_of(id(64), "One more", &proper(1)).unwrap(),
+        )
+        .unwrap();
         // Deleting what is not there changes nothing.
         remove_template(&mut list, "tm_zzzzzzzzzzzz");
         assert_eq!(list.len(), 64);

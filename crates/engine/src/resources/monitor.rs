@@ -65,16 +65,20 @@ pub struct DiscoveryCoverage {
     pub owned_limit_reached: bool,
     pub deadline_reached: bool,
     pub unavailable_candidates: usize,
+    /// Parent links refused because the child was created before the parent: a reused parent
+    /// PID, so the process is proven not to descend from it. Counted for diagnostics only.
     pub rejected_ancestry: usize,
     pub first_failure: Option<Unavailable>,
 }
 impl DiscoveryCoverage {
+    /// A refused ancestry leaves coverage complete: the creation times exclude that process for
+    /// certain. A long-lived process whose original parent's PID one of ours reused kept every
+    /// snapshot incomplete for the app's whole run, and the governor on reduced activity.
     pub fn complete(&self) -> bool {
         self.snapshot_complete
             && !self.owned_limit_reached
             && !self.deadline_reached
             && self.unavailable_candidates == 0
-            && self.rejected_ancestry == 0
     }
     fn unavailable(&mut self, reason: Unavailable) {
         self.unavailable_candidates += 1;
@@ -558,10 +562,8 @@ fn descendants(
                     pending.push_back(key);
                 }
                 Ok(_) => {
+                    // Proven not ours (created before its parent): counted, not a failure.
                     coverage.rejected_ancestry += 1;
-                    coverage
-                        .first_failure
-                        .get_or_insert(Unavailable::IdentityChanged);
                 }
                 Err(reason) => coverage.unavailable(reason),
             }
@@ -613,6 +615,24 @@ mod tests {
         assert_eq!(coverage.rejected_ancestry, 1);
         assert_eq!(coverage.unavailable_candidates, 1);
         assert!(!coverage.complete());
+    }
+
+    #[test]
+    fn a_reused_parent_pid_excludes_the_child_and_leaves_coverage_complete() {
+        // pid 2 names the host as its parent but was created before it: the host reused the PID
+        // of 2's real, long gone parent. 2 is not ours, and that is certain, not a gap.
+        let links = [Link { pid: 2, parent: 1 }];
+        let (keys, coverage) =
+            descendants(host(), &[], &links, complete(), Instant::now(), |pid| {
+                Ok(ProcessKey {
+                    pid,
+                    created_at_100ns: 99,
+                })
+            });
+        assert_eq!(keys, [host()]);
+        assert_eq!(coverage.rejected_ancestry, 1);
+        assert_eq!(coverage.first_failure, None);
+        assert!(coverage.complete());
     }
 
     #[test]

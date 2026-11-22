@@ -111,6 +111,17 @@ export async function installStub(page) {
 
 const numberOf = text => Number.parseFloat(text ?? '');
 
+// On a small map an open arrow or agent box can lie over a card, and nobody can press a card through it: the box is
+// closed with its own button first, as a user would close it, and then the card is pressed.
+async function pressCard(expect, map, card) {
+  for (const open of [map.locator('.team-box-link'), map.locator('.team-box-agent')]) {
+    if (!(await open.isVisible())) continue;
+    await open.getByRole('button', { name: /^Close the (arrow|agent) box$/ }).click();
+    await expect(open).toBeHidden();
+  }
+  await card.locator('.team-card-name').click();
+}
+
 export async function driveTeamMap(page, expect, log = console.log) {
   const map = page.locator('.team-map[data-view-id]').first();
   const canvas = map.locator('.team-canvas');
@@ -137,6 +148,8 @@ export async function driveTeamMap(page, expect, log = console.log) {
 
   // The empty map and its hint.
   await expect(map).toBeVisible();
+  await expect(map).toHaveAttribute('data-loaded', 'true');
+  await expect(map.locator('dialog[open]')).toHaveCount(0);
   await expect(map.locator('.team-hint')).toBeVisible();
   await expect(map.locator('.team-session')).toHaveCount(3);
   await expect(bar('Apply')).toBeDisabled();
@@ -165,6 +178,28 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await byId(planner).locator('.team-card-name').dragTo(canvas, { targetPosition: { x: 300, y: 60 } });
   expect(await count('team_place')).toBe(0);
   log('ok sessions dropped, added from the keyboard, and a card moved without team_place while something is pending');
+
+  // Escape cancels the current pointer capture and retains the draft on release.
+  const position = [await left(planner), await top(planner)];
+  const handle = await byId(planner).locator('.team-card-name').boundingBox();
+  await page.mouse.move(handle.x + 2, handle.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + 28, handle.y + 28, { steps: 3 });
+  await expect(byId(planner)).toHaveAttribute('data-lifted', '');
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  expect([await left(planner), await top(planner)]).toEqual(position);
+  // The card is drawn again when the engine's evaluation comes back, and its → with it: a measure taken while the
+  // old one is replaced has no box, so the one on screen is measured.
+  let port = null;
+  for (const until = Date.now() + 5000; !port && Date.now() < until;) port = await byId(planner).locator('.team-port').boundingBox();
+  expect(port).not.toBeNull();
+  await page.mouse.move(port.x + port.width / 2, port.y + port.height / 2);
+  await page.mouse.down(); await page.mouse.move(port.x + 50, port.y + 30, { steps: 3 });
+  await expect(map.locator('.im-editor-preview')).toHaveCount(1);
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  await expect(map.locator('.im-editor-preview')).toHaveCount(0);
+  await expect(map.locator('.team-link')).toHaveCount(0);
+  log('ok Escape cancels a move or connection preview without changing the draft');
 
   // Pulling the → onto a card draws a work arrow and opens its box.
   await pull(planner, builder);
@@ -226,14 +261,14 @@ export async function driveTeamMap(page, expect, log = console.log) {
   log('ok a struck-out option with the engine\'s reason, the problems strip and Apply disabled on an error');
 
   // The card's box edits name and notes and shows the role; hand-out appears with two or more work arrows.
-  await byId(planner).locator('.team-card-name').click();
+  await pressCard(expect, map, byId(planner));
   await expect(agentBox).toBeVisible();
   await expect(agentBox.locator('.team-seg')).toBeHidden();
   await expect(agentBox.locator('.role-line')).toContainText('Lead');
   await pull(planner, qwen);
   await expect(map.locator('.team-problems button[data-level="warning"]')).toContainText('Warning: Local qwen takes work from 2 agents');
   await expect(bar('Apply')).toBeEnabled();
-  await byId(planner).locator('.team-card-name').click();
+  await pressCard(expect, map, byId(planner));
   await expect(agentBox.locator('.team-seg')).toBeVisible();
   await agentBox.locator('.team-seg button[data-share="same"]').click();
   await expect(byId(planner).locator('.team-card-role')).toHaveText('Lead · same work to all');
@@ -241,7 +276,7 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await expect(byId(planner).locator('.team-card-name')).toHaveText('Lead dev');
   await agentBox.locator('textarea').fill('Keep the plan short.');
   await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
-  await byId(planner).locator('.team-card-name').click();
+  await pressCard(expect, map, byId(planner));
   await expect(agentBox.locator('textarea')).toHaveValue('Keep the plan short.');
   log('ok the card box: name, notes, role with its reason, hand-out with two work arrows');
 
@@ -255,7 +290,7 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await expect.poll(async () => (await top(builder)) === (await top(qwen))).toBe(true);
   await map.locator('.team-auto input').uncheck();
   // Star, Chain and Peers draw the arrows from the card that is open.
-  await byId(builder).locator('.team-card-name').click();
+  await pressCard(expect, map, byId(builder));
   await bar('Star').click();
   await expect(map.locator('.team-link')).toHaveCount(2);
   for (const l of await map.locator('.team-link').all()) expect(await l.getAttribute('data-from')).toBe(builder);
@@ -424,7 +459,7 @@ const tools = (page, expect) => {
     if (await agentBox.isVisible()) await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
     await byId(from).locator('.team-port').dragTo(byId(to));
   };
-  const row = name => menu.locator('.team-template').filter({ has: page.locator('.team-template-text b', { hasText: new RegExp(`^${name}$`) }) });
+  const row = name => menu.locator('.team-template').filter({ has: page.locator('.team-template-text strong', { hasText: new RegExp(`^${name}$`) }) });
   const save = menu.getByRole('button', { name: 'Save this team', exact: true });
   return { map, bar, byName, idOf, byId, link, box, agentBox, menu, chip, calls, openLink, pull, row, save };
 };
@@ -447,6 +482,7 @@ export async function driveTemplateSave(page, expect, log = console.log) {
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   await expect(bar('Templates ▾')).toBeFocused();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
   log('ok the Templates menu opens empty, Save waits for a name, Escape closes it');
 
   // An error of the checks blocks Save: the engine decides, the window only says so.
@@ -468,8 +504,8 @@ export async function driveTemplateSave(page, expect, log = console.log) {
   await save.click();
   await expect(menu.locator('.team-template')).toHaveCount(1);
   await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
-  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
-  await expect(row('Review crew').locator('.team-mini-line')).toHaveCount(2);
+  await expect(row('Review crew').locator('.im-graph-mini-node')).toHaveCount(3);
+  await expect(row('Review crew').locator('.im-graph-mini-edge')).toHaveCount(2);
   await expect(menu.locator('.team-template-said')).toHaveText('Saved “Review crew”.');
   await menu.getByLabel('Name of the template').fill('REVIEW crew');
   await save.click();
@@ -499,7 +535,7 @@ export async function driveTemplateListed(page, expect, log = console.log) {
   await expect(menu).toBeVisible();
   await expect(menu.locator('.team-template')).toHaveCount(1);
   await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
-  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
+  await expect(row('Review crew').locator('.im-graph-mini-node')).toHaveCount(3);
   await page.keyboard.press('Escape');
   log('ok the template is listed after a restart of the window');
 }
@@ -538,7 +574,7 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await expect(map.locator('.team-session')).toHaveCount(2);
   await expect(map.locator('.team-problems button[data-level="error"]')).toHaveCount(2);
   // The keyboard's way: the agent's box offers the sessions of the thread.
-  await byName('Builder').locator('.team-card-name').click();
+  await pressCard(expect, map, byName('Builder'));
   await expect(agentBox).toBeVisible();
   await expect(agentBox.locator('h3')).toContainText('no session yet');
   await agentBox.getByLabel('Use a session…').selectOption({ label: 'Builder' });
@@ -550,7 +586,7 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   log('ok a session dropped on an agent, or chosen in its box, fills it and keeps its name and arrows');
 
   // The agent without a session chooses its model from the menu: the four own sign-ins first, then each model once per program.
-  await byName('Local qwen').locator('.team-card-name').click();
+  await pressCard(expect, map, byName('Local qwen'));
   await expect(modelMenu).toBeVisible();
   const labels = await modelMenu.locator('option').allTextContents();
   expect(labels.slice(0, 5)).toEqual(['Choose a model…', 'Claude Code \u00b7 its own sign-in and model', 'Codex \u00b7 its own sign-in and model', 'OpenCode \u00b7 its own sign-in and model', 'Pi \u00b7 its own sign-in and model']);
@@ -567,7 +603,7 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await expect(map.locator('.team-card')).toHaveCount(4);
   await expect(byName('Agent').locator('.team-card-meta')).toHaveText('no session yet');
   await expect(bar('Open 2 sessions and apply')).toBeDisabled();
-  await byName('Agent').locator('.team-card-name').click();
+  await pressCard(expect, map, byName('Agent'));
   await modelMenu.selectOption({ label: 'qwen-9 \u00b7 runs in OpenCode' });
   await expect(byName('Agent').locator('.team-card-meta')).toHaveText('qwen-9 \u00b7 via OpenCode');
   await agentBox.getByRole('button', { name: 'Close the agent box' }).click();

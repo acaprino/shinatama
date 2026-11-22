@@ -3,11 +3,12 @@
 #![cfg(windows)]
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::{Deserialize, Serialize};
+use shinatama_engine::export_frames::Progress;
+use shinatama_engine::resources::admission::PreparedWorkload;
 use shinatama_engine::session_detail::{DetailReply, DetailRequest};
 use shinatama_engine::session_export::{ExportReply, ExportRequest};
 use shinatama_engine::session_find::{FindReply, FindRequest};
 use shinatama_engine::session_raw::{RawReply, RawRequest};
-use shinatama_engine::export_frames::Progress;
 use shinatama_engine::session_roots::{
     Framed, PreparedSessionList, RootSelector, SessionCursor, SessionListPage, SessionListRead,
     SessionReadIssue, metadata_worker_budget,
@@ -29,7 +30,6 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use shinatama_engine::resources::admission::PreparedWorkload;
 use tauri::{Emitter, Manager, State, WebviewWindow};
 use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
@@ -62,7 +62,10 @@ pub struct Watch {
 impl Watch {
     /// No one is watching and no one can stop it.
     pub fn none() -> Self {
-        Self { cancel: Arc::new(AtomicBool::new(false)), emit: Box::new(|_, _| {}) }
+        Self {
+            cancel: Arc::new(AtomicBool::new(false)),
+            emit: Box::new(|_, _| {}),
+        }
     }
 }
 /// Removes the request's cancel flag when the command ends, whatever way it ends: a cancel that
@@ -80,9 +83,13 @@ impl Drop for WatchGuard {
 }
 
 /// What an export streamed to a staged file came back as.
+#[allow(clippy::large_enum_variant)]
 pub enum StagedExport {
     /// The worker finished: its final frame, and the staged body to commit when it holds a payload.
-    Done { reply: ExportReply, staged: shinatama_export::output::Staged },
+    Done {
+        reply: ExportReply,
+        staged: shinatama_export::output::Staged,
+    },
     /// Writing the staged body failed (disk full, folder gone); the worker was stopped.
     WriteFailed,
 }
@@ -198,7 +205,11 @@ impl WorkerGate {
     fn take_background(&self) -> bool {
         self.explicit_waiting.load(Ordering::Acquire) == 0 && self.try_take()
     }
-    fn take_explicit(&self, wait: Duration, blocked: impl Fn() -> bool) -> std::result::Result<(), GateRefusal> {
+    fn take_explicit(
+        &self,
+        wait: Duration,
+        blocked: impl Fn() -> bool,
+    ) -> std::result::Result<(), GateRefusal> {
         let _waiting = ExplicitWait::enter(&self.explicit_waiting);
         let deadline = Instant::now() + wait;
         loop {
@@ -261,13 +272,18 @@ impl Controller {
         };
         if id.is_empty()
             || id.len() > 64
-            || !id.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'))
+            || !id
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'))
         {
             return Err(SessionReadIssue::InvalidRequest);
         }
         let cancel = Arc::new(AtomicBool::new(false));
         {
-            let mut cancels = self.cancels.lock().map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            let mut cancels = self
+                .cancels
+                .lock()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
             if cancels.contains_key(&id) {
                 return Err(SessionReadIssue::InvalidRequest);
             }
@@ -288,7 +304,13 @@ impl Controller {
                 },
             );
         });
-        Ok((Watch { cancel, emit }, Some(WatchGuard { controller: Arc::clone(self), id })))
+        Ok((
+            Watch { cancel, emit },
+            Some(WatchGuard {
+                controller: Arc::clone(self),
+                id,
+            }),
+        ))
     }
     /// Stops the watched request `request_id` if it is still running; true when there was one.
     pub fn cancel(&self, request_id: &str) -> bool {
@@ -438,7 +460,11 @@ impl Controller {
     pub async fn list(self: &Arc<Self>, request: ListRequest) -> Result<SessionListPage> {
         self.list_at(Priority::Explicit, request).await
     }
-    async fn list_at(self: &Arc<Self>, priority: Priority, request: ListRequest) -> Result<SessionListPage> {
+    async fn list_at(
+        self: &Arc<Self>,
+        priority: Priority,
+        request: ListRequest,
+    ) -> Result<SessionListPage> {
         self.worker(priority, move |controller| {
             let state = controller
                 .services
@@ -487,9 +513,13 @@ impl Controller {
                 .map_err(|_| SessionReadIssue::WorkerUnavailable)?,
         };
         let read = match hooks {
-            Some(hooks) => {
-                prepared.run_contained_framed(&state.store, &helper, &state.location, workload, hooks)
-            }
+            Some(hooks) => prepared.run_contained_framed(
+                &state.store,
+                &helper,
+                &state.location,
+                workload,
+                hooks,
+            ),
             None => prepared.run_contained(&state.store, &helper, &state.location, workload),
         };
         if read.cleanup_retained() {
@@ -508,14 +538,26 @@ impl Controller {
         self.detail_at(Priority::Explicit, request).await
     }
     /// [`Controller::detail`] that gives up at `by`, waiting included.
-    pub async fn detail_by(self: &Arc<Self>, request: DetailRequest, by: Instant) -> Result<DetailReply> {
+    pub async fn detail_by(
+        self: &Arc<Self>,
+        request: DetailRequest,
+        by: Instant,
+    ) -> Result<DetailReply> {
         self.detail_at(Priority::ExplicitBy(by), request).await
     }
     /// A background [`Controller::detail`] that gives up at `by`, waiting included.
-    pub async fn detail_background_by(self: &Arc<Self>, request: DetailRequest, by: Instant) -> Result<DetailReply> {
+    pub async fn detail_background_by(
+        self: &Arc<Self>,
+        request: DetailRequest,
+        by: Instant,
+    ) -> Result<DetailReply> {
         self.detail_at(Priority::BackgroundBy(by), request).await
     }
-    async fn detail_at(self: &Arc<Self>, priority: Priority, request: DetailRequest) -> Result<DetailReply> {
+    async fn detail_at(
+        self: &Arc<Self>,
+        priority: Priority,
+        request: DetailRequest,
+    ) -> Result<DetailReply> {
         self.worker(priority, move |controller| {
             let state = controller
                 .services
@@ -572,16 +614,26 @@ impl Controller {
             let cancel = || watch.cancel.load(Ordering::Acquire);
             // The window learns the worker has started (it may have waited for a free slot).
             progress(Progress::default());
-            let hooks = Framed { body: &mut body, progress: &mut progress, cancel: &cancel };
-            let read = controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)?;
-            read.find().cloned().ok_or(SessionReadIssue::ReadUnavailable)
+            let hooks = Framed {
+                body: &mut body,
+                progress: &mut progress,
+                cancel: &cancel,
+            };
+            let read =
+                controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)?;
+            read.find()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)
         })
         .await
     }
     /// An export held whole in memory, bounded to `MAX_EXPORT_CONTENT_BYTES`: for the hop
     /// preview, which holds the whole transcript in memory by design. The file's content is the
     /// reply's prefix followed by the body.
-    pub async fn export(self: &Arc<Self>, request: ExportRequest) -> Result<(ExportReply, Vec<u8>)> {
+    pub async fn export(
+        self: &Arc<Self>,
+        request: ExportRequest,
+    ) -> Result<(ExportReply, Vec<u8>)> {
         shinatama_engine::session_export::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
         self.worker(Priority::Explicit, move |controller| {
@@ -607,7 +659,11 @@ impl Controller {
                 };
                 let mut progress = |_: Progress| {};
                 let never = || false;
-                let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &never };
+                let hooks = Framed {
+                    body: &mut sink,
+                    progress: &mut progress,
+                    cancel: &never,
+                };
                 controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)
             };
             if over {
@@ -649,12 +705,17 @@ impl Controller {
             let mut write_failed = false;
             let file_bytes = prepared.file_bytes();
             let read = {
-                let mut sink = |bytes: &[u8]| staged.write(bytes).inspect_err(|_| write_failed = true);
+                let mut sink =
+                    |bytes: &[u8]| staged.write(bytes).inspect_err(|_| write_failed = true);
                 let mut progress = |progress: Progress| (watch.emit)(progress, file_bytes);
                 let cancel = || watch.cancel.load(Ordering::Acquire);
                 // The window learns the worker has started (it may have waited for a free slot).
                 progress(Progress::default());
-                let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &cancel };
+                let hooks = Framed {
+                    body: &mut sink,
+                    progress: &mut progress,
+                    cancel: &cancel,
+                };
                 controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)
             };
             if write_failed {
@@ -860,7 +921,11 @@ pub async fn session_cancel(
 #[cfg(test)]
 mod gate_tests {
     use super::{GateRefusal, WorkerGate};
-    use std::{sync::Arc, thread, time::{Duration, Instant}};
+    use std::{
+        sync::Arc,
+        thread,
+        time::{Duration, Instant},
+    };
 
     #[test]
     fn an_explicit_read_waits_for_the_read_in_progress() {
@@ -882,8 +947,13 @@ mod gate_tests {
         let gate = Arc::new(WorkerGate::default());
         assert!(gate.try_take());
         let waiter = Arc::clone(&gate);
-        let explicit = thread::spawn(move || waiter.take_explicit(Duration::from_secs(5), || false));
-        while gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire) == 0 {
+        let explicit =
+            thread::spawn(move || waiter.take_explicit(Duration::from_secs(5), || false));
+        while gate
+            .explicit_waiting
+            .load(std::sync::atomic::Ordering::Acquire)
+            == 0
+        {
             thread::yield_now();
         }
         gate.release();
@@ -903,7 +973,11 @@ mod gate_tests {
             let _ = gate.take_explicit(Duration::from_secs(5), || panic!("blocked check failed"));
         }));
         assert!(unwound.is_err());
-        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert_eq!(
+            gate.explicit_waiting
+                .load(std::sync::atomic::Ordering::Acquire),
+            0
+        );
         gate.release();
         assert!(gate.take_background());
     }
@@ -912,9 +986,23 @@ mod gate_tests {
     fn an_explicit_wait_is_bounded_and_counted_off() {
         let gate = WorkerGate::default();
         assert!(gate.try_take());
-        assert_eq!(gate.take_explicit(Duration::from_millis(120), || false), Err(GateRefusal::TimedOut));
-        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
-        assert_eq!(gate.take_explicit(Duration::from_secs(5), || true), Err(GateRefusal::Blocked));
-        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert_eq!(
+            gate.take_explicit(Duration::from_millis(120), || false),
+            Err(GateRefusal::TimedOut)
+        );
+        assert_eq!(
+            gate.explicit_waiting
+                .load(std::sync::atomic::Ordering::Acquire),
+            0
+        );
+        assert_eq!(
+            gate.take_explicit(Duration::from_secs(5), || true),
+            Err(GateRefusal::Blocked)
+        );
+        assert_eq!(
+            gate.explicit_waiting
+                .load(std::sync::atomic::Ordering::Acquire),
+            0
+        );
     }
 }

@@ -44,9 +44,14 @@ pub enum PreviewError {
 impl std::fmt::Display for PreviewError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PreviewError::UnsupportedDestination => write!(f, "This destination has no seed channel."),
+            PreviewError::UnsupportedDestination => {
+                write!(f, "This destination has no seed channel.")
+            }
             PreviewError::Refused(reason) => write!(f, "{reason}"),
-            PreviewError::Files(message) => write!(f, "The private hand-off files could not be written: {message}"),
+            PreviewError::Files(message) => write!(
+                f,
+                "The private hand-off files could not be written: {message}"
+            ),
         }
     }
 }
@@ -68,7 +73,8 @@ pub fn sha256(bytes: &[u8]) -> String {
 fn statements(report: &SeedReport, dropped: Dropped) -> (Vec<String>, Vec<String>) {
     let carried = vec![
         "The conversation text: user and assistant messages.".to_owned(),
-        "Tool calls as one-line digests; outputs over 40 lines keep their first and last 15 lines.".to_owned(),
+        "Tool calls as one-line digests; outputs over 40 lines keep their first and last 15 lines."
+            .to_owned(),
         "The same folder: files and Git state are unchanged.".to_owned(),
         "Attachments as paths and hashes.".to_owned(),
         "Project instruction files, named in the header.".to_owned(),
@@ -80,13 +86,22 @@ fn statements(report: &SeedReport, dropped: Dropped) -> (Vec<String>, Vec<String
         "Model state and hidden reasoning.".to_owned(),
     ];
     if report.omitted_turns > 0 {
-        lost.push(format!("{} older turns are not in the seed (they stay in the full transcript).", report.omitted_turns));
+        lost.push(format!(
+            "{} older turns are not in the seed (they stay in the full transcript).",
+            report.omitted_turns
+        ));
     }
     if report.digest_turns > 0 {
-        lost.push(format!("{} middle turns are reduced to one-line digests.", report.digest_turns));
+        lost.push(format!(
+            "{} middle turns are reduced to one-line digests.",
+            report.digest_turns
+        ));
     }
     if dropped.nested_seeds > 0 {
-        lost.push(format!("{} earlier hand-off seeds are not repeated.", dropped.nested_seeds));
+        lost.push(format!(
+            "{} earlier hand-off seeds are not repeated.",
+            dropped.nested_seeds
+        ));
     }
     (carried, lost)
 }
@@ -101,13 +116,16 @@ pub fn prepare(input: PreviewInput<'_>) -> Result<Preview, PreviewError> {
     let mut facts = input.facts;
     facts.full_transcript = Some(paths.full.display().to_string());
     if facts.destination_instruction_file.is_none() {
-        facts.destination_instruction_file = channel::instruction_file_for(&destination).map(str::to_owned);
+        facts.destination_instruction_file =
+            channel::instruction_file_for(&destination).map(str::to_owned);
     }
     let history = history::normalize(input.items);
-    let seed = seed::render(&history, &facts, &nonce, input.window_tokens).map_err(PreviewError::Refused)?;
+    let seed = seed::render(&history, &facts, &nonce, input.window_tokens)
+        .map_err(PreviewError::Refused)?;
     let full = seed::render_full(&history, &facts, &nonce);
     let bootstrap = channel::bootstrap(&nonce, &paths.seed, history.last_user());
-    files::write_handoff(&paths, &seed.text, &full).map_err(|e| PreviewError::Files(e.to_string()))?;
+    files::write_handoff(&paths, &seed.text, &full)
+        .map_err(|e| PreviewError::Files(e.to_string()))?;
     let mut redactions = input.export_redactions.clone();
     for (kind, count) in &history.redactions {
         *redactions.entry(kind.clone()).or_insert(0) += count;
@@ -140,7 +158,8 @@ pub fn prepare(input: PreviewInput<'_>) -> Result<Preview, PreviewError> {
 /// must still hold the previewed seed.
 pub fn verify_send(preview: &Preview, bootstrap: &[u8]) -> bool {
     sha256(bootstrap) == preview.bootstrap_sha256
-        && std::fs::read(&preview.seed_path).is_ok_and(|bytes| sha256(&bytes) == preview.seed_sha256)
+        && std::fs::read(&preview.seed_path)
+            .is_ok_and(|bytes| sha256(&bytes) == preview.seed_sha256)
 }
 
 #[cfg(all(test, windows))]
@@ -151,10 +170,16 @@ mod tests {
 
     #[test]
     fn preview_bytes_match_the_files_and_tampering_is_detected() {
-        let base = std::env::temp_dir().join(format!("shinatama-preview-{}", uuid::Uuid::new_v4().simple()));
+        let base = std::env::temp_dir().join(format!(
+            "shinatama-preview-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
         std::fs::create_dir_all(base.join("data")).unwrap();
         let items = [
-            item(ItemKind::UserText, "first task with key ghp_0123456789abcdefABCDEF0123456789abcd"),
+            item(
+                ItemKind::UserText,
+                "first task with key ghp_0123456789abcdefABCDEF0123456789abcd",
+            ),
             item(ItemKind::AssistantText, "Done."),
             item(ItemKind::UserText, "next: /compact then continue"),
         ];
@@ -162,7 +187,13 @@ mod tests {
         export.insert("api_key".into(), 2);
         let preview = prepare(PreviewInput {
             items: &items,
-            facts: HeaderFacts { source_agent: "claude_code".into(), source_session: "s1".into(), destination_agent: "codex".into(), time: "t".into(), ..Default::default() },
+            facts: HeaderFacts {
+                source_agent: "claude_code".into(),
+                source_session: "s1".into(),
+                destination_agent: "codex".into(),
+                time: "t".into(),
+                ..Default::default()
+            },
             window_tokens: None,
             export_redactions: &export,
             project: None,
@@ -170,24 +201,40 @@ mod tests {
         })
         .unwrap();
         assert_eq!(preview.channel, SeedChannel::ArgvPrompt);
-        assert_eq!(std::fs::read_to_string(&preview.seed_path).unwrap(), preview.seed);
+        assert_eq!(
+            std::fs::read_to_string(&preview.seed_path).unwrap(),
+            preview.seed
+        );
         assert!(preview.seed.contains(&preview.full_path));
         assert!(!preview.seed.contains("ghp_0123"));
         assert_eq!(preview.redactions.get("github_token"), Some(&1));
         assert_eq!(preview.redactions.get("api_key"), Some(&2));
         assert!(verify_send(&preview, preview.bootstrap.as_bytes()));
         assert!(!verify_send(&preview, b"something else"));
-        std::fs::OpenOptions::new().append(true).open(&preview.seed_path).map(|mut f| std::io::Write::write_all(&mut f, b"x")).unwrap().unwrap();
-        assert!(!verify_send(&preview, preview.bootstrap.as_bytes()), "a changed seed file is refused");
-        assert!(prepare(PreviewInput {
-            items: &items,
-            facts: HeaderFacts { destination_agent: "gemini".into(), ..Default::default() },
-            window_tokens: None,
-            export_redactions: &export,
-            project: None,
-            data_dir: &base.join("data"),
-        })
-        .is_err());
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&preview.seed_path)
+            .map(|mut f| std::io::Write::write_all(&mut f, b"x"))
+            .unwrap()
+            .unwrap();
+        assert!(
+            !verify_send(&preview, preview.bootstrap.as_bytes()),
+            "a changed seed file is refused"
+        );
+        assert!(
+            prepare(PreviewInput {
+                items: &items,
+                facts: HeaderFacts {
+                    destination_agent: "gemini".into(),
+                    ..Default::default()
+                },
+                window_tokens: None,
+                export_redactions: &export,
+                project: None,
+                data_dir: &base.join("data"),
+            })
+            .is_err()
+        );
         std::fs::remove_dir_all(base).unwrap();
     }
 }

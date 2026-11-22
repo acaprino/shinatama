@@ -65,7 +65,9 @@ pub async fn session_export(
     request_id: Option<String>,
 ) -> Result<ExportOutcome, SessionReadIssue> {
     super::local(&window)?;
-    if request.fingerprint.len() != 64 || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit()) {
+    if request.fingerprint.len() != 64
+        || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit())
+    {
         return Err(SessionReadIssue::InvalidRequest);
     }
     let home = (request.mode == Mode::Portable)
@@ -100,7 +102,11 @@ pub async fn session_export(
         .file()
         .set_parent(&window)
         .set_title("Export session")
-        .set_file_name(format!("{}{}", worker_request.detail.native_id, format.extension()))
+        .set_file_name(format!(
+            "{}{}",
+            worker_request.detail.native_id,
+            format.extension()
+        ))
         .add_filter(
             shinatama_export::formats::declaration(format, false).label,
             &[extension.as_str()],
@@ -131,7 +137,11 @@ pub async fn session_export(
     // Watched from the moment the worker starts: its progress is sent to the window and a cancel
     // stops it. The id is registered only now, so a cancel before the dialog closes finds nothing.
     let (watch, _guard) = controller.inner().watch(&window, "export", request_id)?;
-    let (reply, staged) = match controller.inner().export_staged(worker_request, staged, watch).await {
+    let (reply, staged) = match controller
+        .inner()
+        .export_staged(worker_request, staged, watch)
+        .await
+    {
         Ok(StagedExport::Done { reply, staged }) => (reply, staged),
         Ok(StagedExport::WriteFailed) => {
             return Ok(ExportOutcome::Refused {
@@ -161,18 +171,20 @@ pub async fn session_export(
     };
     tauri::async_runtime::spawn_blocking(move || {
         // The native Save dialog already asked before replacing an existing file.
-        Ok(match shinatama_engine::session_export::commit_export(staged, &payload) {
-            Ok(receipt) => ExportOutcome::Saved {
-                path: receipt.path.display().to_string(),
-                bytes: receipt.bytes,
-                sha256: receipt.sha256,
-                attachments: receipt.attachments,
-                report: Box::new(payload.report),
+        Ok(
+            match shinatama_engine::session_export::commit_export(staged, &payload) {
+                Ok(receipt) => ExportOutcome::Saved {
+                    path: receipt.path.display().to_string(),
+                    bytes: receipt.bytes,
+                    sha256: receipt.sha256,
+                    attachments: receipt.attachments,
+                    report: Box::new(payload.report),
+                },
+                Err(error) => ExportOutcome::Refused {
+                    issue: format!("write_failed:{error:?}"),
+                },
             },
-            Err(error) => ExportOutcome::Refused {
-                issue: format!("write_failed:{error:?}"),
-            },
-        })
+        )
     })
     .await
     .map_err(|_| SessionReadIssue::WorkerUnavailable)?

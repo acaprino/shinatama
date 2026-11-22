@@ -782,10 +782,8 @@ fn launch_digest(launch: &PreparedLaunch) -> Result<[u8; 32], NativeLaunchError>
             ("SHINATAMA_INSTANCE", &mut instance),
             ("SHINATAMA_THREAD", &mut thread),
         ] {
-            if name.eq_ignore_ascii_case(reserved) {
-                if slot.replace(value).is_some() {
-                    return Err(NativeLaunchError::InvalidIdentity);
-                }
+            if name.eq_ignore_ascii_case(reserved) && slot.replace(value).is_some() {
+                return Err(NativeLaunchError::InvalidIdentity);
             }
         }
     }

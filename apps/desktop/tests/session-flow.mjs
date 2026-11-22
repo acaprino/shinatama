@@ -50,8 +50,9 @@ export async function startSession(page, { project, harness, trigger = page.loca
     /** The product's refusal text, or null: the sheet's inline error, or the error notice of the menu route. */
     refusal: async () => {
       if (await sheet.isVisible() && await inline.isVisible()) return (await inline.innerText()).replace(/[\r\n]+/g, ' ').trim();
-      const notice = page.locator('#notice[data-tone="error"]');
-      return await notice.isVisible() ? (await notice.locator('span').first().innerText()).replace(/[\r\n]+/g, ' ').trim() : null;
+      // The newest error notice (Imago keeps up to three).
+      const notice = page.locator('.im-notice[data-im-tone="err"]').last();
+      return await notice.isVisible() ? (await notice.locator('.im-notice-text').innerText()).replace(/[\r\n]+/g, ' ').trim() : null;
     },
     /** Waits for the open to finish; throws with the product's text if it was refused. */
     done: milliseconds => until(async () => {
@@ -66,13 +67,38 @@ export async function startSession(page, { project, harness, trigger = page.loca
  * ('left' | 'right' | 'top' | 'bottom' split the pane there, 'center' joins its tabs).
  * Waits for the drop preview first, so a refused drop fails here instead of later. */
 export async function dragTab(page, tab, pane, where) {
-  const from = await tab.boundingBox(); const body = await pane.locator('.wm-body').boundingBox();
+  // A narrow pane scrolls its tab strip: a person brings the tab into view before taking it.
+  await tab.scrollIntoViewIfNeeded();
+  const from = await tab.boundingBox(); const body = await pane.locator('.im-tile-body').boundingBox();
   if (!from || !body) throw new Error('The tab or the target pane is not on screen.');
   const fraction = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9], center: [0.5, 0.5] }[where];
   if (!fraction) throw new Error('Unknown drop side: ' + where);
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
   await page.mouse.move(body.x + body.width * fraction[0], body.y + body.height * fraction[1], { steps: 12 });
-  await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.');
+  try { await until(() => page.locator('.im-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.'); }
+  catch (failure) {
+    // Whether the gesture started, the dragged tab survived a re-render, or input was held by a layer.
+    const state = await tab.evaluate(node => ({
+      connected: node.isConnected, dragging: node.classList.contains('im-tile-tab-dragging'),
+      hostDragging: !!document.querySelector('.im-dragging'),
+      openModals: [...document.querySelectorAll('dialog[open][aria-modal="true"]')].map(dialog => dialog.id),
+      openDialogs: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
+      // What the press landed on: the tab itself, a child, or something drawn over it.
+      underPress: (() => {
+        const box = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        const rect = element => { const b = element.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
+        const path = []; for (let n = hit; n && n !== document.body && path.length < 6; n = n.parentElement) path.push(n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + '.' + String(n.className).trim().split(/\s+/).slice(0, 3).join('.'));
+        return { path: path.join(' < '), hitRect: hit && rect(hit), tabRect: rect(node), viewport: [innerWidth, innerHeight], insideTab: !!hit && node.contains(hit) };
+      })(),
+      tabPointerEvents: getComputedStyle(node).pointerEvents,
+      splitters: [...document.querySelectorAll('.im-tile-splitter')].slice(0, 6).map(splitter => {
+        const box = splitter.getBoundingClientRect(); return [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)];
+      }),
+    })).catch(error => ({ tabGone: String(error).slice(0, 200) }));
+    await page.mouse.up();
+    throw new Error(failure.message + ' ' + JSON.stringify(state));
+  }
   await page.mouse.up();
 }
 
@@ -81,8 +107,8 @@ export async function showProject(page, projectId) {
   const group = page.locator(`.thread-sidebar-group[data-project-id="${projectId}"]`);
   if (!await group.count()) {
     await page.locator('#project').click();
-    await page.locator(`#project-menu .toolbar-menu-tick[data-project-id="${projectId}"]`).click();
-    await page.keyboard.press('Escape');
+    await page.locator(`#project-menu [data-im-mark="${projectId}"]`).click();
+    await page.locator('#project').click();
   }
   await until(() => group.isVisible(), 10000, 'The project did not appear in the thread sidebar.');
 }

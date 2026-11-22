@@ -5,7 +5,10 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -96,30 +99,30 @@ try {
   // UI: the Files button opens the panel, a Markdown file renders in split view.
   await page.locator('#open-files').click();
   await expect(page.locator('#files-dialog')).toBeVisible();
-  await page.locator('#files-dialog .files-list button', { hasText: 'README.md' }).click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'README.md' }).click();
   await expect(page.locator('#files-dialog .files-preview h1')).toHaveText('Mine', { timeout: 10000 });
-  await page.locator('#files-dialog .files-editor').fill('# Edited\n\nbody');
+  await page.locator('#files-dialog .cm-content').fill('# Edited\n\nbody');
   await expect(page.locator('#files-dialog .files-preview h1')).toHaveText('Edited', { timeout: 10000 });
-  await page.locator('#files-dialog button.primary', { hasText: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('#files-dialog .files-status')).toHaveText('Saved.', { timeout: 10000 });
   expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Edited\n\nbody');
   evidence.checks.panelPreviewEditSave = true;
-  await page.locator('#files-dialog .files-modes button', { hasText: 'Visual' }).click();
+  await page.locator('label').filter({ has: page.getByRole('radio', { name: 'Visual' }) }).click();
   const headingField = page.locator('#files-dialog .files-visual input.files-visual-heading');
   await expect(headingField).toHaveValue('Edited', { timeout: 10000 });
   await headingField.fill('Visual title');
   await expect(page.locator('#files-dialog .files-status')).toHaveText('Edited visually; Save writes the file.', { timeout: 10000 });
-  await page.locator('#files-dialog button.primary', { hasText: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('#files-dialog .files-status')).toHaveText('Saved.', { timeout: 10000 });
   expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Visual title\n\nbody');
   evidence.checks.visualHeadingEditSaved = true;
-  await page.locator('#files-dialog .files-list button', { hasText: 'docs' }).click();
-  await page.locator('#files-dialog .files-list button', { hasText: 'dot.png' }).click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'docs' }).click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'dot.png' }).click();
   await expect(page.locator('#files-dialog .files-picture img')).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('#files-dialog .files-status')).toContainText('1 x 1 pixels');
+  await expect(page.locator('#files-dialog .files-status')).toContainText('1 × 1 pixels');
   evidence.checks.panelShowsImage = true;
-  await page.locator('#files-dialog .files-list button', { hasText: 'list.md' }).click();
-  await expect(page.locator('#files-dialog .files-modes button', { hasText: 'Visual' })).toBeDisabled({ timeout: 10000 });
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'list.md' }).click();
+  await expect(page.getByRole('radio', { name: 'Visual' })).toBeDisabled({ timeout: 10000 });
   evidence.checks.visualUnavailableForUnsupportedMarkdown = true;
   evidence.status = 'pass';
 } catch (error) {

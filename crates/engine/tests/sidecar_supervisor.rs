@@ -52,10 +52,11 @@ use windows_sys::Win32::{
         JobObjects::{IsProcessInJob, OpenJobObjectW},
         Pipes::PeekNamedPipe,
         Threading::{
-            GetPriorityClass, HIGH_PRIORITY_CLASS, GetProcessIdOfThread, GetProcessTimes, GetThreadTimes, OpenProcess, OpenThread,
-            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
-            ResumeThread, SuspendThread, THREAD_QUERY_LIMITED_INFORMATION, THREAD_SUSPEND_RESUME,
-            TerminateProcess, WaitForSingleObject,
+            GetPriorityClass, GetProcessIdOfThread, GetProcessTimes, GetThreadTimes,
+            HIGH_PRIORITY_CLASS, OpenProcess, OpenThread, PROCESS_QUERY_LIMITED_INFORMATION,
+            PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, ResumeThread, SuspendThread,
+            THREAD_QUERY_LIMITED_INFORMATION, THREAD_SUSPEND_RESUME, TerminateProcess,
+            WaitForSingleObject,
         },
     },
 };
@@ -402,7 +403,10 @@ fn wait_status(
 ) -> ProofResult<Snapshot> {
     loop {
         if Instant::now() >= deadline {
-            return Err(format!("supervisor observation deadline: expected {expected:?}, observed {:?}", supervisor.status()));
+            return Err(format!(
+                "supervisor observation deadline: expected {expected:?}, observed {:?}",
+                supervisor.status()
+            ));
         }
         if let Some(snapshot) = supervisor.status() {
             if snapshot.phase == expected && condition(&snapshot) {
@@ -621,8 +625,10 @@ fn real_owner_busy_keeps_identity_and_recovers_repeated_exits_on_same_port() {
 }
 fn qualify(fixture: &Fixture) -> ProofResult<Value> {
     let location = fixture.location();
-    let db = Arc::new(Database::open(&location, None)
-        .map_err(|error| format!("open private supervisor ledger: {error:?}"))?);
+    let db = Arc::new(
+        Database::open(&location, None)
+            .map_err(|error| format!("open private supervisor ledger: {error:?}"))?,
+    );
     let reserved = safe(
         TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)),
         "reserve private CLI port",
@@ -713,6 +719,8 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
                 cleanup_timeout: Duration::from_secs(2),
                 reservation_lease: Duration::from_secs(15),
                 drain_timeout: Duration::from_secs(30),
+                maintenance_at_start: Duration::ZERO,
+                maintenance_command_timeout: Duration::from_secs(120),
             },
             provider,
         ),
@@ -803,16 +811,23 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
             "second exit did not recover automatically exactly once",
         )?;
         let third = ExactChild::open(recovered_again.pid.unwrap(), jobs.lock().unwrap()[2])?;
-        check(unsafe { GetPriorityClass(third.process.as_raw_handle()) } == HIGH_PRIORITY_CLASS,
-            "recovered proxy does not have High process priority")?;
+        check(
+            unsafe { GetPriorityClass(third.process.as_raw_handle()) } == HIGH_PRIORITY_CLASS,
+            "recovered proxy does not have High process priority",
+        )?;
         third.crash()?;
         wait_status(&supervisor, deadline, Phase::Recovering, |value| {
             value.reason == Reason::ProcessExited && value.process_alive == Some(false)
         })?;
-        supervisor.request(Command::Stop).map_err(|_| "stop pending recovery")?;
+        supervisor
+            .request(Command::Stop)
+            .map_err(|_| "stop pending recovery")?;
         wait_status(&supervisor, deadline, Phase::Stopped, |_| true)?;
         thread::sleep(Duration::from_secs(9)); // Past the pending eight-second recovery deadline.
-        check(calls.load(Ordering::Acquire) == 4, "Stop did not cancel pending recovery")?;
+        check(
+            calls.load(Ordering::Acquire) == 4,
+            "Stop did not cancel pending recovery",
+        )?;
         check(
             safe(fs::read(&marker), "read saved marker")? == b"saved-before-supervision",
             "saved fixture work changed",

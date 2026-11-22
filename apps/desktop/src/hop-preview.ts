@@ -1,6 +1,7 @@
+import { uiPart, uiButton, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
-import './hop-preview.css';
 
 export type HopSelection = { root: SessionRootSelector; nativeId: string; fingerprint: string; harness: string };
 type Report = { turns_total: number; verbatim_turns: number; digest_turns: number; omitted_turns: number; clipped_outputs: number;
@@ -18,33 +19,33 @@ const AGENTS: [string, string][] = [['claude_code', 'Claude Code'], ['codex', 'C
 
 /** The preview is the exact seed: what is shown here is byte for byte what a hop sends (R06). */
 export function createHopPreview(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'hop-preview-dialog'; dialog.setAttribute('aria-labelledby', 'hop-preview-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'hop-preview-title'; title.textContent = 'Hop to another agent';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close hop preview'); heading.append(title, closeButton);
-  const source = document.createElement('p'); source.className = 'hint';
-  const row = document.createElement('div'); row.className = 'hop-preview-row';
-  const label = document.createElement('label'); label.textContent = 'Destination ';
-  const select = document.createElement('select'); label.append(select);
-  const prepare = document.createElement('button'); prepare.type = 'button'; prepare.className = 'primary'; prepare.textContent = 'Prepare preview';
+  const dialog = uiPart('dialog'); dialog.id = 'hop-preview-dialog'; dialog.setAttribute('aria-labelledby', 'hop-preview-title');
+  const heading = uiPart('header'); heading.classList.add('dialog-heading');
+  const title = uiPart('title'); title.id = 'hop-preview-title'; title.textContent = 'Hop to another agent';
+  const closeButton = closeControl('Close hop preview'); heading.append(title, closeButton);
+  const source = uiPart('hint');
+  const row = uiPart('row');
+  const label = uiPart('label', 'Destination ');
+  const select = uiSelect(); label.append(select);
+  const prepare = uiButton('Prepare preview', { primary: true });
   row.append(label, prepare);
-  const status = document.createElement('p'); status.className = 'hop-preview-status'; status.setAttribute('role', 'status');
-  const facts = document.createElement('dl'); facts.className = 'hop-preview-facts';
-  const lists = document.createElement('div'); lists.className = 'hop-preview-lists';
-  const seed = document.createElement('pre'); seed.className = 'hop-preview-seed'; seed.tabIndex = 0; seed.setAttribute('aria-label', 'Exact seed');
-  const actions = document.createElement('div'); actions.className = 'hop-preview-actions';
-  const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy hand-off prompt';
-  const send = document.createElement('button'); send.type = 'button'; send.className = 'primary'; send.textContent = 'Hop';
+  const status = uiPart('status');
+  const facts = uiPart('descriptionList');
+  const lists = uiPart('stack');
+  const seed = uiTraits(uiPart('pre'), 'bounded'); seed.tabIndex = 0; seed.setAttribute('aria-label', 'Exact seed');
+  const actions = uiPart('actions');
+  const copy = uiButton('Copy hand-off prompt');
+  const send = uiButton('Hop', { primary: true });
   actions.append(copy); if (options.send) actions.append(send);
-  const hint = document.createElement('p'); hint.className = 'hint';
+  const hint = uiPart('hint');
   hint.textContent = 'Nothing is sent until you confirm. The prompt tells the destination to read the private seed file; reasoning is never included.';
   dialog.append(heading, source, row, status, facts, lists, seed, actions, hint);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let selection: HopSelection | null = null; let current: HopPreview | null = null; let busy = false; let generation = 0;
-  function fact(name: string, value: string) { const k = document.createElement('dt'); k.textContent = name; const v = document.createElement('dd'); v.textContent = value; facts.append(k, v); }
+  function fact(name: string, value: string) { const k = uiPart('term', name); const v = uiPart('definition', value); facts.append(k, v); }
   function list(name: string, items: string[]) {
-    const section = document.createElement('section'); const h = document.createElement('h2'); h.textContent = name; const ul = document.createElement('ul');
-    for (const item of items) { const li = document.createElement('li'); li.textContent = item; ul.append(li); }
+    const section = uiPart('region'); const h = uiPart('heading', name); const ul = uiPart('list');
+    for (const item of items) { const li = uiPart('item', item); ul.append(li); }
     section.append(h, ul); lists.append(section);
   }
   function render() {
@@ -92,12 +93,12 @@ export function createHopPreview(options: Options) {
   };
   select.onchange = () => { current = null; status.textContent = ''; render(); };
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { generation++; busy = false; selection = null; current = null; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; busy = false; selection = null; current = null; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   function show(value: HopSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint)) { options.reportError('This session cannot be handed off safely.'); return; }
     selection = { ...value, root: { ...value.root } }; current = null;
     select.replaceChildren();
-    for (const [id, name] of AGENTS) { if (id === value.harness) continue; const option = document.createElement('option'); option.value = id; option.textContent = name; select.append(option); }
+    for (const [id, name] of AGENTS) { if (id === value.harness) continue; const option = uiOption(id, name); select.append(option); }
     source.textContent = `From ${value.harness} · session ${value.nativeId}`; status.dataset.state = 'ready'; status.textContent = 'Choose a destination, then Prepare preview.';
     render(); if (!dialog.open) openModal(dialog); select.focus();
   }

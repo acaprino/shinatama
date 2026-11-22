@@ -1,4 +1,4 @@
-import './instances-overview.css';
+import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 
 type Git = { state: 'known'; branch: string | null; dirty: number; untracked: number } | { state: 'not_repository' } | { state: 'unknown'; reason: string };
 export type InstanceRow = { id: string; agent: string; cwd: string; state: string; stateSource: string; certain: boolean; git: Git; usage: string };
@@ -30,9 +30,6 @@ const SUMMARY: [string, string][] = [['attention_requested', 'asking for attenti
 
 export const agentName = (agent: string) => AGENTS[agent] ?? agent;
 const count = (value: number) => value.toLocaleString();
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
-}
 function gitText(git: Git) {
   if (git.state === 'known') return `${git.branch ?? 'detached'} · ${git.dirty + git.untracked ? `${git.dirty} changed, ${git.untracked} untracked` : 'clean'}`;
   return git.state === 'not_repository' ? 'no Git' : 'Git unknown';
@@ -55,45 +52,45 @@ export function summaryLine(rows: { state: string }[]): string {
 /** The running instances as a section of the Sessions panel: state with its source, branch and a
  * Focus action only (FRD-0010 R14). The panel owns the heading, the status line and the refresh. */
 export function createInstancesSection(options: Options) {
-  const element = el('div', 'instances-section');
-  const warnings = el('div', 'instances-warnings'); warnings.setAttribute('role', 'group'); warnings.setAttribute('aria-label', 'Possible conflicts'); warnings.hidden = true;
-  const list = el('ul', 'instances-list'); list.setAttribute('aria-label', 'Running sessions');
-  const timelineHeading = el('h3', 'instances-subheading', 'Recent hops'); timelineHeading.hidden = true;
-  const timeline = el('ol', 'instances-timeline');
+  const element = uiPart('stack');
+  const warnings = uiPart('stack'); warnings.setAttribute('role', 'group'); warnings.setAttribute('aria-label', 'Possible conflicts'); warnings.hidden = true;
+  const list = uiPart('list'); list.setAttribute('aria-label', 'Running sessions');
+  const timelineHeading = uiPart('subheading', 'Recent hops'); timelineHeading.hidden = true;
+  const timeline = uiTraits(uiPart('orderedList'), 'scroll', 'bounded');
   element.append(warnings, list, timelineHeading, timeline);
 
-  const legend = el('p', 'instances-legend');
-  const certain = el('span', 'instances-legend-item'); certain.append(el('i', 'instances-marker certain'), 'Certain, from the process');
-  const inferred = el('span', 'instances-legend-item'); inferred.append(el('i', 'instances-marker'), 'Inferred from the terminal');
-  legend.append(certain, inferred, el('span', 'instances-legend-note', 'States come only from what Shinatama observed. Running states are unsure until native agent hooks are connected; a terminal signal never approves anything.'));
+  const legend = uiPart('paragraph');
+  const certain = uiPart('text'); certain.append('● Certain, from the process');
+  const inferred = uiPart('text'); inferred.append('○ Inferred from the terminal');
+  legend.append(certain, inferred, uiPart('text', 'States come only from what Shinatama observed. Running states are unsure until native agent hooks are connected; a terminal signal never approves anything.'));
   // Activity titles are switched on and off in Settings (settings-panel.ts), with every other preference.
 
   let reading = false; let drawn = ''; let revision = 0; let rows: Row[] = []; let query = '';
 
   function instance(row: Row, titles: Titles | null): HTMLLIElement {
-    const item = el('li', 'instances-item'); item.dataset.instanceId = row.id; item.dataset.state = row.state;
-    const marker = el('i', `instances-marker${row.certain ? ' certain' : ''}`); marker.setAttribute('aria-hidden', 'true');
-    const head = el('div', 'instances-head');
-    const name = el('span', 'instances-agent', agentName(row.agent));
-    const tag = el('span', 'instances-id', row.id.slice(-4)); tag.title = row.id;
-    const actions = el('div', 'instances-actions');
+    const item = uiPart('item'); item.classList.add('instances-item'); item.dataset.instanceId = row.id; item.dataset.state = row.state;
+    const marker = uiPart('text', row.certain ? '●' : '○'); marker.setAttribute('aria-hidden', 'true');
+    const head = uiPart('row');
+    const name = uiPart('text', agentName(row.agent));
+    const tag = uiPart('text', row.id.slice(-4)); tag.title = row.id;
+    const actions = uiPart('actions');
     const thread = options.threadOf(row.id);
     if (thread) {
       const paused = titles?.excluded.includes(thread) ?? false;
-      const toggle = el('button', 'instances-quiet', paused ? 'Resume summaries' : 'Pause summaries'); toggle.type = 'button'; toggle.dataset.key = `${row.id}:summaries`;
+      const toggle = uiButton(paused ? 'Resume summaries' : 'Pause summaries'); toggle.dataset.key = `${row.id}:summaries`;
       toggle.onclick = async () => { toggle.disabled = true; await options.invoke('thread_summaries_pause', { threadId: thread, paused: !paused }).catch(() => {}); void load(true).catch(() => {}); };
       actions.append(toggle);
     }
-    const focus = el('button', '', 'Focus'); focus.type = 'button'; focus.dataset.key = `${row.id}:focus`;
+    const focus = uiButton('Focus'); focus.dataset.key = `${row.id}:focus`;
     focus.setAttribute('aria-label', `Focus ${agentName(row.agent)} ${row.id.slice(-4)}`);
     focus.onclick = () => { if (options.focus(row.id)) options.focused(); else options.notice('This instance has no pane in this window.'); };
     actions.append(focus);
     head.append(name, tag, actions);
-    const state = el('p', 'instances-state');
-    state.append(el('span', 'instances-state-name', STATES[row.state] ?? row.state), el('span', 'instances-state-source', ` · ${SOURCES[row.stateSource] ?? row.stateSource}`));
-    const facts = el('dl', 'instances-facts');
+    const state = uiPart('paragraph'); state.classList.add('instances-state');
+    state.append(uiPart('text', STATES[row.state] ?? row.state), uiPart('text', ` · ${SOURCES[row.stateSource] ?? row.stateSource}`));
+    const facts = uiPart('descriptionList');
     const fact = (label: string, value: string, className = '') => {
-      const term = el('dt', '', label); const detail = el('dd', className, value); detail.title = value; facts.append(term, detail);
+      const term = uiPart('term', label); const detail = uiPart('definition', value); if (className) detail.classList.add(className); detail.title = value; facts.append(term, detail);
     };
     fact('Folder', row.cwd, 'path');
     fact('Git', gitText(row.git), row.git.state === 'known' ? '' : 'muted');
@@ -108,7 +105,7 @@ export function createInstancesSection(options: Options) {
 
   function collision(entry: Collision, known: Row[]): HTMLLIElement {
     const name = (id: string) => { const row = known.find(candidate => candidate.id === id); return row ? `${agentName(row.agent)} (${id.slice(-4)})` : id; };
-    const item = el('li'); const path = el('code', '', entry.path);
+    const item = uiPart('item'); const path = uiPart('code', entry.path);
     if (entry.kind === 'file_collision') item.append(`Both ${entry.instances.map(name).join(' and ')} changed `, path);
     else item.append(path, " changed and no instance's own edits name it (possible collision)");
     return item;
@@ -140,14 +137,14 @@ export function createInstancesSection(options: Options) {
       const focused = (document.activeElement as HTMLElement | null)?.dataset?.key;
       const collisions = titles?.collisions ?? [];
       warnings.hidden = !collisions.length;
-      const warningList = el('ul'); warningList.append(...collisions.map(entry => collision(entry, next)));
-      warnings.replaceChildren(el('h3', 'instances-warnings-title', collisions.length === 1 ? 'Possible conflict' : 'Possible conflicts'), warningList);
+      const warningList = uiPart('list'); warningList.append(...collisions.map(entry => collision(entry, next)));
+      warnings.replaceChildren(uiPart('subheading', collisions.length === 1 ? 'Possible conflict' : 'Possible conflicts'), warningList);
       list.replaceChildren(...next.map(row => instance(row, titles)));
       list.hidden = !next.length;
       timelineHeading.hidden = !hops.length;
       timeline.replaceChildren(...hops.map(hop => {
-        const item = el('li'); const time = el('time', 'instances-hop-time', hopTime(hop.updatedAtMs)); time.dateTime = new Date(hop.updatedAtMs).toISOString();
-        item.append(time, el('span', 'instances-hop-route', `${agentName(hop.sourceAgent)} → ${agentName(hop.destinationAgent)}`), el('span', 'instances-hop-state', `${hop.mode} · ${hop.state}`));
+        const item = uiPart('item'); const time = uiPart('time', hopTime(hop.updatedAtMs)); time.dateTime = new Date(hop.updatedAtMs).toISOString();
+        item.append(time, uiPart('text', `${agentName(hop.sourceAgent)} → ${agentName(hop.destinationAgent)}`), uiPart('text', `${hop.mode} · ${hop.state}`));
         return item;
       }));
       applyFilter();

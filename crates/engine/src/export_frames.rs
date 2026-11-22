@@ -92,7 +92,11 @@ impl<W: Write> FrameWriter<W> {
     }
 
     fn frame(&mut self, tag: u8, payload_from_pending: bool, payload: &[u8]) -> io::Result<()> {
-        let length = if payload_from_pending { self.pending.len() } else { payload.len() };
+        let length = if payload_from_pending {
+            self.pending.len()
+        } else {
+            payload.len()
+        };
         let mut header = [tag, 0, 0, 0, 0];
         header[1..].copy_from_slice(&(length as u32).to_le_bytes());
         self.out.write_all(&header)?;
@@ -194,8 +198,14 @@ impl FrameParser {
                 }
                 self.body_bytes += length as u64;
             } else if tag == TAG_PROGRESS {
-                let field = |at: usize| u64::from_le_bytes(payload[at..at + 8].try_into().expect("8 bytes"));
-                let progress = Progress { entries: field(0), bytes: field(8), hits: field(16) };
+                let field = |at: usize| {
+                    u64::from_le_bytes(payload[at..at + 8].try_into().expect("8 bytes"))
+                };
+                let progress = Progress {
+                    entries: field(0),
+                    bytes: field(8),
+                    hits: field(16),
+                };
                 if let Err(error) = on_event(Event::Progress(progress)) {
                     break Err(Err(error));
                 }
@@ -232,7 +242,9 @@ mod tests {
 
     #[test]
     fn frames_are_bounded_round_trip_and_arrive_in_any_split() {
-        let body: Vec<u8> = (0..(2 * MAX_BODY_FRAME + 1234)).map(|i| (i % 251) as u8).collect();
+        let body: Vec<u8> = (0..(2 * MAX_BODY_FRAME + 1234))
+            .map(|i| (i % 251) as u8)
+            .collect();
         let bytes = wire(&body, b"{\"done\":true}");
         // Three body frames (1 MiB, 1 MiB, 1234) then the final one.
         assert_eq!(bytes.len(), body.len() + 3 * HEADER + HEADER + 13);
@@ -251,7 +263,10 @@ mod tests {
                         Ok(())
                     })
                     .unwrap();
-                assert!(buffer.len() <= MAX_BODY_FRAME + HEADER, "at most one frame is held");
+                assert!(
+                    buffer.len() <= MAX_BODY_FRAME + HEADER,
+                    "at most one frame is held"
+                );
             }
             assert_eq!(got, body);
             assert_eq!(parser.final_frame(), Some(&b"{\"done\":true}"[..]));
@@ -264,15 +279,24 @@ mod tests {
     fn unknown_tags_oversized_frames_and_trailing_bytes_are_refused() {
         let mut parser = FrameParser::new();
         let mut buffer = vec![9, 1, 0, 0, 0, 0];
-        assert!(matches!(parser.take::<()>(&mut buffer, &mut |_| Ok(())), Err(Ok(FrameError::Malformed))));
+        assert!(matches!(
+            parser.take::<()>(&mut buffer, &mut |_| Ok(())),
+            Err(Ok(FrameError::Malformed))
+        ));
         let mut parser = FrameParser::new();
         let mut buffer = vec![TAG_BODY];
         buffer.extend_from_slice(&((MAX_BODY_FRAME as u32) + 1).to_le_bytes());
-        assert!(matches!(parser.take::<()>(&mut buffer, &mut |_| Ok(())), Err(Ok(FrameError::Malformed))));
+        assert!(matches!(
+            parser.take::<()>(&mut buffer, &mut |_| Ok(())),
+            Err(Ok(FrameError::Malformed))
+        ));
         let mut parser = FrameParser::new();
         let mut buffer = wire(b"abc", b"{}");
         buffer.push(0);
-        assert!(matches!(parser.take::<()>(&mut buffer, &mut |_| Ok(())), Err(Ok(FrameError::Trailing))));
+        assert!(matches!(
+            parser.take::<()>(&mut buffer, &mut |_| Ok(())),
+            Err(Ok(FrameError::Trailing))
+        ));
     }
 
     #[test]
@@ -302,14 +326,27 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-        assert!((3..=4).contains(&seen.len()), "{} frames in 1.1 s", seen.len());
-        assert!(seen.windows(2).all(|pair| pair[0].entries < pair[1].entries));
-        assert!(seen.iter().all(|p| p.bytes == 5000 && p.hits == p.entries / 10));
+        assert!(
+            (3..=4).contains(&seen.len()),
+            "{} frames in 1.1 s",
+            seen.len()
+        );
+        assert!(
+            seen.windows(2)
+                .all(|pair| pair[0].entries < pair[1].entries)
+        );
+        assert!(
+            seen.iter()
+                .all(|p| p.bytes == 5000 && p.hits == p.entries / 10)
+        );
         assert!(parser.final_frame().is_some());
         // A progress frame of any other length is refused.
         let mut parser = FrameParser::new();
         let mut buffer = vec![TAG_PROGRESS, 8, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8];
-        assert!(matches!(parser.take::<()>(&mut buffer, &mut |_| Ok(())), Err(Ok(FrameError::Malformed))));
+        assert!(matches!(
+            parser.take::<()>(&mut buffer, &mut |_| Ok(())),
+            Err(Ok(FrameError::Malformed))
+        ));
     }
 
     #[test]

@@ -14,9 +14,21 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{State, WebviewWindow};
 
-const DESTINATIONS: [&str; 6] = ["claude_code", "codex", "opencode", "pi", "hermes", "deepseek"];
+const DESTINATIONS: [&str; 6] = [
+    "claude_code",
+    "codex",
+    "opencode",
+    "pi",
+    "hermes",
+    "deepseek",
+];
 const KEPT_PREVIEWS: usize = 8;
-const INSTRUCTION_FILES: [&str; 4] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md"];
+const INSTRUCTION_FILES: [&str; 4] = [
+    "CLAUDE.md",
+    "AGENTS.md",
+    "GEMINI.md",
+    ".github/copilot-instructions.md",
+];
 
 /// A frozen preview with the source facts the hop needs; held only in this process.
 #[derive(Clone)]
@@ -35,7 +47,12 @@ fn previews() -> &'static Mutex<VecDeque<KeptPreview>> {
 
 /// The frozen preview the hop must send byte for byte.
 pub fn kept_preview(hop_id: &str) -> Option<KeptPreview> {
-    previews().lock().ok()?.iter().find(|p| p.preview.hop_id == hop_id).cloned()
+    previews()
+        .lock()
+        .ok()?
+        .iter()
+        .find(|p| p.preview.hop_id == hop_id)
+        .cloned()
 }
 
 #[derive(Deserialize)]
@@ -55,7 +72,10 @@ pub enum HopPreviewOutcome {
 }
 
 fn refused(issue: &str, message: impl Into<String>) -> HopPreviewOutcome {
-    HopPreviewOutcome::Refused { issue: issue.into(), message: message.into() }
+    HopPreviewOutcome::Refused {
+        issue: issue.into(),
+        message: message.into(),
+    }
 }
 
 #[tauri::command]
@@ -65,7 +85,10 @@ pub async fn hop_preview(
     request: HopPreviewRequest,
 ) -> Result<HopPreviewOutcome, SessionReadIssue> {
     super::local(&window)?;
-    if request.fingerprint.len() != 64 || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit()) || !DESTINATIONS.contains(&request.destination.as_str()) {
+    if request.fingerprint.len() != 64
+        || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit())
+        || !DESTINATIONS.contains(&request.destination.as_str())
+    {
         return Err(SessionReadIssue::InvalidRequest);
     }
     let source_root = request.root.clone();
@@ -75,7 +98,10 @@ pub async fn hop_preview(
             detail: DetailRequest {
                 root: request.root,
                 native_id: request.native_id,
-                cursor: Some(DetailCursor { offset: 0, fingerprint: request.fingerprint }),
+                cursor: Some(DetailCursor {
+                    offset: 0,
+                    fingerprint: request.fingerprint,
+                }),
                 limit: 1,
                 overview_only: false,
             },
@@ -88,10 +114,18 @@ pub async fn hop_preview(
         .await
     {
         Ok(done) => done,
-        Err(issue) => return Ok(refused(&format!("{issue:?}").to_lowercase(), "The session could not be read; nothing was prepared.")),
+        Err(issue) => {
+            return Ok(refused(
+                &format!("{issue:?}").to_lowercase(),
+                "The session could not be read; nothing was prepared.",
+            ));
+        }
     };
     let Some(_payload) = reply.payload else {
-        return Ok(refused("read_unavailable", "The session could not be read; nothing was prepared."));
+        return Ok(refused(
+            "read_unavailable",
+            "The session could not be read; nothing was prepared.",
+        ));
     };
     let data_dir: PathBuf = controller
         .services
@@ -109,17 +143,29 @@ pub async fn hop_preview(
         let items: Vec<_> = document.items().cloned().collect();
         let source = &document.header.source;
         if source.agent == destination {
-            return Ok(refused("same_agent", "Resuming in the same agent is native; use Resume instead of a hop."));
+            return Ok(refused(
+                "same_agent",
+                "Resuming in the same agent is native; use Resume instead of a hop.",
+            ));
         }
-        if let shinatama_hop::pairs::PairSupport::Refuse { reason } = shinatama_hop::pairs::support(&source.agent, &destination, &[]) {
+        if let shinatama_hop::pairs::PairSupport::Refuse { reason } =
+            shinatama_hop::pairs::support(&source.agent, &destination, &[])
+        {
             return Ok(refused("pair_unsupported", reason));
         }
         let project = source.cwd.as_deref().map(Path::new).filter(|p| p.is_dir());
-        let (source_agent, source_native_id) = (source.agent.clone(), source.native_session_id.clone());
+        let (source_agent, source_native_id) =
+            (source.agent.clone(), source.native_session_id.clone());
         let cwd = project.map(Path::to_path_buf);
         let facts = project.map(git::facts).unwrap_or_default();
         let instruction_files = project
-            .map(|p| INSTRUCTION_FILES.iter().filter(|f| p.join(f).is_file()).map(|f| (*f).to_owned()).collect())
+            .map(|p| {
+                INSTRUCTION_FILES
+                    .iter()
+                    .filter(|f| p.join(f).is_file())
+                    .map(|f| (*f).to_owned())
+                    .collect()
+            })
             .unwrap_or_default();
         let header = HeaderFacts {
             thread: document.header.thread.clone(),
@@ -151,9 +197,17 @@ pub async fn hop_preview(
                     if kept.len() >= KEPT_PREVIEWS {
                         kept.pop_front();
                     }
-                    kept.push_back(KeptPreview { preview: value.clone(), source_agent, source_native_id, source_root, cwd });
+                    kept.push_back(KeptPreview {
+                        preview: value.clone(),
+                        source_agent,
+                        source_native_id,
+                        source_root,
+                        cwd,
+                    });
                 }
-                Ok(HopPreviewOutcome::Ready { preview: Box::new(value) })
+                Ok(HopPreviewOutcome::Ready {
+                    preview: Box::new(value),
+                })
             }
             Err(error) => Ok(refused("seed_refused", error.to_string())),
         }

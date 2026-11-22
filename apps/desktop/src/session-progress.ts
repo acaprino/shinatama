@@ -1,5 +1,5 @@
+import { uiPart, uiButton } from '@acaprino/imago/ui';
 import { SHOW_AFTER_MS, acceptsEvent, describeProgress, type ProgressEvent } from './session-progress-core.ts';
-import './session-progress.css';
 
 const TICK_MS = 1000;
 
@@ -33,10 +33,10 @@ function newId(): string {
  * other request (a closed or replaced one) is ignored.
  */
 export function createProgressLine(kind: 'export' | 'search', backend?: ProgressBackend, now: () => number = () => performance.now()): ProgressLine {
-  const element = document.createElement('p');
-  element.className = 'session-progress'; element.hidden = true; element.dataset.kind = kind; element.setAttribute('role', 'status');
-  const text = document.createElement('span'); text.className = 'session-progress-text';
-  const stop = document.createElement('button'); stop.type = 'button'; stop.textContent = 'Cancel'; stop.className = 'session-progress-cancel';
+  const element = uiPart('status');
+  element.hidden = true; element.dataset.kind = kind; element.setAttribute('role', 'status');
+  const text = uiPart('text');
+  const stop = uiButton('Cancel');
   element.append(text, stop);
   let id: string | null = null; let startedAt: number | null = null; let last: ProgressEvent | null = null;
   let showTimer: ReturnType<typeof setTimeout> | null = null; let tick: ReturnType<typeof setInterval> | null = null;

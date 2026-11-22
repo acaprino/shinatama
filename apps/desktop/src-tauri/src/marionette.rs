@@ -14,8 +14,10 @@ static STORE: OnceLock<PathBuf> = OnceLock::new();
 
 /// Records `<home>/marionette` as the store, installs the shipped copy when the
 /// store needs it and starts following the latest release, unless
-/// `SHINATAMA_MARIONETTE=off`.
-pub(crate) fn start(home: &Path) {
+/// `SHINATAMA_MARIONETTE=off`. Nothing is written until `accepted` says the data
+/// folder passed Shinatama's storage checks: a folder they refuse (inside a
+/// project, on a network share) must stay untouched.
+pub(crate) fn start(home: &Path, accepted: impl FnOnce() -> bool + Send + 'static) {
     let store = home.join(marionette::STORE);
     let _ = STORE.set(store.clone());
     if marionette::switched_off() {
@@ -24,6 +26,13 @@ pub(crate) fn start(home: &Path) {
     let _ = std::thread::Builder::new()
         .name("marionette-sync".into())
         .spawn(move || {
+            if !accepted() {
+                crate::app_log::write(
+                    "marionette",
+                    "Not installed: the data folder was not accepted.",
+                );
+                return;
+            }
             if let Some(bundle) = bundle() {
                 match marionette::seed(&store, &bundle, &SystemFetch) {
                     Ok(outcome) => {

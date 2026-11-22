@@ -60,7 +60,10 @@ impl Host {
 
         let job = job::Job::new().map_err(HostError::Job)?;
         let mut command = Command::new(exe);
-        command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -98,7 +101,11 @@ impl Host {
             Ok(Ok(line)) if line.trim() == r#"{"ready":true}"# => {}
             Ok(Ok(line)) => {
                 let _ = child.kill();
-                return Err(HostError::NotReady(if line.is_empty() { "it exited".into() } else { line }));
+                return Err(HostError::NotReady(if line.is_empty() {
+                    "it exited".into()
+                } else {
+                    line
+                }));
             }
             Ok(Err(error)) => {
                 let _ = child.kill();
@@ -109,7 +116,13 @@ impl Host {
                 return Err(HostError::NotReady("timed out".into()));
             }
         }
-        Ok(Self { pipe, token, child, stdin, job })
+        Ok(Self {
+            pipe,
+            token,
+            child,
+            stdin,
+            job,
+        })
     }
 
     pub fn token(&self) -> &[u8; 32] {
@@ -129,7 +142,9 @@ impl Host {
                 }
             }
         }
-        Err(HostError::Connect(last.unwrap_or_else(|| std::io::ErrorKind::TimedOut.into())))
+        Err(HostError::Connect(
+            last.unwrap_or_else(|| std::io::ErrorKind::TimedOut.into()),
+        ))
     }
 
     pub fn is_running(&mut self) -> bool {
@@ -228,7 +243,10 @@ mod tests {
     use std::time::Instant;
 
     fn alive(pid: u32) -> bool {
-        let out = Command::new("tasklist").args(["/FI", &format!("PID eq {pid}"), "/NH"]).output().unwrap();
+        let out = Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output()
+            .unwrap();
         String::from_utf8_lossy(&out.stdout).contains(&pid.to_string())
     }
 
@@ -246,7 +264,11 @@ mod tests {
     #[test]
     fn closing_the_job_kills_its_process() {
         let job = job::Job::new().unwrap();
-        let mut child = Command::new("ping").args(["-n", "60", "127.0.0.1"]).stdout(Stdio::null()).spawn().unwrap();
+        let mut child = Command::new("ping")
+            .args(["-n", "60", "127.0.0.1"])
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap();
         job.assign(&child).unwrap();
         let pid = child.id();
         assert!(alive(pid));
@@ -258,7 +280,9 @@ mod tests {
     #[test]
     fn a_host_that_never_says_ready_is_refused_and_killed() {
         // `cmd /c pause` reads stdin and prints a prompt, never the ready line.
-        let error = Host::start(Path::new(r"C:\Windows\System32\cmd.exe"), &[]).err().unwrap();
+        let error = Host::start(Path::new(r"C:\Windows\System32\cmd.exe"), &[])
+            .err()
+            .unwrap();
         assert!(matches!(error, HostError::NotReady(_)), "{error}");
     }
 

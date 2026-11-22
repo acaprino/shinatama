@@ -1,34 +1,65 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-im-app="shinatama" data-im-look="smooth" data-im-theme="dark">
 <head>
 <meta charset="utf-8">
 <title>Sidebar groups fixture</title>
-<style>html, body { margin: 0; height: 100%; } #host { display: flex; height: 100%; }</style>
 </head>
 <body>
-<!-- Only the thread sidebar: the real component, threads of two projects served from memory. -->
-<div id="host"></div>
+<!-- Only the thread sidebar: the real component in Imago's shell, as the window places it (the sidebar region of the
+     shell's body, mountApp's fold), threads of two projects served from memory. -->
+<div id="app" class="im-shell"></div>
 <script type="module">
-import '/src/styles.css';
+import '@acaprino/imago/css/imago.css';
+import { createRegistry, mountApp, renderShellFrame, shellFrameHtml, titlebarHtml } from '@acaprino/imago/ui';
 import { createWorksetSidebar } from '/src/workset-sidebar.ts';
 import { createToneKeeper } from '/src/thread-tone.ts';
+const shell = document.getElementById('app');
+renderShellFrame(shell, shellFrameHtml({
+  titlebarHtml: titlebarHtml({ brand: { name: 'Shinatama' }, sidebarToggle: { label: 'Threads', controls: 'thread-sidebar' } }),
+  contentHtml: '', contentLabel: 'Terminal workspace', skipLabel: 'Skip to the terminal workspace', inspectorLabel: 'Details',
+}));
 const tones = createToneKeeper();
 const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
 const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions, open: 0, lead: null });
 const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
-const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], modes: [] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], deleted: [], forgotten: [], modes: [], chats: [], chose: 0 };
+// The smoke holds the lists' reads, or refuses them, to see the panel's states.
+let listsHeld = null; let listsRefused = false;
+window.__holdLists = () => { listsHeld = []; };
+window.__releaseLists = () => { const waiting = listsHeld ?? []; listsHeld = null; for (const go of waiting) go(); };
+window.__refuseLists = refused => { listsRefused = refused; };
 const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
+const waiting = new Set(['w_bbbbbbbbbbb3']); const talking = new Set(['w_aaaaaaaaaaa3']);
+// Held removals wait for an answer, as main.ts waits for the stop confirmation; kept, the project comes back.
+let held = null;
+window.__holdRemovals = () => { held = []; };
+window.__answerRemovals = keep => { const waiting = held ?? []; held = null; for (const settle of waiting) settle(keep); };
 const sidebar = window.__sidebar = createWorksetSidebar({
-  host: document.getElementById('host'),
-  list: async ({ projectId }) => ({ rows: threads[projectId] ?? [], more: false }),
+  shell,
+  list: async ({ projectId, archived }) => {
+    if (listsHeld) await new Promise(go => listsHeld.push(go));
+    if (listsRefused) throw { code: 'unavailable' };
+    return { rows: archived ? [] : threads[projectId] ?? [], more: false };
+  },
+  chooseProjects: () => { log.chose += 1; },
   create: async ({ projectId }) => { log.created.push(projectId); return { id: 'w_cccccccccccc', revision: 1 }; },
   onOpen: async thread => { log.opened.push(thread.id); on.add(thread.id); return true; },
   onClose: async thread => { log.closed.push(thread.id); on.delete(thread.id); return true; },
   isOn: id => on.has(id),
   tone: id => tones.tone([...on], id),
+  attention: id => waiting.has(id),
+  chat: { enabled: id => talking.has(id), unread: () => true, set: async () => {}, open: thread => log.chats.push(thread.id) },
   update: async request => { log.renamed.push(request); },
+  remove: async thread => { log.deleted.push(thread.id); },
+  onForgetSession: async id => { log.forgotten.push(id); },
   closed: async id => id === 'w_aaaaaaaaaaa4' ? [{ id: 't_aaaaaaaaaaa5', name: 'Codex', updatedAt: Date.now() - 3600000 }] : [],
-  onProjectsRemoved: projectIds => log.removed.push(...projectIds),
+  onProjectsRemoved: projectIds => {
+    log.removed.push(...projectIds);
+    if (!held) return;
+    return new Promise(settle => held.push(settle)).then(keep => {
+      if (keep) for (const id of projectIds) if (!window.__sidebar.activeIds().includes(id)) void window.__sidebar.toggleActive(id);
+    });
+  },
   harnessLabel: id => ({ claude_code: 'Claude Code' })[id] ?? id,
   onAddSession: thread => log.added.push(thread.id),
   openId: () => null, running: id => running[id] ?? 0,
@@ -37,8 +68,13 @@ const sidebar = window.__sidebar = createWorksetSidebar({
   reportError: message => { throw new Error(message); },
   onModeChange: mode => log.modes.push(mode),
 });
+// The host's part: the sidebar goes in the shell's body, and mountApp folds it with the saved choice.
+shell.querySelector('.im-body').prepend(sidebar.element);
 sidebar.setProjects([{ projectId: A, label: 'alpha' }, { projectId: B, label: 'beta' }]);
 sidebar.setProject({ projectId: A, label: 'alpha' });
+await sidebar.ready;
+mountApp(shell, createRegistry(), { search: () => {}, sidebar: { collapsed: sidebar.collapsed(), onChange: sidebar.setCollapsed } });
+window.__mounted = true;
 </script>
 </body>
 </html>

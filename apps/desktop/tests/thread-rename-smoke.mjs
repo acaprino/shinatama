@@ -140,7 +140,7 @@ try {
   await rename.click(); await input.fill('Stale local edit');
   const current=await ipc('workset_update',{request:{worksetId,expectedRevision:renamed.revision,title:'Other window title'}});
   await input.press('Enter');
-  await expect(page.locator('#notice')).toContainText('This thread changed');
+  await expect(page.locator('.im-notice', { hasText: 'This thread changed' })).toBeVisible();
   await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Other window title');
   await expect(form).toBeHidden();
   expect((await stored()).title).toBe('Other window title');
@@ -165,8 +165,8 @@ try {
   evidence.checks.reloadPersistsTitleAndSameShellRemainsResponsive=true;
   expect(pageErrors).toBe(0);
   // The tab's own close control confirms before stopping a running session.
-    await expect(page.locator('.wm-tab')).toHaveCount(1);
-  await page.locator('.wm-tab-close').click({force:true});
+    await expect(page.locator('.im-tile-tab')).toHaveCount(1);
+  await page.locator('.im-tile-tab-close').click({force:true});
   await page.locator('#confirm-dialog button[value="stop"]').click();
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);

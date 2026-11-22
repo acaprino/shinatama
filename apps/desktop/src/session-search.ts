@@ -1,6 +1,6 @@
-import { openModal } from './modal.ts';
+import { confirm, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
-import './session-search.css';
 
 export type SearchHit = {
   storeRootId: string; configurationRevision: number; nativeId: string; harness: string;
@@ -49,54 +49,51 @@ export function renderSnippet(target: HTMLElement, snippet: string) {
     const end = rest.indexOf(MARK_CLOSE, start + 1);
     if (end < 0) { target.append(document.createTextNode(rest)); break; }
     if (start > 0) target.append(document.createTextNode(rest.slice(0, start)));
-    const mark = document.createElement('mark'); mark.textContent = rest.slice(start + 1, end); target.append(mark);
+    const mark = uiPart('mark', rest.slice(start + 1, end)); target.append(mark);
     rest = rest.slice(end + 1);
   }
 }
 
 export function createSessionSearch(options: Options) {
-  const button = document.createElement('button'); button.id = 'session-search'; button.type = 'button'; button.textContent = 'Search index'; button.title = 'Index your sessions and search them by agent, folder or date';
+  const button = uiButton(''); button.id = 'session-search'; button.type = 'button'; button.textContent = 'Search index'; button.title = 'Index your sessions and search them by agent, folder or date';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = document.createElement('dialog'); dialog.id = 'session-search-dialog'; dialog.setAttribute('aria-labelledby', 'session-search-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-search-title'; title.textContent = 'Search all sessions';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close search'); heading.append(title, closeButton);
-  const description = document.createElement('p'); description.className = 'hint';
+  const view = sideSurface('session-search-dialog', 'Search all sessions', 'Close search', 'session-search-title');
+  const closeButton = view.closeButton;
+  const description = uiPart('hint');
   description.textContent = 'Searches the text you and the agents wrote in indexed sessions. Indexing only reads your session archives; it never starts or resumes an agent.';
 
-  const form = document.createElement('form'); form.className = 'session-search-form';
-  const queryLabel = document.createElement('label'); queryLabel.htmlFor = 'session-search-query'; queryLabel.textContent = 'Search for';
-  const query = document.createElement('input'); query.id = 'session-search-query'; query.type = 'search'; query.maxLength = 128; query.autocomplete = 'off'; query.required = true;
-  const agentLabel = document.createElement('label'); agentLabel.htmlFor = 'session-search-agent'; agentLabel.textContent = 'Agent';
-  const agent = document.createElement('select'); agent.id = 'session-search-agent';
-  for (const [value, label] of [['', 'Any agent'], ['claude_code', 'Claude Code'], ['codex', 'Codex'], ['pi', 'Pi']]) { const o = document.createElement('option'); o.value = value; o.textContent = label; agent.append(o); }
-  const projectLabel = document.createElement('label'); projectLabel.htmlFor = 'session-search-project'; projectLabel.textContent = 'Folder starts with';
-  const project = document.createElement('input'); project.id = 'session-search-project'; project.type = 'text'; project.maxLength = 1024; project.autocomplete = 'off'; project.spellcheck = false;
-  const fromLabel = document.createElement('label'); fromLabel.htmlFor = 'session-search-from'; fromLabel.textContent = 'From';
-  const from = document.createElement('input'); from.id = 'session-search-from'; from.type = 'date';
-  const toLabel = document.createElement('label'); toLabel.htmlFor = 'session-search-to'; toLabel.textContent = 'To';
-  const to = document.createElement('input'); to.id = 'session-search-to'; to.type = 'date';
-  const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'Search';
+  const form = uiPart('form');
+  const queryLabel = uiPart('label'); queryLabel.htmlFor = 'session-search-query'; queryLabel.textContent = 'Search for';
+  const query = uiInput(); query.id = 'session-search-query'; query.type = 'search'; query.maxLength = 128; query.autocomplete = 'off'; query.required = true;
+  const agentLabel = uiPart('label'); agentLabel.htmlFor = 'session-search-agent'; agentLabel.textContent = 'Agent';
+  const agent = uiSelect(); agent.id = 'session-search-agent';
+  for (const [value, label] of [['', 'Any agent'], ['claude_code', 'Claude Code'], ['codex', 'Codex'], ['pi', 'Pi']]) { const o = uiOption(value, label); agent.append(o); }
+  const projectLabel = uiPart('label'); projectLabel.htmlFor = 'session-search-project'; projectLabel.textContent = 'Folder starts with';
+  const project = uiInput(); project.id = 'session-search-project'; project.type = 'text'; project.maxLength = 1024; project.autocomplete = 'off'; project.spellcheck = false;
+  const fromLabel = uiPart('label'); fromLabel.htmlFor = 'session-search-from'; fromLabel.textContent = 'From';
+  const from = uiInput(); from.id = 'session-search-from'; from.type = 'date';
+  const toLabel = uiPart('label'); toLabel.htmlFor = 'session-search-to'; toLabel.textContent = 'To';
+  const to = uiInput(); to.id = 'session-search-to'; to.type = 'date';
+  const submit = uiButton(''); submit.type = 'submit'; submit.textContent = 'Search';
   form.append(queryLabel, query, agentLabel, agent, projectLabel, project, fromLabel, from, toLabel, to, submit);
 
-  const status = document.createElement('p'); status.id = 'session-search-status'; status.setAttribute('role', 'status');
-  const results = document.createElement('ol'); results.className = 'session-search-results'; results.setAttribute('aria-label', 'Search results');
+  const status = uiPart('status'); status.id = 'session-search-status'; status.setAttribute('role', 'status');
+  const results = uiTraits(uiPart('orderedList'), 'scroll', 'bounded'); results.setAttribute('aria-label', 'Search results');
 
-  const indexing = document.createElement('details'); indexing.className = 'session-search-index';
-  const indexSummary = document.createElement('summary'); indexSummary.textContent = 'Index';
-  const indexInfo = document.createElement('p'); indexInfo.id = 'session-search-index-info'; indexInfo.setAttribute('role', 'status');
-  const indexTools = document.createElement('div'); indexTools.className = 'session-search-index-tools';
-  const start = document.createElement('button'); start.type = 'button'; start.textContent = 'Index sessions';
-  const stop = document.createElement('button'); stop.type = 'button'; stop.textContent = 'Stop';
-  const forget = document.createElement('button'); forget.type = 'button'; forget.textContent = 'Forget all indexed text';
+  const indexing = uiPart('details'); indexing.classList.add('session-search-index');
+  const indexSummary = uiPart('summary', 'Index');
+  const indexInfo = uiPart('paragraph'); indexInfo.id = 'session-search-index-info'; indexInfo.setAttribute('role', 'status');
+  const indexTools = uiPart('toolbar');
+  const start = uiButton('Index sessions');
+  const stop = uiButton('Stop');
+  const forget = uiButton('Forget all indexed text');
   // Allowing indexing is a preference: it is switched in Settings, and this tool says when it is off.
-  const allow = document.createElement('button'); allow.type = 'button'; allow.id = 'session-search-allow'; allow.textContent = 'Turn on in Settings'; allow.hidden = true;
-  const indexHelp = document.createElement('p'); indexHelp.className = 'hint';
+  const allow = uiButton(''); allow.id = 'session-search-allow'; allow.textContent = 'Turn on in Settings'; allow.hidden = true;
+  const indexHelp = uiPart('hint');
   indexHelp.textContent = 'Only changed sessions are read again. Forgetting removes the indexed text only; your sessions and threads are not touched.';
   indexTools.append(start, stop, forget, allow); indexing.append(indexSummary, indexInfo, indexTools, indexHelp);
 
-  dialog.append(heading, description, form, status, results, indexing);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(description, form, status, results, indexing);
 
   let state: IndexState | null = null; let timer: number | undefined; let busy = false; let destroyed = false; let generation = 0;
   const stopPolling = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
@@ -116,7 +113,7 @@ export function createSessionSearch(options: Options) {
     indexInfo.textContent = parts.join('. ') || 'Index not loaded yet.';
     start.disabled = busy || running || !idx?.enabled; stop.disabled = !running; forget.disabled = busy || running || !idx || idx.documents === 0;
     allow.hidden = !idx || idx.enabled;
-    submit.disabled = busy; dialog.setAttribute('aria-busy', String(busy));
+    submit.disabled = busy; view.root.setAttribute('aria-busy', String(busy));
   }
   async function refresh() {
     const mine = generation;
@@ -130,18 +127,18 @@ export function createSessionSearch(options: Options) {
     results.replaceChildren();
     status.textContent = hits.length ? `${hits.length} session${hits.length === 1 ? '' : 's'} match “${wanted}”${hits.length >= 50 ? ' (first 50 shown)' : ''}.` : `No indexed session matches “${wanted}”. Index your sessions first if you have not.`;
     for (const hit of hits) {
-      const item = document.createElement('li'); item.className = 'session-search-hit';
-      const open = document.createElement('button'); open.type = 'button'; open.className = 'session-search-open';
+      const item = uiPart('item'); item.classList.add('session-search-hit');
+      const open = uiButton(''); open.classList.add('session-search-open');
       open.textContent = hit.title || hit.nativeId;
       const root = { storeRootId: hit.storeRootId, configurationRevision: hit.configurationRevision };
       open.disabled = hit.configurationRevision === 0;
       open.title = hit.configurationRevision === 0 ? 'This archive was removed; the text is still searchable.' : 'Open session detail';
       open.onclick = () => { if (open.disabled) return; close(); options.openDetail(root, hit.nativeId); };
-      const meta = document.createElement('p'); meta.className = 'session-search-meta';
+      const meta = uiPart('paragraph');
       meta.textContent = [hit.harness, hit.workingDirectory, hit.updatedAt].filter(Boolean).join(' · ');
-      const snippet = document.createElement('p'); snippet.className = 'session-search-snippet'; renderSnippet(snippet, hit.snippet);
+      const snippet = uiPart('paragraph'); renderSnippet(snippet, hit.snippet);
       item.append(open, meta, snippet);
-      if (hit.sourceDeleted) { const note = document.createElement('p'); note.className = 'hint'; note.textContent = 'Source deleted: still searchable, but it can no longer be resumed natively.'; item.append(note); }
+      if (hit.sourceDeleted) { const note = uiPart('hint', 'Source deleted: still searchable, but it can no longer be resumed natively.'); item.append(note); }
       results.append(item);
     }
   }
@@ -160,37 +157,37 @@ export function createSessionSearch(options: Options) {
     options.indexStart().then(() => { busy = false; poll(); void refresh(); }, error => { busy = false; options.reportError(reason(error)); void refresh(); });
   };
   stop.onclick = () => { void options.indexCancel().then(() => refresh(), () => undefined); };
-  // Confirmed in place: the first press arms the button for a few seconds, the second forgets.
-  const forgetLabel = forget.textContent; let forgetArmed = 0;
-  const disarmForget = () => { clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('danger'); forget.removeAttribute('title'); };
-  forget.onblur = disarmForget;
-  forget.onclick = () => {
+  // Forgetting cannot be undone: a dialog says what goes and what stays, and the focus starts on Cancel.
+  forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
+  forget.onclick = async () => {
     if (busy) return;
-    if (!forgetArmed) {
-      forget.textContent = 'Confirm forget'; forget.classList.add('danger');
-      forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
-      status.textContent = 'Press Confirm forget to remove all indexed session text. Your sessions and threads are not changed.';
-      forgetArmed = window.setTimeout(disarmForget, 5000); return;
-    }
-    disarmForget();
+    const yes = await confirm(document.querySelector<HTMLElement>('#app') ?? document.body, {
+      title: 'Forget the indexed session text?',
+      body: 'All the text indexed for search is removed; searching needs a new index. Your sessions and threads are not changed.',
+      confirm: 'Forget indexed text', cancel: 'Cancel', danger: true,
+    });
+    if (!yes || busy || destroyed) return;
     busy = true; renderIndex();
     options.indexForget().then(() => { results.replaceChildren(); status.textContent = 'Indexed text forgotten.'; },
       error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });
   };
   allow.onclick = () => options.openSettings();
-  // Settings covers this drawer while it is open; what was switched there shows when it comes back.
-  new MutationObserver(() => {
-    if (!dialog.open || dialog.hasAttribute('data-covered')) return;
+  // Settings is the title bar's last view tab; what was switched there shows when the person comes back to the
+  // workspace (main.ts says so), and a view that covered this one gave it back.
+  const returned = () => {
+    if (!view.isOpen() || !view.onTop()) return;
     // Focus came back to the button that opened Settings; once indexing is on it hides, and Index sessions takes its place.
     void refresh().then(() => { if (allow.hidden && (document.activeElement === document.body || document.activeElement === allow)) start.focus(); });
-  }).observe(dialog, { attributes: true, attributeFilter: ['data-covered'] });
+  };
+  document.addEventListener('shinatama-settings-left', returned);
+  new MutationObserver(returned).observe(view.root, { attributes: true, attributeFilter: ['data-im-covered'] });
   function show() {
     if (destroyed) return; generation++; busy = false; status.textContent = 'Type a word and press Search.'; renderIndex();
-    openModal(dialog); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });
+    view.open(); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });
   }
-  function close() { generation++; stopPolling(); if (dialog.open) dialog.close(); }
+  function close() { generation++; stopPolling(); if (view.isOpen()) view.close(); }
   button.onclick = show; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; stopPolling(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  view.onClose(() => { generation++; stopPolling(); if (!sidePanelOpen()) options.restoreFocus?.(); });
   renderIndex();
-  return { show, close, destroy: () => { destroyed = true; close(); dialog.remove(); button.remove(); } };
+  return { show, close, destroy: () => { destroyed = true; close(); view.root.remove(); document.removeEventListener('shinatama-settings-left', returned); button.remove(); } };
 }

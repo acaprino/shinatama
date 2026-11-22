@@ -35,7 +35,9 @@ pub struct BrowserState {
 /// Ends a browser off the async runtime: dropping its host waits for Moli to
 /// flush its storage (up to 6 s).
 fn retire(browser: Arc<Browser>) {
-    let _ = std::thread::Builder::new().name("browser-retire".into()).spawn(move || drop(browser));
+    let _ = std::thread::Builder::new()
+        .name("browser-retire".into())
+        .spawn(move || drop(browser));
 }
 
 #[derive(Default)]
@@ -47,7 +49,14 @@ struct Inner {
 fn host_exe() -> Result<PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let path = exe.with_file_name(shinatama_browser::host::HOST_EXE);
-    if path.is_file() { Ok(path) } else { Err(format!("{} is missing next to Shinatama.", shinatama_browser::host::HOST_EXE)) }
+    if path.is_file() {
+        Ok(path)
+    } else {
+        Err(format!(
+            "{} is missing next to Shinatama.",
+            shinatama_browser::host::HOST_EXE
+        ))
+    }
 }
 
 impl BrowserState {
@@ -55,7 +64,8 @@ impl BrowserState {
         if let Some(server) = self.documents.get() {
             return Ok(server);
         }
-        let server = LocalServer::start().map_err(|e| format!("Local documents cannot be served: {e}"))?;
+        let server =
+            LocalServer::start().map_err(|e| format!("Local documents cannot be served: {e}"))?;
         Ok(self.documents.get_or_init(|| server))
     }
 
@@ -67,14 +77,23 @@ impl BrowserState {
         if let Some(dead) = inner.browser.take() {
             retire(dead);
         }
-        let browser = Arc::new(Browser::start(&host_exe()?).await.map_err(|e| e.to_string())?);
+        let browser = Arc::new(
+            Browser::start(&host_exe()?)
+                .await
+                .map_err(|e| e.to_string())?,
+        );
         inner.browser = Some(Arc::clone(&browser));
         inner.empty_since = None;
         Ok(browser)
     }
 
     pub(crate) async fn existing(&self) -> Result<Arc<Browser>, String> {
-        self.inner.lock().await.browser.clone().ok_or_else(|| "The browser is not running.".to_owned())
+        self.inner
+            .lock()
+            .await
+            .browser
+            .clone()
+            .ok_or_else(|| "The browser is not running.".to_owned())
     }
 
     /// Ends the host once it has had no page for [`IDLE`].
@@ -110,8 +129,12 @@ fn page(id: &str) -> Result<PageId, String> {
 
 /// A local document: an existing `.html`/`.htm` file and its folder.
 pub fn local_document(path: &str) -> Result<(PathBuf, PathBuf), String> {
-    let path = std::fs::canonicalize(Path::new(path)).map_err(|_| "That file does not exist.".to_owned())?;
-    let html = path.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"));
+    let path = std::fs::canonicalize(Path::new(path))
+        .map_err(|_| "That file does not exist.".to_owned())?;
+    let html = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"));
     if !html || !path.is_file() {
         return Err("Only .html and .htm files open in the browser.".into());
     }
@@ -121,13 +144,20 @@ pub fn local_document(path: &str) -> Result<(PathBuf, PathBuf), String> {
 }
 
 #[tauri::command]
-pub async fn browser_open(state: State<'_, Arc<BrowserState>>, url: Option<String>, file: Option<String>) -> Result<PageInfo, String> {
+pub async fn browser_open(
+    state: State<'_, Arc<BrowserState>>,
+    url: Option<String>,
+    file: Option<String>,
+) -> Result<PageInfo, String> {
     let (url, root) = match (url, file) {
         (Some(url), None) => (url, None),
         (None, Some(file)) => {
             // Read only through the document server, which serves this folder and nothing above it.
             let (file, root) = local_document(&file)?;
-            let url = state.documents()?.grant(&root, &file).ok_or("That file is outside its folder.")?;
+            let url = state
+                .documents()?
+                .grant(&root, &file)
+                .ok_or("That file is outside its folder.")?;
             (url, Some(root))
         }
         _ => return Err("Give either a link or a file.".into()),
@@ -151,26 +181,54 @@ pub async fn browser_open(state: State<'_, Arc<BrowserState>>, url: Option<Strin
 }
 
 #[tauri::command]
-pub async fn browser_info(state: State<'_, Arc<BrowserState>>, page: String) -> Result<PageInfo, String> {
-    state.existing().await?.info(self::page(&page)?).ok_or_else(|| "The page closed.".into())
+pub async fn browser_info(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+) -> Result<PageInfo, String> {
+    state
+        .existing()
+        .await?
+        .info(self::page(&page)?)
+        .ok_or_else(|| "The page closed.".into())
 }
 
 #[tauri::command]
-pub async fn browser_frames(state: State<'_, Arc<BrowserState>>, page: String, channel: Channel<InvokeResponseBody>) -> Result<(), String> {
+pub async fn browser_frames(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    channel: Channel<InvokeResponseBody>,
+) -> Result<(), String> {
     let browser = state.existing().await?;
-    browser.set_sink(self::page(&page)?, Arc::new(move |frame| {
-        let _ = channel.send(InvokeResponseBody::Raw(frame));
-    }));
+    browser.set_sink(
+        self::page(&page)?,
+        Arc::new(move |frame| {
+            let _ = channel.send(InvokeResponseBody::Raw(frame));
+        }),
+    );
     Ok(())
 }
 
 #[tauri::command]
-pub async fn browser_navigate(state: State<'_, Arc<BrowserState>>, page: String, action: String, url: Option<String>) -> Result<(), String> {
-    state.existing().await?.navigate(self::page(&page)?, &action, url.as_deref()).await.map_err(|e| e.to_string())
+pub async fn browser_navigate(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    action: String,
+    url: Option<String>,
+) -> Result<(), String> {
+    state
+        .existing()
+        .await?
+        .navigate(self::page(&page)?, &action, url.as_deref())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn browser_input(state: State<'_, Arc<BrowserState>>, page: String, events: Vec<InputEvent>) -> Result<(), String> {
+pub async fn browser_input(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    events: Vec<InputEvent>,
+) -> Result<(), String> {
     if events.len() > 256 {
         return Err("Too many input events at once.".into());
     }
@@ -184,25 +242,57 @@ pub async fn browser_input(state: State<'_, Arc<BrowserState>>, page: String, ev
 }
 
 #[tauri::command]
-pub async fn browser_resize(state: State<'_, Arc<BrowserState>>, page: String, width: u32, height: u32, dpr: f64) -> Result<(), String> {
-    state.existing().await?.resize(self::page(&page)?, width, height, dpr).await.map_err(|e| e.to_string())
+pub async fn browser_resize(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    width: u32,
+    height: u32,
+    dpr: f64,
+) -> Result<(), String> {
+    state
+        .existing()
+        .await?
+        .resize(self::page(&page)?, width, height, dpr)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn browser_visibility(state: State<'_, Arc<BrowserState>>, page: String, visible: bool) -> Result<(), String> {
-    state.existing().await?.set_visible(self::page(&page)?, visible).await.map_err(|e| e.to_string())
+pub async fn browser_visibility(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    visible: bool,
+) -> Result<(), String> {
+    state
+        .existing()
+        .await?
+        .set_visible(self::page(&page)?, visible)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn browser_control(state: State<'_, Arc<BrowserState>>, page: String, take: bool) -> Result<PageInfo, String> {
+pub async fn browser_control(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+    take: bool,
+) -> Result<PageInfo, String> {
     let browser = state.existing().await?;
     let id = self::page(&page)?;
-    if take { browser.take_control(id) } else { browser.give_back(id) }.map_err(|e| e.to_string())?;
+    if take {
+        browser.take_control(id)
+    } else {
+        browser.give_back(id)
+    }
+    .map_err(|e| e.to_string())?;
     browser.info(id).ok_or_else(|| "The page closed.".into())
 }
 
 #[tauri::command]
-pub async fn browser_close(state: State<'_, Arc<BrowserState>>, page: String) -> Result<(), String> {
+pub async fn browser_close(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+) -> Result<(), String> {
     if let Ok(browser) = state.existing().await {
         let id = self::page(&page)?;
         let granted = state.grants.lock().unwrap().remove(&page);
@@ -216,8 +306,15 @@ pub async fn browser_close(state: State<'_, Arc<BrowserState>>, page: String) ->
 
 /// Hands the page's URL, and nothing else, to the system browser.
 #[tauri::command]
-pub async fn browser_external(state: State<'_, Arc<BrowserState>>, page: String) -> Result<(), String> {
-    let info = state.existing().await?.info(self::page(&page)?).ok_or("The page closed.")?;
+pub async fn browser_external(
+    state: State<'_, Arc<BrowserState>>,
+    page: String,
+) -> Result<(), String> {
+    let info = state
+        .existing()
+        .await?
+        .info(self::page(&page)?)
+        .ok_or("The page closed.")?;
     let lower = info.url.to_ascii_lowercase();
     if !(lower.starts_with("http://") || lower.starts_with("https://")) {
         return Err("Only web pages open in the system browser.".into());
@@ -232,8 +329,21 @@ fn open_in_system_browser(url: &str) -> Result<(), String> {
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
     let (verb, target) = (wide("open"), wide(url));
     // SAFETY: NUL-terminated wide strings that outlive the call.
-    let result = unsafe { ShellExecuteW(std::ptr::null_mut(), verb.as_ptr(), target.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL) };
-    if result as isize > 32 { Ok(()) } else { Err("The system browser did not open.".into()) }
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    if result as isize > 32 {
+        Ok(())
+    } else {
+        Err("The system browser did not open.".into())
+    }
 }
 
 #[cfg(not(windows))]
@@ -247,7 +357,8 @@ mod tests {
 
     #[test]
     fn local_document_needs_an_existing_html_file() {
-        let dir = std::env::temp_dir().join(format!("shinatama-browser-desktop-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("shinatama-browser-desktop-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let page = dir.join("a b.html");
         std::fs::write(&page, "<p>x").unwrap();

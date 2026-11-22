@@ -70,12 +70,11 @@ try {
   if (state) {
     const rect = state.overlayRect;
     check('overlay covers the HTML maximize button', Math.abs(rect.x - box.x) <= 1 && Math.abs(rect.width - box.width) <= 1 && rect.y + rect.height === box.y + box.height, `overlay ${JSON.stringify(rect)} button ${JSON.stringify(box)}`);
-    check('overlay is the top child over the button', state.topChildAtCenter === 'ShinatamaMaximizeOverlay', state.topChildAtCenter);
+    check('overlay is the top child over the button', state.topChildAtCenter === 'ImagoMaximizeOverlay', state.topChildAtCenter);
     check('overlay answers HTMAXBUTTON (9)', state.hitTest === 9, String(state.hitTest));
   }
-  await page.evaluate(() => { window.__caption = []; new MutationObserver(() => window.__caption.push(document.querySelector('#window-maximize').className)).observe(document.querySelector('#window-maximize'), { attributes: true, attributeFilter: ['class'] }); });
   native('hover-maximize');
-  check('hover reaches the HTML button', !!await until(() => page.evaluate(() => window.__caption.some(name => name.includes('os-hover'))), 3000));
+  check('hover reaches the HTML button', !!await until(() => page.evaluate(() => document.querySelector('#window-maximize').dataset.imOs === 'hover'), 3000));
   native('press-maximize');
   check('click on the overlay maximizes', !!await until(() => probe().zoomed, 5000));
   check('maximized overlay follows the button', !!await until(async () => { const s = probe(); const b = await page.evaluate(() => Math.round(document.querySelector('#window-maximize').getBoundingClientRect().left * devicePixelRatio)); return s.overlayRect && Math.abs(s.overlayRect.x - b) <= 1 && s.hitTest === 9; }, 5000));

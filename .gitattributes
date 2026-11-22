@@ -1,2 +1,4 @@
 # Keep pinned upstream blobs byte-for-byte on Windows checkouts.
 resources/claude-mods/** -text
+# The dependency inventory hashes the delivered desktop icon bytes.
+apps/desktop/app-icon.svg text eol=lf

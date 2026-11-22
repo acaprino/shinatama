@@ -24,11 +24,25 @@ pub enum OutputError {
 impl fmt::Display for OutputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OutputError::InvalidPath => write!(f, "The output path is not a valid absolute file path."),
-            OutputError::ParentMissing => write!(f, "The output folder does not exist; it is not created automatically."),
-            OutputError::Exists => write!(f, "The output file already exists; choose replace to overwrite it."),
-            OutputError::AttachmentsExist => write!(f, "The attachments folder already exists; choose replace to overwrite it."),
-            OutputError::Write(kind) => write!(f, "Writing the export failed ({kind}); no file was left behind."),
+            OutputError::InvalidPath => {
+                write!(f, "The output path is not a valid absolute file path.")
+            }
+            OutputError::ParentMissing => write!(
+                f,
+                "The output folder does not exist; it is not created automatically."
+            ),
+            OutputError::Exists => write!(
+                f,
+                "The output file already exists; choose replace to overwrite it."
+            ),
+            OutputError::AttachmentsExist => write!(
+                f,
+                "The attachments folder already exists; choose replace to overwrite it."
+            ),
+            OutputError::Write(kind) => write!(
+                f,
+                "Writing the export failed ({kind}); no file was left behind."
+            ),
         }
     }
 }
@@ -65,7 +79,9 @@ fn valid_name(name: &str) -> bool {
         && name != "."
         && name != ".."
         && !name.ends_with(['.', ' '])
-        && !name.chars().any(|c| c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+        && !name.chars().any(|c| {
+            c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+        })
 }
 
 fn check_target(path: &Path) -> Result<(&Path, &str), OutputError> {
@@ -89,7 +105,10 @@ fn check_target(path: &Path) -> Result<(&Path, &str), OutputError> {
 }
 
 fn temp_name(parent: &Path, name: &str, suffix: &str) -> PathBuf {
-    parent.join(format!(".{name}.{}.{suffix}", uuid::Uuid::new_v4().simple()))
+    parent.join(format!(
+        ".{name}.{}.{suffix}",
+        uuid::Uuid::new_v4().simple()
+    ))
 }
 
 /// Writes `content` (and optional attachments) atomically to `path`.
@@ -99,7 +118,9 @@ pub fn write_export(
     content: &[u8],
     attachments: &[AttachmentFile],
 ) -> Result<Receipt, OutputError> {
-    write_with(path, overwrite, attachments, |writer| writer.write_all(content))
+    write_with(path, overwrite, attachments, |writer| {
+        writer.write_all(content)
+    })
 }
 
 /// As [`write_export`], with the content produced by `fill`; an error from `fill` aborts the
@@ -111,7 +132,10 @@ pub fn write_with(
     fill: impl FnOnce(&mut dyn Write) -> io::Result<()>,
 ) -> Result<Receipt, OutputError> {
     let (parent, name) = check_target(path)?;
-    if attachments.iter().any(|a| !valid_name(&a.name) || a.name.starts_with('.')) {
+    if attachments
+        .iter()
+        .any(|a| !valid_name(&a.name) || a.name.starts_with('.'))
+    {
         return Err(OutputError::InvalidPath);
     }
     let dir = attachments_dir_for(path).ok_or(OutputError::InvalidPath)?;
@@ -125,12 +149,24 @@ pub fn write_with(
     }
     // 1. Main content into a temporary file, flushed to disk.
     let temp = temp_name(parent, name, "partial");
-    let mut hasher = HashingWriter { inner: None, hash: Sha256::new(), bytes: 0 };
+    let mut hasher = HashingWriter {
+        inner: None,
+        hash: Sha256::new(),
+        bytes: 0,
+    };
     let staged = (|| -> Result<(), OutputError> {
-        let file = OpenOptions::new().write(true).create_new(true).open(&temp)?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
         hasher.inner = Some(BufWriter::new(file));
         fill(&mut hasher)?;
-        let file = hasher.inner.take().expect("writer present").into_inner().map_err(|e| e.into_error())?;
+        let file = hasher
+            .inner
+            .take()
+            .expect("writer present")
+            .into_inner()
+            .map_err(|e| e.into_error())?;
         file.sync_all()?;
         Ok(())
     })();
@@ -147,7 +183,10 @@ pub fn write_with(
         let result = (|| -> Result<(), OutputError> {
             fs::create_dir(&staging)?;
             for attachment in attachments {
-                let mut file = OpenOptions::new().write(true).create_new(true).open(staging.join(&attachment.name))?;
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(staging.join(&attachment.name))?;
                 file.write_all(&attachment.data)?;
                 file.sync_all()?;
             }
@@ -178,7 +217,11 @@ pub fn write_with(
         if let Some(old) = displaced.take() {
             let _ = move_path(&old, &dir, false);
         }
-        return Err(if error.kind() == io::ErrorKind::AlreadyExists { OutputError::Exists } else { error.into() });
+        return Err(if error.kind() == io::ErrorKind::AlreadyExists {
+            OutputError::Exists
+        } else {
+            error.into()
+        });
     }
     if let Some(old) = displaced {
         let _ = fs::remove_dir_all(old);
@@ -211,21 +254,40 @@ pub fn stage(path: &Path, overwrite: Overwrite) -> Result<Staged, OutputError> {
         return Err(OutputError::Exists);
     }
     let temp = temp_name(parent, name, "body.partial");
-    let file = OpenOptions::new().write(true).create_new(true).open(&temp)?;
-    Ok(Staged { target: Some((path.to_path_buf(), overwrite)), temp, file: Some(BufWriter::new(file)), bytes: 0 })
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)?;
+    Ok(Staged {
+        target: Some((path.to_path_buf(), overwrite)),
+        temp,
+        file: Some(BufWriter::new(file)),
+        bytes: 0,
+    })
 }
 
 /// Stages a body with no destination file, in `directory` (a private folder): for output that
 /// goes to a stream, where the header still has to come before the body.
 pub fn stage_scratch(directory: &Path) -> Result<Staged, OutputError> {
     let temp = temp_name(directory, "export", "body.partial");
-    let file = OpenOptions::new().write(true).create_new(true).open(&temp)?;
-    Ok(Staged { target: None, temp, file: Some(BufWriter::new(file)), bytes: 0 })
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)?;
+    Ok(Staged {
+        target: None,
+        temp,
+        file: Some(BufWriter::new(file)),
+        bytes: 0,
+    })
 }
 
 impl Staged {
     pub fn write(&mut self, bytes: &[u8]) -> io::Result<()> {
-        self.file.as_mut().ok_or_else(|| io::Error::other("closed"))?.write_all(bytes)?;
+        self.file
+            .as_mut()
+            .ok_or_else(|| io::Error::other("closed"))?
+            .write_all(bytes)?;
         self.bytes += bytes.len() as u64;
         Ok(())
     }
@@ -237,13 +299,20 @@ impl Staged {
 
     fn close(&mut self) -> io::Result<()> {
         if let Some(writer) = self.file.take() {
-            writer.into_inner().map_err(|e| e.into_error())?.sync_all()?;
+            writer
+                .into_inner()
+                .map_err(|e| e.into_error())?
+                .sync_all()?;
         }
         Ok(())
     }
 
     /// Writes `prefix` then the staged body to the destination atomically, with `attachments`.
-    pub fn commit(mut self, prefix: &[u8], attachments: &[AttachmentFile]) -> Result<Receipt, OutputError> {
+    pub fn commit(
+        mut self,
+        prefix: &[u8],
+        attachments: &[AttachmentFile],
+    ) -> Result<Receipt, OutputError> {
         let (path, overwrite) = self.target.clone().ok_or(OutputError::InvalidPath)?;
         self.close()?;
         let temp = self.temp.clone();
@@ -285,23 +354,42 @@ struct HashingWriter {
 }
 impl Write for HashingWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let written = self.inner.as_mut().ok_or_else(|| io::Error::other("closed"))?.write(buf)?;
+        let written = self
+            .inner
+            .as_mut()
+            .ok_or_else(|| io::Error::other("closed"))?
+            .write(buf)?;
         self.hash.update(&buf[..written]);
         self.bytes += written as u64;
         Ok(written)
     }
     fn flush(&mut self) -> io::Result<()> {
-        self.inner.as_mut().ok_or_else(|| io::Error::other("closed"))?.flush()
+        self.inner
+            .as_mut()
+            .ok_or_else(|| io::Error::other("closed"))?
+            .flush()
     }
 }
 
 #[cfg(windows)]
 fn move_path(from: &Path, to: &Path, replace: bool) -> io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW};
-    let wide = |p: &Path| p.as_os_str().encode_wide().chain(Some(0)).collect::<Vec<u16>>();
+    use windows_sys::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+    let wide = |p: &Path| {
+        p.as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<u16>>()
+    };
     let (from, to) = (wide(from), wide(to));
-    let flags = MOVEFILE_WRITE_THROUGH | if replace { MOVEFILE_REPLACE_EXISTING } else { 0 };
+    let flags = MOVEFILE_WRITE_THROUGH
+        | if replace {
+            MOVEFILE_REPLACE_EXISTING
+        } else {
+            0
+        };
     // SAFETY: both buffers are NUL-terminated UTF-16 paths that outlive the call.
     if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), flags) } == 0 {
         return Err(io::Error::last_os_error());
@@ -329,12 +417,18 @@ mod tests {
     struct Scratch(PathBuf);
     impl Scratch {
         fn new(tag: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!("shinatama-export-{tag}-{}", uuid::Uuid::new_v4().simple()));
+            let dir = std::env::temp_dir().join(format!(
+                "shinatama-export-{tag}-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
             fs::create_dir(&dir).unwrap();
             Self(dir)
         }
         fn entries(&self) -> Vec<String> {
-            let mut names: Vec<_> = fs::read_dir(&self.0).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+            let mut names: Vec<_> = fs::read_dir(&self.0)
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
             names.sort();
             names
         }
@@ -352,7 +446,10 @@ mod tests {
         let receipt = write_export(&path, Overwrite::Refuse, b"one", &[]).unwrap();
         assert_eq!(receipt.bytes, 3);
         assert_eq!(fs::read(&path).unwrap(), b"one");
-        assert_eq!(write_export(&path, Overwrite::Refuse, b"two", &[]).unwrap_err(), OutputError::Exists);
+        assert_eq!(
+            write_export(&path, Overwrite::Refuse, b"two", &[]).unwrap_err(),
+            OutputError::Exists
+        );
         assert_eq!(fs::read(&path).unwrap(), b"one");
         write_export(&path, Overwrite::Replace, b"two", &[]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"two");
@@ -373,7 +470,12 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), b"previous");
         assert_eq!(scratch.entries(), ["b.md"]);
         let fresh = scratch.0.join("c.md");
-        assert!(write_with(&fresh, Overwrite::Refuse, &[], |_| Err(io::Error::other("x"))).is_err());
+        assert!(
+            write_with(&fresh, Overwrite::Refuse, &[], |_| Err(io::Error::other(
+                "x"
+            )))
+            .is_err()
+        );
         assert!(!fresh.exists());
         assert_eq!(scratch.entries(), ["b.md"]);
     }
@@ -382,17 +484,32 @@ mod tests {
     fn attachments_are_committed_with_the_file_and_refused_when_present() {
         let scratch = Scratch::new("attach");
         let path = scratch.0.join("d.stx.jsonl");
-        let files = [AttachmentFile { name: "ab12.png".into(), data: vec![1, 2, 3] }];
+        let files = [AttachmentFile {
+            name: "ab12.png".into(),
+            data: vec![1, 2, 3],
+        }];
         let receipt = write_export(&path, Overwrite::Refuse, b"x", &files).unwrap();
         let dir = receipt.attachments_dir.unwrap();
         assert_eq!(fs::read(dir.join("ab12.png")).unwrap(), [1, 2, 3]);
         fs::remove_file(&path).unwrap();
-        assert_eq!(write_export(&path, Overwrite::Refuse, b"x", &files).unwrap_err(), OutputError::AttachmentsExist);
+        assert_eq!(
+            write_export(&path, Overwrite::Refuse, b"x", &files).unwrap_err(),
+            OutputError::AttachmentsExist
+        );
         assert!(!path.exists());
-        let bad = [AttachmentFile { name: "../escape".into(), data: vec![] }];
-        assert_eq!(write_export(&path, Overwrite::Replace, b"x", &bad).unwrap_err(), OutputError::InvalidPath);
+        let bad = [AttachmentFile {
+            name: "../escape".into(),
+            data: vec![],
+        }];
+        assert_eq!(
+            write_export(&path, Overwrite::Replace, b"x", &bad).unwrap_err(),
+            OutputError::InvalidPath
+        );
         write_export(&path, Overwrite::Replace, b"y", &files).unwrap();
-        assert_eq!(scratch.entries(), ["d.stx.jsonl", "d.stx.jsonl.attachments"]);
+        assert_eq!(
+            scratch.entries(),
+            ["d.stx.jsonl", "d.stx.jsonl.attachments"]
+        );
     }
 
     #[test]
@@ -403,12 +520,19 @@ mod tests {
         staged.write(b"body one, ").unwrap();
         staged.write(b"body two").unwrap();
         assert_eq!(staged.bytes(), 18);
-        assert_eq!(scratch.entries().len(), 1, "only the staged body exists before the commit");
+        assert_eq!(
+            scratch.entries().len(),
+            1,
+            "only the staged body exists before the commit"
+        );
         let receipt = staged.commit(b"HEADER\n", &[]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"HEADER\nbody one, body two");
         assert_eq!(receipt.bytes, 25);
         assert_eq!(scratch.entries(), ["e.md"]);
-        assert_eq!(stage(&path, Overwrite::Refuse).err(), Some(OutputError::Exists));
+        assert_eq!(
+            stage(&path, Overwrite::Refuse).err(),
+            Some(OutputError::Exists)
+        );
         // A dropped stage removes its file and keeps the file it would have replaced.
         let mut dropped = stage(&path, Overwrite::Replace).unwrap();
         dropped.write(b"abandoned").unwrap();
@@ -427,9 +551,24 @@ mod tests {
     #[test]
     fn invalid_targets_are_refused_before_writing() {
         let scratch = Scratch::new("paths");
-        assert_eq!(write_export(Path::new("relative.md"), Overwrite::Refuse, b"", &[]).unwrap_err(), OutputError::InvalidPath);
-        assert_eq!(write_export(&scratch.0.join("missing").join("x.md"), Overwrite::Refuse, b"", &[]).unwrap_err(), OutputError::ParentMissing);
-        assert_eq!(write_export(&scratch.0, Overwrite::Replace, b"", &[]).unwrap_err(), OutputError::InvalidPath);
+        assert_eq!(
+            write_export(Path::new("relative.md"), Overwrite::Refuse, b"", &[]).unwrap_err(),
+            OutputError::InvalidPath
+        );
+        assert_eq!(
+            write_export(
+                &scratch.0.join("missing").join("x.md"),
+                Overwrite::Refuse,
+                b"",
+                &[]
+            )
+            .unwrap_err(),
+            OutputError::ParentMissing
+        );
+        assert_eq!(
+            write_export(&scratch.0, Overwrite::Replace, b"", &[]).unwrap_err(),
+            OutputError::InvalidPath
+        );
         assert!(scratch.entries().is_empty());
     }
 }

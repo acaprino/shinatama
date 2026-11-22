@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn discards_control_strings_including_tmux_passthrough() {
-        for start in [b'P', b'X', b'^', b'_'] {
+        for start in *b"PX^_" {
             let mut observer = AttentionSignals::default();
             observer.feed(&[0x1b, start]);
             assert!(observer.feed(b"\x07\x1b]9;embedded\x07\x1b\\").is_empty());

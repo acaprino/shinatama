@@ -1456,7 +1456,9 @@
         "FRD-0001/R60",
         "FRD-0001/R61",
         "FRD-0001/R62",
-        "FRD-0001/R63"
+        "FRD-0001/R63",
+        "FRD-0009/R31",
+        "FRD-0009/R32"
       ],
       "depends_on": [
         "C12",
@@ -2541,7 +2543,8 @@
         "FRD-0006/R20",
         "FRD-0006/R21",
         "FRD-0006/R22",
-        "FRD-0006/R23"
+        "FRD-0006/R23",
+        "FRD-0006/R49"
       ],
       "depends_on": [
         "C22",
@@ -8302,7 +8305,8 @@
         "FRD-0010/R31",
         "FRD-0010/R36",
         "FRD-0010/R37",
-        "FRD-0010/R44"
+        "FRD-0010/R44",
+        "FRD-0010/R45"
       ],
       "depends_on": [
         "F02",
@@ -8422,7 +8426,8 @@
         "FRD-0017/R17",
         "FRD-0017/R18",
         "FRD-0017/R23",
-        "FRD-0002/R42"
+        "FRD-0002/R42",
+        "FRD-0017/R24"
       ],
       "depends_on": [
         "F32CI",
@@ -9355,6 +9360,189 @@
       "resume": "Leggere la scheda e le dipendenze; aprire packaging/, .github/workflows/. Preparare la prima prova di accettazione prima di modificare il comportamento."
     },
     {
+      "id": "F34",
+      "title": "Interfaccia desktop composta con Imago: vetro, pannelli in posizione e palette degli harness",
+      "requirements": [
+        "FRD-0001/R64",
+        "FRD-0001/R65",
+        "FRD-0001/R66",
+        "FRD-0001/R67",
+        "FRD-0001/R68",
+        "FRD-0001/R69"
+      ],
+      "depends_on": [
+        "C07",
+        "C08"
+      ],
+      "deliverable": "Le due pagine desktop (index.html, widget.html) composte con i controlli pubblici di Imago: vetro acrilico scuro, pannelli e scelte che si aprono in posizione, menu Nuova sessione e terminali che seguono la skin; xterm.js, CodeMirror e i frame Moli restano contenuto montato da Shinatama.",
+      "acceptance": [
+        "Ogni superficie del chrome è un unico materiale traslucido colorato dalla skin attiva; il tema resta scuro con qualunque tema di sistema.",
+        "Pannelli della toolbar e dettagli si aprono come drawer accanto ai pannelli; solo chiusura con terminali vivi e anteprima hop sono modali.",
+        "Spostare una scheda conserva PTY, documento o sessione Moli; layout V1, skin e zoom già salvati si rileggono.",
+        "Nessun controllo locale nelle due pagine: il conteggio dei controlli costruiti a mano è zero, esclusi i punti di montaggio dei motori."
+      ],
+      "checks": [
+        "planned: npm test, npm run build, npm run test:imago",
+        "planned: desktop-smoke and thread-sets-smoke on Verify Windows"
+      ],
+      "files": [
+        "apps/desktop/src/",
+        "apps/desktop/index.html",
+        "apps/desktop/widget.html",
+        "package.json",
+        "Cargo.toml"
+      ],
+      "gates": [],
+      "hours": [
+        20,
+        60
+      ],
+      "scope": "v1",
+      "commit": "feat(f34): Interfaccia desktop composta con Imago",
+      "resume": "Leggere lo studio di migrazione (sezioni 3, 4, 6, 7) e la revisione della migrazione; i commit b4181c1 e fb73603 hanno migrato gran parte della GUI senza prova WebView2. Riprendere dalla prima tappa non dimostrata in un flusso reale.",
+      "commit_units": [
+        {
+          "id": "F34.1",
+          "title": "Prima schermata su Imago",
+          "deliverable": "Progetti → Gestisci radici → Scegli cartella con shell, campi e pulsanti di Imago; Imago e imago-shell allo stesso riferimento.",
+          "acceptance": [
+            "Scelta nativa, testo digitato, annullamento, errore e ritorno del focus funzionano su Windows."
+          ],
+          "checks": [
+            "planned: projects-smoke"
+          ],
+          "files": [
+            "apps/desktop/src/"
+          ],
+          "hours": [
+            4,
+            12
+          ],
+          "commit": "feat(f34.1): Prima schermata su Imago"
+        },
+        {
+          "id": "F34.2",
+          "title": "Comandi, sidebar e pannelli",
+          "deliverable": "Workset, nuova sessione, impostazioni, libreria, ricerca, dettagli, export, Hop e pagina avvisi su Imago.",
+          "acceptance": [
+            "Un'azione fa una sola operazione, Esc rispetta i livelli, la finestra avvisi funziona con la principale in secondo piano."
+          ],
+          "checks": [
+            "planned: desktop-smoke"
+          ],
+          "files": [
+            "apps/desktop/src/"
+          ],
+          "hours": [
+            4,
+            12
+          ],
+          "commit": "feat(f34.2): Comandi, sidebar e pannelli"
+        },
+        {
+          "id": "F34.3",
+          "title": "Workspace con risorse vive",
+          "deliverable": "Renderer controllato con punti di montaggio stabili collegato al reducer e alla persistenza V1.",
+          "acceptance": [
+            "Un terminale attraversa un cambio di gruppo senza nuovo processo né nuova sottoscrizione."
+          ],
+          "checks": [
+            "planned: desktop-smoke, thread-sets-smoke"
+          ],
+          "files": [
+            "apps/desktop/src/"
+          ],
+          "hours": [
+            4,
+            12
+          ],
+          "commit": "feat(f34.3): Workspace con risorse vive"
+        },
+        {
+          "id": "F34.4",
+          "title": "Terminale, file e browser",
+          "deliverable": "I tre strumenti montati nei pannelli Imago con i loro comandi attorno al contenuto.",
+          "acceptance": [
+            "Spostare una scheda conserva PTY, undo/selezione o sessione Moli; la chiusura libera le risorse una volta."
+          ],
+          "checks": [
+            "planned: files-smoke, browser-smoke"
+          ],
+          "files": [
+            "apps/desktop/src/"
+          ],
+          "hours": [
+            4,
+            12
+          ],
+          "commit": "feat(f34.4): Terminale, file e browser"
+        },
+        {
+          "id": "F34.5",
+          "title": "Mappa team e chiusura",
+          "deliverable": "Editing accessibile del grafo, ultimi CSS e controlli locali rimossi, entrambi i pacchetti allo stesso tag.",
+          "acceptance": [
+            "Galleria Imago e smoke Shinatama verdi; nessuna UI locale nel grafo di produzione."
+          ],
+          "checks": [
+            "planned: team-map-smoke, imago gallery"
+          ],
+          "files": [
+            "apps/desktop/src/"
+          ],
+          "hours": [
+            4,
+            12
+          ],
+          "commit": "feat(f34.5): Mappa team e chiusura"
+        }
+      ]
+    },
+    {
+      "id": "F35",
+      "title": "Browser Moli: un host per esecuzione, schede del workspace e strumenti agente",
+      "requirements": [
+        "FRD-0011/R53",
+        "FRD-0011/R54",
+        "FRD-0011/R55",
+        "FRD-0011/R56",
+        "FRD-0011/R57",
+        "FRD-0011/R58",
+        "FRD-0011/R59",
+        "FRD-0011/R60"
+      ],
+      "depends_on": [
+        "F17",
+        "C13"
+      ],
+      "deliverable": "shinatama-moli.exe da crate Moli fissati su pipe privata con token, in un Job Object kill-on-close; pagine come schede del workspace disegnate da frame JPEG; strumenti MCP fissi per gli agenti e presa di controllo dell'utente.",
+      "acceptance": [
+        "Una sola istanza per esecuzione, client remoti rifiutati, DACL del solo utente e token letto prima di qualunque byte.",
+        "Al massimo 8 pagine vive; le schede nascoste non ricevono frame; un layout ripristinato mostra l'indirizzo con «Riapri».",
+        "Gli agenti aprono solo pagine http(s) pubbliche con gli strumenti fissi; l'input dell'utente non raggiunge una pagina controllata da un agente.",
+        "Nessuna cifra di memoria prima della misura M2 sull'intero albero dell'host."
+      ],
+      "checks": [
+        "planned: browser-smoke on Verify Windows",
+        "planned: M2 memory measurement against headless Chrome"
+      ],
+      "files": [
+        "crates/browser/",
+        "apps/desktop/src/browser-tab.ts",
+        "apps/desktop/src-tauri/src/browser.rs"
+      ],
+      "gates": [
+        "AT-11"
+      ],
+      "hours": [
+        8,
+        16
+      ],
+      "scope": "v1",
+      "commit": "feat(f35): Browser Moli con host per esecuzione e strumenti agente",
+      "resume": "Leggere FRD-0011 R53-R60 e ADR-0056; il codice esiste già in crates/browser e browser-tab.ts. Preparare le prove M2-M7 prima di dichiarare il passo verificato."
+    },
+    {
       "id": "V1-acceptance",
       "title": "Verificare e distribuire il candidato dello scope attivo",
       "depends_on": [
@@ -9458,7 +9646,9 @@
         "QA-hermes-windows",
         "QSET-deepseek",
         "QA-deepseek-windows",
-        "C09R"
+        "C09R",
+        "F34",
+        "F35"
       ],
       "requirements": [
         "FRD-0001/R59",

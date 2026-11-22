@@ -40,7 +40,10 @@ pub struct Error {
 }
 impl Error {
     pub const fn new(code: &'static str) -> Self {
-        Self { code, message: None }
+        Self {
+            code,
+            message: None,
+        }
     }
 }
 type Result<T> = std::result::Result<T, Error>;
@@ -48,24 +51,36 @@ fn issue(code: &'static str) -> Error {
     Error::new(code)
 }
 fn not_started(error: ServiceError) -> Error {
-    Error { code: "unavailable", message: Some(error.message()) }
+    Error {
+        code: "unavailable",
+        message: Some(error.message()),
+    }
 }
 /// One log line per Resume: the thread, the outcome, its reason and how long it took.
 fn record(thread: &str, began: Instant, result: &Result<AgentStarted>) {
     let elapsed = began.elapsed().as_millis();
-    crate::app_log::write("resume", &match result {
-        Ok(_) => format!("{thread} opened after {elapsed} ms."),
-        Err(error) => format!(
-            "{thread} refused after {elapsed} ms: {}{}",
-            error.code,
-            error.message.map(|message| format!(" ({message})")).unwrap_or_default()
-        ),
-    });
+    crate::app_log::write(
+        "resume",
+        &match result {
+            Ok(_) => format!("{thread} opened after {elapsed} ms."),
+            Err(error) => format!(
+                "{thread} refused after {elapsed} ms: {}{}",
+                error.code,
+                error
+                    .message
+                    .map(|message| format!(" ({message})"))
+                    .unwrap_or_default()
+            ),
+        },
+    );
 }
 /// `unavailable` with the check that refused. A bare "unavailable" told nothing: on 2026-11-19 eight
 /// Resumes were refused in 400 ms each and the log could not say by which check.
 fn because(reason: &'static str) -> Error {
-    Error { code: "unavailable", message: Some(reason) }
+    Error {
+        code: "unavailable",
+        message: Some(reason),
+    }
 }
 fn snapshot_error(error: ThreadResumeError) -> Error {
     issue(match error {
@@ -142,7 +157,9 @@ fn target(database: &Database, request: &Request) -> Result<ThreadResumeTarget> 
         return Err(issue("unsupported_harness"));
     }
     if saved.root.kind != RootKind::Box || saved.root.scope != RootScope::Primary {
-        return Err(because("This conversation is not in the agent's own home, so it cannot be resumed there."));
+        return Err(because(
+            "This conversation is not in the agent's own home, so it cannot be resumed there.",
+        ));
     }
     Ok(saved)
 }
@@ -240,39 +257,46 @@ impl Controller {
                 return Err(issue("unsupported_harness"));
             }
             let slot = entry.reserve().map_err(|_| issue("busy"))?;
-            slot.run(because("The agent's service stopped unexpectedly. Restart Shinatama."), |service| {
-                let project = canonical_project(&state.location, &saved.project_path)?;
-                if latest_box(&state.store, &saved.segment.harness)
-                    .map_err(|_| because("The agent's home could not be read from Shinatama's storage."))?
-                    .as_ref()
-                    != Some(&saved.root)
-                {
-                    return Err(issue("source_changed"));
-                }
-                crate::opening::report(&saved.segment.harness, "reading");
-                verify_native(&reader, &state.location, &saved, &project)?;
-                if target(&state.store, &request)? != saved {
-                    return Err(issue("source_changed"));
-                }
-                service
-                    .open(
-                        &host,
-                        &project,
-                        request.rows,
-                        request.cols,
-                        SessionOperation::Resume(saved),
-                        OpenMode::PrepareWhenNeeded,
-                        None,
-                        false,
-                        None,
-                        None,
-                        None,
-                    )
-                    .map_err(not_started)
-            })
+            slot.run(
+                because("The agent's service stopped unexpectedly. Restart Shinatama."),
+                |service| {
+                    let project = canonical_project(&state.location, &saved.project_path)?;
+                    if latest_box(&state.store, &saved.segment.harness)
+                        .map_err(|_| {
+                            because("The agent's home could not be read from Shinatama's storage.")
+                        })?
+                        .as_ref()
+                        != Some(&saved.root)
+                    {
+                        return Err(issue("source_changed"));
+                    }
+                    crate::opening::report(&saved.segment.harness, "reading");
+                    verify_native(&reader, &state.location, &saved, &project)?;
+                    if target(&state.store, &request)? != saved {
+                        return Err(issue("source_changed"));
+                    }
+                    service
+                        .open(
+                            &host,
+                            &project,
+                            request.rows,
+                            request.cols,
+                            SessionOperation::Resume(saved),
+                            OpenMode::PrepareWhenNeeded,
+                            None,
+                            false,
+                            None,
+                            None,
+                            None,
+                        )
+                        .map_err(not_started)
+                },
+            )
         })
         .await
-        .unwrap_or(Err(because("The resume stopped unexpectedly before it finished.")));
+        .unwrap_or(Err(because(
+            "The resume stopped unexpectedly before it finished.",
+        )));
         record(&thread, began, &result);
         result
     }

@@ -2,10 +2,13 @@
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdir, rmdir, mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startSession } from './session-flow.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This WebView2 test is Windows-only.');
 const root = process.cwd();
@@ -44,8 +47,8 @@ async function closeApp(instance) {
   const closed = instance.page.waitForEvent('close');
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
   if (hasTerminals) {
-    await expect(instance.page.locator('#confirm-dialog')).toBeVisible();
-    await instance.page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+    await expect(instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
+    await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   }
   await closed; await exited;
   await instance.browser.close().catch(() => {});
@@ -70,7 +73,7 @@ try {
   await running.page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(running.page.locator('#project-error')).toBeVisible();
   await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await running.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await running.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await closeApp(running); running = null;
 
   running = await openApp();
@@ -80,18 +83,18 @@ try {
   await expect(running.page.locator('.recent-project strong')).toHaveText(['second-project', 'first-project']);
   await running.page.locator('#project-filter').fill('first-project');
   await expect(running.page.locator('.recent-project')).toHaveCount(1);
-  await running.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await running.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await rmdir(first); // Exact, empty synthetic fixture only; never recurse into a project.
   await running.page.locator('#project').click(); await running.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(running.page.locator('.recent-project').filter({ hasText: 'first-project' })).toBeDisabled();
   await expect(running.page.getByText('Folder unavailable', { exact: true })).toBeVisible();
   await running.page.screenshot({ path: resolve(root, '.prototype-evidence/projects-picker.png') });
-  await running.page.getByRole('button', { name: 'Close', exact: true }).click();
+  await running.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   await mkdir(first); await rmdir(second);
   await closeApp(running); running = null;
   running = await openApp();
   await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await expect(running.page.locator('#notice')).toContainText('Last project unavailable');
+  await expect(running.page.locator('.im-notice', { hasText: 'Last project unavailable' })).toBeVisible();
   // New session offers its choices; nothing starts by itself in the unavailable folder.
   await running.page.locator('#new-terminal').click();
   await expect.poll(async () => await running.page.locator('#session-menu').isVisible() || await running.page.locator('#project-menu').isVisible()).toBe(true);

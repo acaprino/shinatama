@@ -87,6 +87,49 @@ class CheckpointValidation(unittest.TestCase):
         self.progress['steps']['C34']['status'] = 'in_progress'
         self.assertTrue(any('new user instruction' in error for error in implementation.validate(self.plan, self.progress)[0]))
 
+    def _committed_with_pending_dependency(self):
+        # A step whose dependencies are all done, with one of them reopened.
+        done = implementation.DONE
+        step = next(s for s in self.plan['steps'] if s['depends_on'] and not s.get('commit_units')
+                    and all(self.progress['steps'].get(d, {}).get('status') in done for d in s['depends_on']))
+        dependency = step['depends_on'][0]
+        self.progress['steps'][dependency] = {'status': 'pending'}
+        self.progress['steps'][step['id']] = {'status': 'verified', 'checks': ['check'],
+                                              'evidence': ['docs/implementation/plan.json']}
+        return step['id'], dependency
+
+    def test_completion_before_a_dependency_is_rejected_without_a_recorded_reason(self):
+        step, dependency = self._committed_with_pending_dependency()
+        errors = implementation.validate(self.plan, self.progress)[0]
+        self.assertIn(f"{step}: dependency {dependency} is not verified", errors)
+        self.progress['steps'][step]['accepted_before_dependencies'] = {dependency: '  '}
+        errors = implementation.validate(self.plan, self.progress)[0]
+        self.assertIn(f"{step}: dependency {dependency} is not verified", errors)
+        self.assertIn(f"{step}: exception for {dependency} needs its reason", errors)
+
+    def test_completion_before_a_dependency_is_accepted_with_its_reason(self):
+        step, dependency = self._committed_with_pending_dependency()
+        self.progress['steps'][step]['accepted_before_dependencies'] = {dependency: 'Committed on its own; the dependency is still open.'}
+        errors = implementation.validate(self.plan, self.progress)[0]
+        self.assertFalse([error for error in errors if error.startswith(f"{step}: ")])
+
+    def test_dependency_exception_must_name_a_dependency(self):
+        step, _ = self._committed_with_pending_dependency()
+        self.progress['steps'][step]['accepted_before_dependencies'] = {'B00-not-a-dependency': 'reason'}
+        self.assertIn(f"{step}: exception for B00-not-a-dependency, which is not a dependency",
+                      implementation.validate(self.plan, self.progress)[0])
+
+    def test_unit_completed_before_previous_units_needs_a_recorded_reason(self):
+        step = next(s for s in self.plan['steps'] if len(s.get('commit_units', [])) > 1)
+        second = step['commit_units'][1]['id']
+        done = {'status': 'verified', 'checks': ['check'], 'evidence': ['docs/implementation/plan.json']}
+        self.progress['steps'][step['id']] = {'status': 'pending', 'units': {second: dict(done)}}
+        self.assertTrue(any(error.startswith(f"{second}: completion needs prior units")
+                            for error in implementation.validate(self.plan, self.progress)[0]))
+        self.progress['steps'][step['id']]['units'][second]['accepted_before_previous_units'] = 'Done on its own.'
+        self.assertFalse([error for error in implementation.validate(self.plan, self.progress)[0]
+                          if error.startswith(f"{second}: ")])
+
     def test_automatic_selection_skips_deferred_even_if_marked_active(self):
         plan = {'steps': [
             {'id': 'daodan', 'scope': 'deferred', 'depends_on': []},

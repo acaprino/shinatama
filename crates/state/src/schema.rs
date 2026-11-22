@@ -4,8 +4,9 @@ use rusqlite::Connection;
 
 pub const CURRENT_VERSION: u32 = 6;
 
-const MAX_SCHEMA_OBJECTS: usize =
-    5 + crate::records::schema::OBJECTS.len() + crate::threads::schema::OBJECTS.len()
+const MAX_SCHEMA_OBJECTS: usize = 5
+    + crate::records::schema::OBJECTS.len()
+    + crate::threads::schema::OBJECTS.len()
     + crate::worksets::schema::OBJECTS.len();
 
 /// Call after BEGIN IMMEDIATE: another window may have upgraded since open().

@@ -3,8 +3,8 @@
 use super::{
     notify_thread_changed,
     service::{
-        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial,
-        ProbeContext, ProbeEvidence, ProbeProjection, SealedSession, SessionContext,
+        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy,
+        PreparedTrial, ProbeContext, ProbeEvidence, ProbeProjection, SealedSession, SessionContext,
         SessionOperation, TrialContext,
     },
     thread_lifecycle::record_chosen_native_session,
@@ -161,8 +161,17 @@ impl HarnessDriver for PiDriver {
         prepared: &mut Self::PreparedSession,
         binding: BindingContext<'_>,
     ) -> Result<Option<Arc<dyn WindowsNativeSessionLifecycle>>, DriverError> {
-        match record_chosen_native_session(&binding.database, binding.thread, binding.root, &prepared.native_id) {
-            Ok(()) => notify_thread_changed(&binding.thread_observer, &binding.thread.project_id, &binding.thread.id),
+        match record_chosen_native_session(
+            &binding.database,
+            binding.thread,
+            binding.root,
+            &prepared.native_id,
+        ) {
+            Ok(()) => notify_thread_changed(
+                &binding.thread_observer,
+                &binding.thread.project_id,
+                &binding.thread.id,
+            ),
             Err(reason) => eprintln!("This Pi session is not recorded under its id: {reason}"),
         }
         Ok(None)

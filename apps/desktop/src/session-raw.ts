@@ -1,7 +1,7 @@
-import { openModal, topModal } from './modal.ts';
+import { hasModal, uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
-import './session-raw.css';
 
 export type RawSelection = { root: SessionRootSelector; nativeId: string; entryOrdinal: number; fingerprint: string };
 export type RawRequest = { detail: DetailRequest; entryOrdinal: number; confirmedRaw: boolean };
@@ -49,29 +49,26 @@ function decode(value: unknown, selection: RawSelection): string {
 /** Opening never reads RAW. Only a checked warning plus an explicit Load click
  * invokes the injected contained reader. No cache, logging, HTML or navigation. */
 export function createSessionRaw(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'session-raw-dialog'; dialog.setAttribute('aria-labelledby', 'session-raw-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-raw-title'; title.textContent = 'RAW native entry';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close RAW entry');
-  heading.append(title, closeButton);
-  const warning = document.createElement('p'); warning.id = 'session-raw-warning'; warning.className = 'session-raw-warning';
+  const view = sideSurface('session-raw-dialog', 'RAW native entry', 'Close RAW entry', 'session-raw-title');
+  const closeButton = view.closeButton;
+  const warning = uiPart('paragraph'); warning.id = 'session-raw-warning';
   warning.textContent = 'RAW may contain credentials, private reasoning, signed or encrypted data, and other sensitive native fields. Nothing is hidden or redacted in this view. Load only if you intend to inspect this entry.';
-  const consent = document.createElement('label'); consent.className = 'session-raw-consent';
-  const confirmed = document.createElement('input'); confirmed.type = 'checkbox'; confirmed.id = 'session-raw-confirm'; confirmed.setAttribute('aria-describedby', warning.id);
-  const consentText = document.createElement('span'); consentText.textContent = 'I understand and want to load this one RAW entry.'; consent.append(confirmed, consentText);
-  const source = document.createElement('p'); source.className = 'hint session-raw-source';
-  const actions = document.createElement('div'); actions.className = 'session-raw-actions';
-  const load = document.createElement('button'); load.type = 'button'; load.id = 'session-raw-load'; load.textContent = 'Load this RAW entry';
-  const copy = document.createElement('button'); copy.type = 'button'; copy.id = 'session-raw-copy'; copy.textContent = 'Copy visible RAW'; actions.append(load, copy);
-  const status = document.createElement('p'); status.className = 'session-raw-status'; status.setAttribute('role', 'status');
-  const content = document.createElement('pre'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
-  const scope = document.createElement('p'); scope.className = 'hint'; scope.textContent = 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.';
-  dialog.append(heading, warning, source, consent, actions, status, content, scope); (document.querySelector('#app') ?? document.body).append(dialog);
+  const consent = uiPart('label');
+  const confirmed = uiInput('checkbox'); confirmed.id = 'session-raw-confirm'; confirmed.setAttribute('aria-describedby', warning.id);
+  const consentText = uiPart('text', 'I understand and want to load this one RAW entry.'); consent.append(confirmed, consentText);
+  const source = uiPart('hint');
+  const actions = uiPart('actions');
+  const load = uiButton(''); load.id = 'session-raw-load'; load.textContent = 'Load this RAW entry';
+  const copy = uiButton(''); copy.id = 'session-raw-copy'; copy.textContent = 'Copy visible RAW'; actions.append(load, copy);
+  const status = uiPart('status');
+  const content = uiTraits(uiPart('pre'), 'bounded'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
+  const scope = uiPart('hint', 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.');
+  view.body.append(warning, source, consent, actions, status, content, scope);
   let selected: RawSelection | null = null; let generation = 0; let destroyed = false; let busy = false; let copying = false;
   let message = 'RAW has not been requested.'; let failed = false;
   function render() {
     if (destroyed) return;
-    dialog.setAttribute('aria-busy', String(busy)); confirmed.disabled = busy;
+    view.root.setAttribute('aria-busy', String(busy)); confirmed.disabled = busy;
     load.disabled = busy || !selected || !confirmed.checked; copy.disabled = busy || copying || !confirmed.checked || !content.textContent;
     status.textContent = busy ? 'Reading this confirmed RAW entry…' : message; status.dataset.state = failed ? 'error' : 'ready';
     source.textContent = selected ? `Session ${selected.nativeId} · Entry ${selected.entryOrdinal} · Archive ${selected.root.storeRootId}` : '';
@@ -81,7 +78,7 @@ export function createSessionRaw(options: Options) {
     generation++; selected = null; confirmed.checked = false; content.textContent = ''; message = 'RAW has not been requested.'; failed = false;
     render();
   }
-  function close() { clear(); if (dialog.open) dialog.close(); }
+  function close() { clear(); if (view.isOpen()) view.close(); }
   async function read() {
     if (busy || !selected || !confirmed.checked || destroyed) return;
     const at = generation; const selection = selected;
@@ -90,10 +87,10 @@ export function createSessionRaw(options: Options) {
     busy = true; content.textContent = ''; failed = false; render();
     try {
       const reply = await options.read(request);
-      if (destroyed || at !== generation || !dialog.open || !confirmed.checked) return;
+      if (destroyed || at !== generation || !view.isOpen() || !confirmed.checked) return;
       content.textContent = decode(reply, selection); message = 'Only this native entry is shown. RAW is not saved by this view.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) {
+      if (!destroyed && at === generation && view.isOpen()) {
         content.textContent = ''; failed = true;
         const code = error instanceof Error ? error.message : null;
         message = typeof code === 'string' && Object.hasOwn(ERRORS, code) ? ERRORS[code] : ERRORS.read_unavailable;
@@ -101,18 +98,18 @@ export function createSessionRaw(options: Options) {
       }
     } finally {
       busy = false;
-      if (!destroyed && at !== generation && dialog.open) message = 'The previous read finished. Confirm and load again explicitly.';
+      if (!destroyed && at !== generation && view.isOpen()) message = 'The previous read finished. Confirm and load again explicitly.';
       render();
     }
   }
   async function copyVisible() {
-    if (busy || copying || !dialog.open || !confirmed.checked || !content.textContent || destroyed) return;
+    if (busy || copying || !view.isOpen() || !confirmed.checked || !content.textContent || destroyed) return;
     const visible = content.textContent; const at = generation; copying = true; render();
     try {
       await navigator.clipboard.writeText(visible);
-      if (!destroyed && at === generation && dialog.open) message = 'Visible RAW copied. Your clipboard may be available to other applications.';
+      if (!destroyed && at === generation && view.isOpen()) message = 'Visible RAW copied. Your clipboard may be available to other applications.';
     } catch {
-      if (!destroyed && at === generation && dialog.open) {
+      if (!destroyed && at === generation && view.isOpen()) {
         content.focus(); const range = document.createRange(); range.selectNodeContents(content);
         const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
         message = 'Clipboard access is unavailable. Visible text is selected; press Ctrl+C to copy it yourself.';
@@ -123,14 +120,13 @@ export function createSessionRaw(options: Options) {
     if (destroyed || !record(selection) || !rootValue(selection.root) || !nativeId(selection.nativeId) || !integer(selection.entryOrdinal) || !digest(selection.fingerprint)) {
       if (!destroyed) options.reportError('This RAW selector is invalid. Reload the session detail.'); return false;
     }
-    const other = topModal();
-    if (!dialog.open && other && other.id !== 'session-detail-dialog') return false;
+    if (!view.isOpen() && hasModal()) return false;
     clear(); selected = { root: { ...selection.root }, nativeId: selection.nativeId, entryOrdinal: selection.entryOrdinal, fingerprint: selection.fingerprint };
     message = busy ? 'The previous read is still returning; no replacement was started.' : 'Confirm the privacy warning before loading RAW.';
-    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); return true;
+    render(); if (!view.isOpen()) view.open(); closeButton.focus(); return true;
   }
   confirmed.onchange = () => { if (!confirmed.checked) { generation++; content.textContent = ''; message = 'RAW has been cleared.'; } render(); };
   load.onclick = () => { void read(); }; copy.onclick = () => { void copyVisible(); }; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
-  render(); return { show, close, destroy: () => { close(); destroyed = true; dialog.remove(); } };
+  view.onClose(() => { clear(); if (!sidePanelOpen()) options.restoreFocus?.(); });
+  render(); return { show, close, destroy: () => { close(); destroyed = true; view.root.remove(); } };
 }

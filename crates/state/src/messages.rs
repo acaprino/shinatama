@@ -36,7 +36,16 @@ impl MessageState {
         }
     }
     pub fn parse(value: &str) -> Option<Self> {
-        [Self::Queued, Self::Delivering, Self::Delivered, Self::Acked, Self::Failed, Self::Expired].into_iter().find(|s| s.as_str() == value)
+        [
+            Self::Queued,
+            Self::Delivering,
+            Self::Delivered,
+            Self::Acked,
+            Self::Failed,
+            Self::Expired,
+        ]
+        .into_iter()
+        .find(|s| s.as_str() == value)
     }
 }
 
@@ -135,7 +144,6 @@ CREATE TABLE IF NOT EXISTS instance(
 ) STRICT;
 ";
 
-
 pub struct MessageStore {
     connection: Mutex<Connection>,
 }
@@ -171,7 +179,9 @@ impl MessageStore {
     pub fn open(location: &StorageLocation) -> Result<Self> {
         let path = location.directory().join(FILE_NAME);
         let store = Self::open_path(&path)?;
-        location.secure_private_file(&path).map_err(|e| StoreError::Storage(e.to_string()))?;
+        location
+            .secure_private_file(&path)
+            .map_err(|e| StoreError::Storage(e.to_string()))?;
         Ok(store)
     }
     pub fn open_path(path: &Path) -> Result<Self> {
@@ -181,26 +191,44 @@ impl MessageStore {
         Self::prepare(Connection::open_in_memory().map_err(storage)?)
     }
     fn prepare(connection: Connection) -> Result<Self> {
-        connection.busy_timeout(Duration::from_millis(2_000)).map_err(storage)?;
+        connection
+            .busy_timeout(Duration::from_millis(2_000))
+            .map_err(storage)?;
         let _ = connection.pragma_update(None, "journal_mode", "WAL");
-        let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0)).map_err(storage)?;
+        let version: u32 = connection
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .map_err(storage)?;
         if version > SCHEMA_VERSION {
             return Err(StoreError::Storage("written by a newer Shinatama".into()));
         }
         if version < SCHEMA_VERSION {
             connection.execute_batch(&format!("BEGIN IMMEDIATE;{SCHEMA}{SCHEMA_V2}PRAGMA user_version={SCHEMA_VERSION};COMMIT;")).map_err(storage)?;
         }
-        Ok(Self { connection: Mutex::new(connection) })
+        Ok(Self {
+            connection: Mutex::new(connection),
+        })
     }
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>> {
-        self.connection.lock().map_err(|_| StoreError::Storage("lock poisoned".into()))
+        self.connection
+            .lock()
+            .map_err(|_| StoreError::Storage("lock poisoned".into()))
     }
 
     /// Inserts a validated message. A repeated dedupe key returns the existing id (R12).
     pub fn insert(&self, message: &StoredMessage) -> Result<()> {
         let mut connection = self.lock()?;
-        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(storage)?;
-        if let Some(existing_id) = tx.query_row("SELECT id FROM message WHERE dedupe_key=?1", [&message.dedupe_key], |r| r.get::<_, String>(0)).optional().map_err(storage)? {
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage)?;
+        if let Some(existing_id) = tx
+            .query_row(
+                "SELECT id FROM message WHERE dedupe_key=?1",
+                [&message.dedupe_key],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage)?
+        {
             return Err(StoreError::Duplicate { existing_id });
         }
         tx.execute(
@@ -217,14 +245,24 @@ impl MessageStore {
     }
 
     pub fn get(&self, id: &str) -> Result<Option<StoredMessage>> {
-        self.lock()?.query_row(&format!("SELECT {COLUMNS} FROM message WHERE id=?1"), [id], row).optional().map_err(storage)
+        self.lock()?
+            .query_row(
+                &format!("SELECT {COLUMNS} FROM message WHERE id=?1"),
+                [id],
+                row,
+            )
+            .optional()
+            .map_err(storage)
     }
 
     fn select(&self, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Vec<StoredMessage>> {
         let connection = self.lock()?;
-        let mut statement = connection.prepare(&format!("SELECT {COLUMNS} FROM message {sql}")).map_err(storage)?;
+        let mut statement = connection
+            .prepare(&format!("SELECT {COLUMNS} FROM message {sql}"))
+            .map_err(storage)?;
         let rows = statement.query_map(args, row).map_err(storage)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage)
     }
 
     /// Queued messages whose next attempt is due and that have not expired.
@@ -233,7 +271,12 @@ impl MessageStore {
     }
 
     /// Delivered or queued messages for one recipient (MCP pull), oldest first.
-    pub fn for_recipient(&self, instance: &str, now_ms: i64, limit: usize) -> Result<Vec<StoredMessage>> {
+    pub fn for_recipient(
+        &self,
+        instance: &str,
+        now_ms: i64,
+        limit: usize,
+    ) -> Result<Vec<StoredMessage>> {
         self.select("WHERE recipient_instance=?1 AND state IN ('queued','delivered') AND expires_at_ms>?2 ORDER BY created_at_ms LIMIT ?3", &[&instance, &now_ms, &(limit as i64)])
     }
 
@@ -244,14 +287,27 @@ impl MessageStore {
 
     pub fn count_thread_since(&self, thread: &str, since_ms: i64) -> Result<u64> {
         self.lock()?
-            .query_row("SELECT count(*) FROM message WHERE sender_thread=?1 AND created_at_ms>=?2", params![thread, since_ms], |r| r.get::<_, i64>(0))
+            .query_row(
+                "SELECT count(*) FROM message WHERE sender_thread=?1 AND created_at_ms>=?2",
+                params![thread, since_ms],
+                |r| r.get::<_, i64>(0),
+            )
             .map(|n| n as u64)
             .map_err(storage)
     }
 
     /// Compare-and-set on the state; returns whether this caller won.
     #[allow(clippy::too_many_arguments)]
-    pub fn update_state(&self, id: &str, from: MessageState, to: MessageState, attempts: u32, next_attempt_at_ms: i64, channel: Option<&str>, failure: Option<&str>) -> Result<bool> {
+    pub fn update_state(
+        &self,
+        id: &str,
+        from: MessageState,
+        to: MessageState,
+        attempts: u32,
+        next_attempt_at_ms: i64,
+        channel: Option<&str>,
+        failure: Option<&str>,
+    ) -> Result<bool> {
         let changed = self
             .lock()?
             .execute(
@@ -272,14 +328,32 @@ impl MessageStore {
 
     /// Removes finished rows an hour after their expiry; no mailbox outlives that (R02).
     pub fn purge(&self, now_ms: i64) -> Result<u64> {
-        self.lock()?.execute("DELETE FROM message WHERE expires_at_ms<=?1", [now_ms - 3_600_000]).map(|n| n as u64).map_err(storage)
+        self.lock()?
+            .execute(
+                "DELETE FROM message WHERE expires_at_ms<=?1",
+                [now_ms - 3_600_000],
+            )
+            .map(|n| n as u64)
+            .map_err(storage)
     }
 
     /// Registers (or re-registers) a live instance with the hash of its launch token.
     #[allow(clippy::too_many_arguments)]
-    pub fn register_instance(&self, id: &str, agent: &str, project: &str, thread: Option<&str>, roundtable: Option<&str>, token_sha256: &str, channels: &str, now_ms: i64) -> Result<()> {
+    pub fn register_instance(
+        &self,
+        id: &str,
+        agent: &str,
+        project: &str,
+        thread: Option<&str>,
+        roundtable: Option<&str>,
+        token_sha256: &str,
+        channels: &str,
+        now_ms: i64,
+    ) -> Result<()> {
         if token_sha256.len() != 64 || !token_sha256.bytes().all(|c| c.is_ascii_hexdigit()) {
-            return Err(StoreError::Storage("token hash must be 64 hex characters".into()));
+            return Err(StoreError::Storage(
+                "token hash must be 64 hex characters".into(),
+            ));
         }
         self.lock()?
             .execute(
@@ -293,35 +367,87 @@ impl MessageStore {
     }
 
     pub fn heartbeat(&self, id: &str, now_ms: i64) -> Result<bool> {
-        self.lock()?.execute("UPDATE instance SET heartbeat_ms=?2 WHERE id=?1 AND ended=0", params![id, now_ms]).map(|n| n == 1).map_err(storage)
+        self.lock()?
+            .execute(
+                "UPDATE instance SET heartbeat_ms=?2 WHERE id=?1 AND ended=0",
+                params![id, now_ms],
+            )
+            .map(|n| n == 1)
+            .map_err(storage)
     }
 
     pub fn end_instance(&self, id: &str) -> Result<()> {
-        self.lock()?.execute("UPDATE instance SET ended=1 WHERE id=?1", [id]).map(|_| ()).map_err(storage)
+        self.lock()?
+            .execute("UPDATE instance SET ended=1 WHERE id=?1", [id])
+            .map(|_| ())
+            .map_err(storage)
     }
 
     /// Instances with a heartbeat newer than `stale_ms` and not ended:
     /// (id, agent, project, thread, roundtable, token_sha256, channels JSON).
     #[allow(clippy::type_complexity)]
-    pub fn live_instances(&self, now_ms: i64, stale_ms: i64) -> Result<Vec<(String, String, String, Option<String>, Option<String>, String, String)>> {
+    pub fn live_instances(
+        &self,
+        now_ms: i64,
+        stale_ms: i64,
+    ) -> Result<
+        Vec<(
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+            String,
+        )>,
+    > {
         let connection = self.lock()?;
         let mut statement = connection
             .prepare("SELECT id,agent,project,thread,roundtable,token_sha256,channels FROM instance WHERE ended=0 AND heartbeat_ms>=?1 ORDER BY id LIMIT 256")
             .map_err(storage)?;
         let rows = statement
-            .query_map([now_ms - stale_ms], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))
+            .query_map([now_ms - stale_ms], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            })
             .map_err(storage)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage)
     }
 
     pub fn raise_alert(&self, kind: &str, detail: &str, now_ms: i64) -> Result<()> {
-        self.lock()?.execute("INSERT INTO alert(kind,detail,at_ms) VALUES(?1,?2,?3)", params![kind, detail, now_ms]).map(|_| ()).map_err(storage)
+        self.lock()?
+            .execute(
+                "INSERT INTO alert(kind,detail,at_ms) VALUES(?1,?2,?3)",
+                params![kind, detail, now_ms],
+            )
+            .map(|_| ())
+            .map_err(storage)
     }
 
     pub fn alerts_since(&self, since_ms: i64) -> Result<Vec<Alert>> {
         let connection = self.lock()?;
-        let mut statement = connection.prepare("SELECT id,kind,detail,at_ms FROM alert WHERE at_ms>=?1 ORDER BY id").map_err(storage)?;
-        let rows = statement.query_map([since_ms], |r| Ok(Alert { id: r.get(0)?, kind: r.get(1)?, detail: r.get(2)?, at_ms: r.get(3)? })).map_err(storage)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)
+        let mut statement = connection
+            .prepare("SELECT id,kind,detail,at_ms FROM alert WHERE at_ms>=?1 ORDER BY id")
+            .map_err(storage)?;
+        let rows = statement
+            .query_map([since_ms], |r| {
+                Ok(Alert {
+                    id: r.get(0)?,
+                    kind: r.get(1)?,
+                    detail: r.get(2)?,
+                    at_ms: r.get(3)?,
+                })
+            })
+            .map_err(storage)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage)
     }
 }

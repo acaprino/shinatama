@@ -30,7 +30,9 @@ pub fn run(args: &[String]) -> i32 {
 
 fn write(args: &[String]) -> Result<Value, String> {
     let [harness, folder, endpoint, service_id] = args else {
-        return Err(format!("usage: mukade {COMMAND} <opencode|pi> <folder> <endpoint> <service-id>"));
+        return Err(format!(
+            "usage: mukade {COMMAND} <opencode|pi> <folder> <endpoint> <service-id>"
+        ));
     };
     let id: mukade::HarnessId = match harness.as_str() {
         "opencode" | "pi" => harness.parse().map_err(|_| "unknown harness".to_owned())?,
@@ -41,7 +43,8 @@ fn write(args: &[String]) -> Result<Value, String> {
         return Err("the kit folder must be absolute".into());
     }
     let kit = Kit {
-        exe: std::env::current_exe().map_err(|_| "the mukade executable cannot be found".to_owned())?,
+        exe: std::env::current_exe()
+            .map_err(|_| "the mukade executable cannot be found".to_owned())?,
         folder,
         server: mukade::chat::connect::Server {
             endpoint: endpoint.clone(),
@@ -79,7 +82,8 @@ mod tests {
     use super::*;
 
     fn temp(name: &str) -> PathBuf {
-        let folder = std::env::temp_dir().join(format!("shinatama-kit-{name}-{}", std::process::id()));
+        let folder =
+            std::env::temp_dir().join(format!("shinatama-kit-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&folder);
         folder
     }
@@ -87,13 +91,23 @@ mod tests {
     #[test]
     fn pi_s_kit_is_one_extension_argument_and_holds_no_credential() {
         let folder = temp("pi");
-        let value = write(&["pi".into(), folder.to_string_lossy().into(), "http://127.0.0.1:1/mcp".into(), "svc".into()]).unwrap();
+        let value = write(&[
+            "pi".into(),
+            folder.to_string_lossy().into(),
+            "http://127.0.0.1:1/mcp".into(),
+            "svc".into(),
+        ])
+        .unwrap();
         let arguments = value["arguments"].as_array().unwrap();
         assert_eq!(arguments.len(), 2);
         assert_eq!(arguments[0], "-e");
         let extension = PathBuf::from(arguments[1].as_str().unwrap());
         let source = std::fs::read_to_string(&extension).unwrap();
-        assert!(extension.starts_with(&folder) && source.contains("registerMcpServer") && source.contains("http://127.0.0.1:1/mcp"));
+        assert!(
+            extension.starts_with(&folder)
+                && source.contains("registerMcpServer")
+                && source.contains("http://127.0.0.1:1/mcp")
+        );
         assert!(!value.to_string().contains("Bearer"));
         let _ = std::fs::remove_dir_all(&folder);
     }
@@ -102,17 +116,43 @@ mod tests {
     fn opencode_s_kit_merges_into_the_configuration_it_is_given() {
         let folder = temp("opencode");
         // SAFETY: tests of this crate that touch this variable run in this one test only.
-        unsafe { std::env::set_var("OPENCODE_CONFIG_CONTENT", r#"{"update":"disable","share":"disabled"}"#) };
-        let value = write(&["opencode".into(), folder.to_string_lossy().into(), "http://127.0.0.1:1/mcp".into(), "svc".into()]).unwrap();
-        let config: Value = serde_json::from_str(value["opencode_config"].as_str().unwrap()).unwrap();
+        unsafe {
+            std::env::set_var(
+                "OPENCODE_CONFIG_CONTENT",
+                r#"{"update":"disable","share":"disabled"}"#,
+            )
+        };
+        let value = write(&[
+            "opencode".into(),
+            folder.to_string_lossy().into(),
+            "http://127.0.0.1:1/mcp".into(),
+            "svc".into(),
+        ])
+        .unwrap();
+        let config: Value =
+            serde_json::from_str(value["opencode_config"].as_str().unwrap()).unwrap();
         assert_eq!(config["update"], "disable");
         assert_eq!(config["share"], "disabled");
         let plugin = PathBuf::from(config["plugins"][0].as_str().unwrap());
         assert!(plugin.starts_with(&folder) && plugin.join("server.js").is_file());
-        assert_eq!(config["mcp"]["servers"]["mukade"]["url"], "http://127.0.0.1:1/mcp");
-        assert_eq!(config["mcp"]["servers"]["mukade"]["headers"]["Authorization"], "{env:MUKADE_CHAT_AUTHORIZATION}");
+        assert_eq!(
+            config["mcp"]["servers"]["mukade"]["url"],
+            "http://127.0.0.1:1/mcp"
+        );
+        assert_eq!(
+            config["mcp"]["servers"]["mukade"]["headers"]["Authorization"],
+            "{env:MUKADE_CHAT_AUTHORIZATION}"
+        );
         assert_eq!(value["arguments"], json!([]));
-        assert!(write(&["codex".into(), folder.to_string_lossy().into(), "e".into(), "s".into()]).is_err());
+        assert!(
+            write(&[
+                "codex".into(),
+                folder.to_string_lossy().into(),
+                "e".into(),
+                "s".into()
+            ])
+            .is_err()
+        );
         assert!(write(&["pi".into(), "relative".into(), "e".into(), "s".into()]).is_err());
         let _ = std::fs::remove_dir_all(&folder);
     }

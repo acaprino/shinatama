@@ -135,7 +135,7 @@ try {
   expect(await invoke(instance, 'project_recent')).toEqual(beforeCancel);
   expect(await invoke(instance, 'terminal_list')).toEqual([]);
   evidence.checks.realF3NativeCancelReturnsCancelledWithoutSelectionOrHistoryWrite = true;
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
 
   // Tauri's invoke entry is immutable. Observe a second real chooser's return value
   // directly through the existing scoped app command, with no fake production bridge.

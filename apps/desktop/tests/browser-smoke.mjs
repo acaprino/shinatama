@@ -72,14 +72,14 @@ try {
 
   // Files panel → Browser button on a local document.
   await page.locator('#open-files').click();
-  await page.locator('#files-dialog .files-row', { hasText: 'site' }).first().click();
-  await page.locator('#files-dialog .files-row', { hasText: 'index.html' }).first().click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'site' }).first().click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'index.html' }).first().click();
   const button = page.locator('#files-dialog button', { hasText: 'Browser' });
   await button.waitFor({ state: 'visible', timeout: 10000 });
   const opened = Date.now();
   await button.click();
   const tabShown = await until(() => page.locator('.browser-tab').count(), 30000);
-  if (!tabShown) throw new Error(`No browser tab. Notice: ${await page.locator('#notice span').textContent()}
+  if (!tabShown) throw new Error(`No browser tab. Notice: ${(await page.locator('.im-notice-text').allTextContents()).join(' | ')}
 ${diagnostics}`);
   const red = await until(async () => (await share(page, [192, 0, 0])) > 0.3, 30000);
   await page.locator('.browser-tab').first().screenshot({ path: resolve(process.env.SMOKE_SHOTS ?? fixture, 'browser-local.png') }).catch(() => undefined);

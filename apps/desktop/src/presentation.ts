@@ -1,45 +1,39 @@
+import { applyLook, parseLook, parseTheme, windowThemeFor, type ThemeChoice } from '@acaprino/imago/shell';
+import { applyShinatamaPalette, SHINATAMA_PALETTES as SKINS, type ShinatamaPaletteTokens as Tokens } from './shinatama-palette.ts';
+import { uiPart, uiSelect, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
 import { confirmsField } from './desktop-shell-model.ts';
+import { labelledBy } from './field-label.ts';
 
-const base = {
-  stage: '#04070f', chrome: '#070c18', 'chrome-2': '#0a1120', surface: '#0e1729', 'surface-2': '#13203a', terminal: '#050912',
-  line: '#1c3563', 'line-strong': '#4a78e6', ice: '#a9c8ff', text: '#e6f0ff', 'text-2': '#b4c8e8', muted: '#8fa6c9',
-  accent: '#f48fb8', 'accent-soft': '#ffb3d0', 'accent-ink': '#1c0811', live: '#6fe3d2', warning: '#e8bb72', error: '#ff8495',
-  danger: '#a0294e', 'danger-line': '#e35f87', 'on-danger': '#ffffff', selection: '#2a4a8f', scrim: '#02050bcc', shadow: '#000000aa', grid: '#1c356340',
-  // The tint of the desktop glass over the window's acrylic. ONI MODE paints its stage there (styles.css); Smooth reads this one.
-  'glass-tint': '#04070f',
-} as const;
-type Tokens = { readonly [K in keyof typeof base]: string };
-export const SKINS: Readonly<Record<string, { readonly name: string; readonly tokens: Tokens }>> = {
-  shinatama: { name: 'Shinatama', tokens: base },
-  neutral: { name: 'Neutral dark', tokens: { ...base, stage: '#080b10', chrome: '#0d1219', 'chrome-2': '#121a24', surface: '#17212e', 'surface-2': '#1d2a3a', terminal: '#090e15', line: '#334256', 'line-strong': '#899bb6', ice: '#d5e1f4', accent: '#b8c9e3', 'accent-soft': '#dbe7fa', 'accent-ink': '#0a1220', grid: '#33425640' } },
-  section9: { name: 'Section 9', tokens: { ...base, stage: '#030b0c', chrome: '#061214', 'chrome-2': '#091b1d', surface: '#0c2225', 'surface-2': '#103035', terminal: '#041012', line: '#24545a', 'line-strong': '#62aeb6', ice: '#a8edf2', text: '#e4f8f6', 'text-2': '#bededb', muted: '#a4c9c6', accent: '#78e2dc', 'accent-soft': '#b4fff8', 'accent-ink': '#032021', selection: '#235e62', grid: '#24545a40' } },
-  tctf: { name: 'TCTF', tokens: { ...base, stage: '#090b0e', chrome: '#10151b', 'chrome-2': '#171e26', surface: '#1b2631', 'surface-2': '#24313e', terminal: '#0a1016', line: '#455567', 'line-strong': '#b59b78', ice: '#f6d9b3', text: '#f5ece0', 'text-2': '#d8cab8', muted: '#c7baa7', accent: '#ffc072', 'accent-soft': '#ffdfad', 'accent-ink': '#241405', selection: '#635035', grid: '#45556740' } },
-  sumi: { name: 'Sumi', tokens: { ...base, stage: '#080707', chrome: '#100c0c', 'chrome-2': '#171111', surface: '#211919', 'surface-2': '#2b2020', terminal: '#0a0808', line: '#573a37', 'line-strong': '#c88b81', ice: '#f3d5cd', text: '#f7e9e3', 'text-2': '#dcc7c0', muted: '#cbb5ae', accent: '#f49c8b', 'accent-soft': '#ffd2c5', 'accent-ink': '#2a0c08', selection: '#653c35', grid: '#573a3740' } },
-};
-/** The look of the window: Smooth (the default) or ONI MODE (the look Shinatama was born with). The choice is an attribute on
- * the root (`data-look`): smooth.css is scoped to it, the other stylesheets are what is left without it. Kept in the
- * webview's own storage like the zoom. Smooth has one palette, below; the skins above are ONI MODE's themes. */
+export { SKINS };
+const base = SKINS.shinatama.tokens;
+/** Imago draws both looks, each dark and light. ONI dark also takes one of Shinatama's skins. */
 export type Look = 'smooth' | 'oni';
 export const LOOK_KEY = 'shinatama.look';
-/** The look a stored value stands for: ONI MODE only when it was chosen, anything else (nothing stored, a stale value) is Smooth. */
-export const storedLook = (raw: string | null): Look => (raw === 'oni' ? 'oni' : 'smooth');
 /** Smooth: a slate dark look (a ground, and a sheet one step lighter), her pink hair the one accent. */
 export const SMOOTH: Tokens = { ...base, stage: '#12161e', chrome: '#12161e', 'chrome-2': '#161b25', surface: '#1a202c', 'surface-2': '#222a38', terminal: '#0e1118', line: '#2a3240', 'line-strong': '#6b7488', ice: '#c9d4e6', text: '#e8ecf3', 'text-2': '#c0c8d6', muted: '#9aa5b8', selection: '#4a2c40', scrim: '#0a0d12cc', shadow: '#00000066', grid: '#2a324040', 'glass-tint': '#0c111d' };
-/** Smooth's theme: the one of Windows, or light or dark whatever Windows says. ONI MODE has none: it is always dark. */
-export type Theme = 'system' | 'light' | 'dark';
+/** The theme: the one of Windows, or light or dark whatever Windows says. ONI with the Windows theme is dark. */
+export type Theme = ThemeChoice;
 export const THEME_KEY = 'shinatama.theme';
-/** The theme a stored value stands for: anything that is not light or dark follows Windows. */
-export const storedTheme = (raw: string | null): Theme => (raw === 'light' || raw === 'dark' ? raw : 'system');
-/** The theme of the native window, which on Windows 11 is the theme of the acrylic behind the glass and of the page's
- * `prefers-color-scheme`: the look's own (ONI MODE is always dark), so light glass never sits on a dark backdrop. */
-export const windowThemeFor = (look: Look, theme: Theme): Theme => (look === 'oni' ? 'dark' : theme);
+/** Written 2 with the first choice saved since ONI has a light theme: before it, the theme key held Smooth's theme only. */
+export const LOOK_VERSION_KEY = 'shinatama.look-version';
+/** The look and the theme a stored choice stands for: anything but the exact words is Smooth following Windows. An ONI saved
+ *  before ONI had a light theme (no version 2) was dark, whatever the theme key held then. */
+export function storedChoice(look: string | null, theme: string | null, version: string | null): { look: Look; theme: Theme } {
+  const chosen = parseLook(look);
+  return chosen === 'oni' && version !== '2' ? { look: 'oni', theme: 'dark' } : { look: chosen, theme: parseTheme(theme) };
+}
+/** The skin the window paints: Shinatama's skins are dark palettes of ONI, so only ONI dark takes one. */
+export function skinFor(look: Look, drawn: 'dark' | 'light', skin: string): string | null {
+  return look === 'oni' && drawn === 'dark' ? skin : null;
+}
 /** Smooth in the light: a grey ground and white sheets. The pink is hers, unchanged, for fills and marks; as text
  * and as the focus ring it is ACCENT_TEXT_LIGHT (the --accent-text the stylesheets read), deep enough to read on white. */
 export const ACCENT_TEXT_LIGHT = '#b0286a';
 export const SMOOTH_LIGHT: Tokens = { ...base, stage: '#f6f7f9', chrome: '#f6f7f9', 'chrome-2': '#f0f2f5', surface: '#ffffff', 'surface-2': '#eceef2', terminal: '#ffffff', line: '#e3e6ea', 'line-strong': '#7b8494', ice: '#2b4a80', text: '#111827', 'text-2': '#3d4656', muted: '#566070', live: '#0f7566', warning: '#8a5a00', error: '#b3261e', danger: '#b3261e', 'danger-line': '#8f1d17', selection: '#f9d7e6', scrim: '#0f183055', shadow: '#15274a26', grid: '#e3e6ea80', 'glass-tint': '#ffffff' };
-const tokensFor = (look: Look, skin: string, light = false): Tokens => look === 'smooth' ? light ? SMOOTH_LIGHT : SMOOTH : SKINS[skin]?.tokens ?? base;
+// A followed terminal takes the light palette under either look's light theme; in the dark, Smooth's or the ONI skin.
+const tokensFor = (look: Look, skin: string, light = false): Tokens => light ? SMOOTH_LIGHT : look === 'smooth' ? SMOOTH : SKINS[skin]?.tokens ?? base;
 const ansi = {
   black: '#172538', red: '#ff8495', green: '#75d9a7', yellow: '#e8bb72', blue: '#8bb8ff', magenta: '#d5a4ff', cyan: '#58d6c2', white: '#d9e5f2',
   brightBlack: '#91a7ba', brightRed: '#ffb4bf', brightGreen: '#a8f0ca', brightYellow: '#f5d8a5', brightBlue: '#b7d5ff', brightMagenta: '#e8ccff', brightCyan: '#a2f3e5', brightWhite: '#ffffff',
@@ -117,32 +111,73 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   let current = DEFAULT_PRESENTATION; let revision = 0; let loaded = !options.desktop; let blocked = false;
   let flight: Promise<void> | null = null; let pending: PresentationSettings | null = null; let timer = 0; let edits = 0;
   const warnedProfiles = new Set<string>();
-  const theme = document.createElement('div'); theme.className = 'presentation-theme';
-  theme.innerHTML = '<label for="presentation-theme">Theme</label><select id="presentation-theme"><option value="system">Windows</option><option value="light">Light</option><option value="dark">Dark</option><option value="oni">Classic</option></select><label for="presentation-skin">Classic theme</label><select id="presentation-skin"></select>';
-  let look: Look = (() => { try { return storedLook(localStorage.getItem(LOOK_KEY)); } catch { return storedLook(null); } })();
-  let smoothTheme: Theme = (() => { try { return storedTheme(localStorage.getItem(THEME_KEY)); } catch { return storedTheme(null); } })();
-  const themeSelector = theme.querySelector<HTMLSelectElement>('#presentation-theme')!;
+  const theme = uiPart('stack');
+  const form = uiPart('form');
+  uiTraits(form, 'stack');
+  function field(host: HTMLElement, label: string, id: string, input: HTMLSelectElement | HTMLInputElement) {
+    const row = uiPart('field');
+    input.id = id;
+    const caption = uiPart('text', label);
+    row.append(caption, labelledBy(caption, input));
+    host.append(row);
+  }
+  // The look and the theme are the window's commands (Ctrl+K, Appearance), as in every app; ONI dark's skin is Shinatama's.
+  const selector = uiSelect(Object.entries(SKINS).map(([id, skin]) => [id, skin.name]));
+  field(theme, 'ONI skin', 'presentation-skin', selector);
+  theme.append(uiPart('hint', 'The look and the theme: Ctrl+K, then Appearance. A skin paints ONI with the Dark theme.'));
+  const font = uiSelect(fonts.map(name => [name, name === 'profile' ? 'Profile default' : name]));
+  field(form, 'Terminal font', 'presentation-font', font);
+  const size = uiInput('number'); size.min = '8'; size.max = '32'; size.required = true;
+  field(form, 'Font size', 'presentation-size', size);
+  const height = uiInput('number'); height.min = '100'; height.max = '180'; height.required = true;
+  field(form, 'Line height (%)', 'presentation-height', height);
+  const follow = uiInput('checkbox');
+  field(form, 'Follow interface theme in terminals', 'presentation-follow', follow);
+  const status = uiPart('status'); status.id = 'presentation-status';
+  form.append(uiPart('hint', 'Follow theme changes default and ANSI colours. Application truecolour output stays untouched.'),
+    uiPart('hint', 'Uses local fonts with a system monospace fallback.'), status);
+  let { look, theme: themeChoice } = (() => {
+    try { return storedChoice(localStorage.getItem(LOOK_KEY), localStorage.getItem(THEME_KEY), localStorage.getItem(LOOK_VERSION_KEY)); }
+    catch { return storedChoice(null, null, null); }
+  })();
   const systemLight = window.matchMedia('(prefers-color-scheme: light)');
-  const light = () => look === 'smooth' && (smoothTheme === 'light' || (smoothTheme === 'system' && systemLight.matches));
-  const selector = theme.querySelector<HTMLSelectElement>('#presentation-skin')!;
-  for (const [id, skin] of Object.entries(SKINS)) { const option = document.createElement('option'); option.value = id; option.textContent = skin.name; selector.append(option); }
-  const form = document.createElement('form'); form.className = 'presentation-terminal';
-  form.innerHTML = '<label for="presentation-font">Terminal font</label><select id="presentation-font"></select><label for="presentation-size">Font size</label><input id="presentation-size" type="number" min="8" max="32" step="1" required><label for="presentation-height">Line height (%)</label><input id="presentation-height" type="number" min="100" max="180" step="1" required><label class="presentation-follow"><input type="checkbox" id="presentation-follow"> Follow interface theme in terminals</label><p class="hint">Follow theme changes default and ANSI colours; Claude Code and Codex started afterwards use their ANSI-colour themes. Application truecolour output stays untouched.</p><p class="hint">Uses local fonts with a system monospace fallback. No fonts or artwork are downloaded.</p><p id="presentation-status" role="status"></p>';
-  const font = form.querySelector<HTMLSelectElement>('#presentation-font')!;
-  for (const name of fonts) { const option = document.createElement('option'); option.value = name; option.textContent = name === 'profile' ? 'Profile default' : name; font.append(option); }
-  const size = form.querySelector<HTMLInputElement>('#presentation-size')!; const height = form.querySelector<HTMLInputElement>('#presentation-height')!;
-  const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
+  /** The theme the window draws: the chosen one, or Windows' (ONI with the Windows theme is dark). */
+  const drawn = (): 'dark' | 'light' => { const wanted = windowThemeFor(look, themeChoice); return wanted === 'system' ? systemLight.matches ? 'light' : 'dark' : wanted; };
+  const light = () => drawn() === 'light';
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
-  function render() { selector.disabled = look !== 'oni'; themeSelector.value = look === 'oni' ? 'oni' : smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
+  function render() {
+    // A disabled skin says why: skins are ONI's, and dark.
+    const skinned = skinFor(look, drawn(), current.skin) !== null; selector.disabled = !skinned;
+    if (skinned) selector.removeAttribute('title'); else selector.title = look !== 'oni' ? "Skins are ONI's: choose the ONI look (Ctrl+K, Appearance)." : 'Skins are dark: choose the Dark theme (Ctrl+K, Appearance).';
+    selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
   // The window's theme, sent only when it changes; presentation.rs keeps it for the next start.
   let windowTheme = '';
   function applyWindowTheme() {
-    const wanted = windowThemeFor(look, smoothTheme);
+    const wanted = windowThemeFor(look, themeChoice);
     if (!options.desktop || wanted === windowTheme) return;
     windowTheme = wanted;
     void invoke('presentation_window_theme', { theme: wanted }).catch(() => { windowTheme = ''; });
   }
-  function apply() { applyWindowTheme(); document.documentElement.dataset.look = look; document.documentElement.dataset.theme = light() ? 'light' : 'dark'; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
+  function apply() {
+    applyWindowTheme();
+    const root = document.documentElement;
+    applyLook(root, { app: 'shinatama', look, theme: themeChoice, glass: options.desktop }, { systemIsDark: () => !systemLight.matches });
+    applyShinatamaPalette(root, skinFor(look, drawn(), current.skin), options.desktop);
+    render();
+  }
+  // presentation.rs answers one request at a time: a load still returning (the attention window's, another reader's)
+  // refuses the next request as busy before it reads or writes anything. That is a wait, not a failure, so the same
+  // request is sent again shortly; only a refusal that lasts past the retries blocks saving.
+  async function whenFree<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try { return await invoke<T>(command, args); }
+      catch (error) {
+        const busy = typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'busy';
+        if (!busy || attempt >= 20) throw error;
+        await new Promise(resolve => window.setTimeout(resolve, 50));
+      }
+    }
+  }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {
@@ -150,7 +185,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     const desired = pending; pending = null;
     const task = (async () => {
       try {
-        const received = snapshot(await invoke('presentation_save', { request: { expectedRevision: revision, settings: desired } }));
+        const received = snapshot(await whenFree('presentation_save', { request: { expectedRevision: revision, settings: desired } }));
         if (!received || received.revision !== revision + 1 || !equal(received.settings, desired)) throw new Error('Invalid preference confirmation');
         revision = received.revision; status.textContent = 'Preferences saved.';
       } catch { reportFailure(); }
@@ -163,7 +198,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     const at = edits;
     const task = (async () => {
       try {
-        const received = snapshot(await invoke('presentation_load')); if (!received) throw new Error('Invalid saved presentation');
+        const received = snapshot(await whenFree('presentation_load')); if (!received) throw new Error('Invalid saved presentation');
         revision = received.revision; loaded = true; blocked = false;
         if (at === edits) { current = received.settings; pending = null; } else pending = current;
         apply(); options.onChange(); status.textContent = 'Preferences loaded.';
@@ -191,13 +226,13 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     if (!settings || equal(settings, current)) return;
     edit(settings); status.textContent = options.desktop ? blocked ? 'Applied locally. Press Reload in Settings to restore saving.' : 'Applied; saving…' : 'Applied in browser preview.';
   }
-  // One list: Smooth's three themes, and Classic, which is the ONI MODE look with the theme chosen below it.
-  themeSelector.onchange = () => {
-    look = themeSelector.value === 'oni' ? 'oni' : 'smooth';
-    if (look === 'smooth') smoothTheme = storedTheme(themeSelector.value);
-    try { localStorage.setItem(LOOK_KEY, look); localStorage.setItem(THEME_KEY, smoothTheme); } catch { /* no storage: the choice lasts until the window closes */ }
+  /** The look and the theme, from the window's five Appearance commands (mountApp): kept on this machine, applied at once. */
+  function choose(next: { look: Look; theme: Theme }) {
+    look = parseLook(next.look); themeChoice = parseTheme(next.theme);
+    try { localStorage.setItem(LOOK_KEY, look); localStorage.setItem(THEME_KEY, themeChoice); localStorage.setItem(LOOK_VERSION_KEY, '2'); }
+    catch { /* no storage: the choice lasts until the window closes */ }
     apply(); options.onChange();
-  };
+  }
   systemLight.addEventListener('change', () => { apply(); options.onChange(); });
   selector.onchange = () => { if (Object.hasOwn(SKINS, selector.value)) edit({ ...current, skin: selector.value }); };
   for (const field of [font, size, height, follow]) field.addEventListener('change', applyFields);
@@ -206,7 +241,9 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   window.addEventListener('pagehide', () => { clearTimeout(timer); pending = null; }, { once: true });
   apply();
   return { initialize, flush, profiles: PROFILES, settings: () => current,
-    /** The interface control (the theme) and the terminal controls, for the Appearance section. */
+    /** For mountApp's Appearance commands: the choice now, and the new one. */
+    appearance: { get: () => ({ look, theme: themeChoice }), set: choose },
+    /** ONI dark's skin and the terminal controls, for the Appearance section. */
     theme, terminal: form,
     /** Shows the applied values again, dropping a half-typed number. */
     reset: render,

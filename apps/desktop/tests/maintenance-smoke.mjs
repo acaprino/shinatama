@@ -6,11 +6,16 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mainPage } from './main-page.mjs';
+import { startSession } from './session-flow.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('The embedded maintenance check requires Windows/WebView2.');
 const root = process.cwd();
@@ -125,8 +130,9 @@ async function probeHealthyTerminal() {
     const text = document.querySelector('.xterm-accessibility-tree')?.textContent || '';
     const matches = [...text.matchAll(/SHINATAMA_HEALTHY:(\d+):(\d+)/g)];
     const newest = matches.at(-1);
+    // The marker's age when the page shows it: the trip back to this script is the round trip's.
     return { sessions: sessions.length, sequence: newest ? Number(newest[1]) : -1,
-      timestamp: newest ? Number(newest[2]) : 0,
+      timestamp: newest ? Number(newest[2]) : 0, readAt: Date.now(),
       project: document.querySelector('#project')?.dataset.project || '' };
   });
   const rtt = performance.now() - started;
@@ -135,7 +141,7 @@ async function probeHealthyTerminal() {
   expect(result.sessions).toBe(1);
   expect(result.project).toBe('synthetic-project');
   expect(result.sequence).toBeGreaterThanOrEqual(0);
-  const age = Date.now() - result.timestamp;
+  const age = result.readAt - result.timestamp;
   markerAges.push(age);
   expect(age).toBeGreaterThanOrEqual(-100);
   expect(age).toBeLessThan(MAX_MARKER_AGE_MS);
@@ -192,7 +198,7 @@ try {
     catch { await delay(250); }
   }
   if (!browser) throw new Error('Maintenance WebView2 startup exceeded its deadline.');
-  page = browser.contexts()[0].pages()[0] || await browser.contexts()[0].waitForEvent('page', { timeout: 5000 });
+  page = await mainPage(browser);
   page.on('pageerror', error => pageErrors.push(error.name));
   await page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
   await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 15000 });
@@ -206,7 +212,8 @@ try {
   expect(await invoke('terminal_list')).toEqual([]);
 
   evidence.stage = 'start-healthy-pty';
-  await page.locator('#new-terminal').click();
+  // New session is a menu of harnesses (FRD-0001 R68): PowerShell in the synthetic project.
+  await (await startSession(page, { project, harness: 'powershell' })).done(30000);
   await expect(page.locator('.xterm-accessibility').first()).toContainText('PS ', { timeout: 20000 });
   await page.locator('.xterm-helper-textarea').first().focus();
   // The echoed command contains split literals; only actual PTY output matches
@@ -231,6 +238,15 @@ try {
   let completedChecks = 0;
   let sawShapeAnomaly = false;
   let lastExplicitStatus;
+  // The resource governor holds back optional work until it has calibrated (30 samples over 30 s,
+  // "missing_telemetry"); an explicit check asked before then is deferred by design.
+  for (const deadline = Date.now() + 90000; ;) {
+    const policy = (await invoke('resources_telemetry', { telemetry: {} }))?.policy;
+    if (policy && !policy.reduce_optional) break;
+    if (Date.now() > deadline) throw new Error('The resource governor still held back optional work after 90 s: ' + JSON.stringify(policy).slice(0, 1024));
+    await probeHealthyTerminal();
+    await delay(1000);
+  }
   for (let check = 0; check < 6; check++) {
     const status = await checkAlongsideTerminal();
     if (status.report?.outcome === 'completed') completedChecks++;
@@ -238,7 +254,14 @@ try {
     lastExplicitStatus = status;
     await delay(100);
   }
-  expect(completedChecks).toBeGreaterThan(0);
+  // What the last check answered says why none completed (refused, deferred, still running).
+  if (!completedChecks) {
+    // An explicit check is deferred before it starts only while the resource governor holds back
+    // optional work: its stage and reason say why.
+    const governor = await invoke('resources_telemetry', { telemetry: {} }).then(reply => reply?.policy, error => String(error));
+    throw new Error('No maintenance check completed alongside the terminal; the last answered: ' + JSON.stringify(lastExplicitStatus).slice(0, 1024)
+      + '; governor: ' + JSON.stringify(governor).slice(0, 2048));
+  }
   expect(sawShapeAnomaly).toBe(true);
   expect(snapshot().digest).toBe(original.digest);
   evidence.checks.manualFiniteChecksPreserveAuthoritativeRows = true;
@@ -313,8 +336,8 @@ try {
   // Register rejection handling immediately while the confirmation is operated.
   void closeCompleted.catch(() => {});
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
-  await expect(page.locator('#confirm-dialog')).toBeVisible();
-  await page.locator('.wm-tab-close').first().click();
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closeCompleted;
   expect(app.exitCode).toBe(0); closedNormally = true;
   evidence.checks.themedCloseStopsOwnedTerminal = true;

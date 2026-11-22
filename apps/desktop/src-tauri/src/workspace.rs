@@ -70,8 +70,11 @@ const RESERVE_WAIT: Duration = Duration::from_secs(5);
 fn process_owner() -> Result<WorkspaceOwner, Error> {
     #[cfg(windows)]
     {
-        let key = shinatama_engine::resources::sampling::WindowsSampler::identify(std::process::id())
-            .map_err(|_| Error::new("unavailable", "Workspace ownership could not be verified."))?;
+        let key =
+            shinatama_engine::resources::sampling::WindowsSampler::identify(std::process::id())
+                .map_err(|_| {
+                    Error::new("unavailable", "Workspace ownership could not be verified.")
+                })?;
         Ok(WorkspaceOwner {
             window_id: format!("main-{}-{}", key.pid, key.created_at_100ns),
             pid: key.pid,
@@ -80,7 +83,10 @@ fn process_owner() -> Result<WorkspaceOwner, Error> {
     }
     #[cfg(not(windows))]
     {
-        Err(Error::new("unavailable", "Workspace ownership requires Windows."))
+        Err(Error::new(
+            "unavailable",
+            "Workspace ownership requires Windows.",
+        ))
     }
 }
 struct Reservation(Arc<AtomicBool>);
@@ -363,23 +369,60 @@ pub async fn workspace_recover(
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GlobalScope { workspace_id: String }
+pub struct GlobalScope {
+    workspace_id: String,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GlobalSave { workspace_id: String, expected_revision: u64, schema_version: u32, layout_json: String }
+pub struct GlobalSave {
+    workspace_id: String,
+    expected_revision: u64,
+    schema_version: u32,
+    layout_json: String,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct GlobalRelease { workspace_id: String, expected_revision: u64 }
+pub struct GlobalRelease {
+    workspace_id: String,
+    expected_revision: u64,
+}
 fn global_scope(workspace: &str) -> Result<(), Error> {
-    if workspace == "main" { Ok(()) } else { Err(Error::new("invalid", "Unknown global workspace.")) }
+    if workspace == "main" {
+        Ok(())
+    } else {
+        Err(Error::new("invalid", "Unknown global workspace."))
+    }
 }
-fn global_snapshot(record: GlobalWorkspaceRecord, owner: &WorkspaceOwner, read_only: bool) -> Snapshot {
-    let ownership = match &record.owner { None => "unclaimed", Some(saved) if saved == owner => "ours", Some(_) => "other" };
-    Snapshot { project_id: None, workspace_id: record.workspace_id, revision: record.revision, schema_version: record.schema_version,
-        layout_json: record.layout_json, ownership, read_only }
+fn global_snapshot(
+    record: GlobalWorkspaceRecord,
+    owner: &WorkspaceOwner,
+    read_only: bool,
+) -> Snapshot {
+    let ownership = match &record.owner {
+        None => "unclaimed",
+        Some(saved) if saved == owner => "ours",
+        Some(_) => "other",
+    };
+    Snapshot {
+        project_id: None,
+        workspace_id: record.workspace_id,
+        revision: record.revision,
+        schema_version: record.schema_version,
+        layout_json: record.layout_json,
+        ownership,
+        read_only,
+    }
 }
-enum GlobalOperation { Load, Save(GlobalSave), Release(u64), Recover(u64) }
-async fn global_operation(controller: &State<'_, Arc<Controller>>, operation: GlobalOperation) -> Result<Option<Snapshot>, Error> {
+enum GlobalOperation {
+    Load,
+    Save(GlobalSave),
+    Release(u64),
+    Recover(u64),
+}
+async fn global_operation(
+    controller: &State<'_, Arc<Controller>>,
+    operation: GlobalOperation,
+) -> Result<Option<Snapshot>, Error> {
     let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
@@ -417,23 +460,63 @@ async fn global_operation(controller: &State<'_, Arc<Controller>>, operation: Gl
     }).await.map_err(|_| Error::new("uncertain", "Global workspace storage was interrupted; reload explicitly."))?
 }
 #[tauri::command]
-pub async fn global_workspace_load(window: WebviewWindow, controller: State<'_, Arc<Controller>>, request: GlobalScope) -> Result<Option<Snapshot>, Error> {
-    local(&window)?; global_scope(&request.workspace_id)?; global_operation(&controller, GlobalOperation::Load).await
+pub async fn global_workspace_load(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: GlobalScope,
+) -> Result<Option<Snapshot>, Error> {
+    local(&window)?;
+    global_scope(&request.workspace_id)?;
+    global_operation(&controller, GlobalOperation::Load).await
 }
 #[tauri::command]
-pub async fn global_workspace_save(window: WebviewWindow, controller: State<'_, Arc<Controller>>, request: GlobalSave) -> Result<Snapshot, Error> {
-    local(&window)?; global_scope(&request.workspace_id)?;
-    if request.schema_version != 1 || request.layout_json.len() > MAX_LAYOUT_BYTES || request.expected_revision >= MAX_SAFE_REVISION {
-        return Err(Error::new("invalid", "Workspace layout exceeds its limits."));
+pub async fn global_workspace_save(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: GlobalSave,
+) -> Result<Snapshot, Error> {
+    local(&window)?;
+    global_scope(&request.workspace_id)?;
+    if request.schema_version != 1
+        || request.layout_json.len() > MAX_LAYOUT_BYTES
+        || request.expected_revision >= MAX_SAFE_REVISION
+    {
+        return Err(Error::new(
+            "invalid",
+            "Workspace layout exceeds its limits.",
+        ));
     }
-    global_operation(&controller, GlobalOperation::Save(request)).await?.ok_or_else(|| Error::new("uncertain", "Workspace save was not confirmed."))
+    global_operation(&controller, GlobalOperation::Save(request))
+        .await?
+        .ok_or_else(|| Error::new("uncertain", "Workspace save was not confirmed."))
 }
 #[tauri::command]
-pub async fn global_workspace_release(window: WebviewWindow, controller: State<'_, Arc<Controller>>, request: GlobalRelease) -> Result<(), Error> {
-    local(&window)?; global_scope(&request.workspace_id)?; global_operation(&controller, GlobalOperation::Release(request.expected_revision)).await.map(|_| ())
+pub async fn global_workspace_release(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: GlobalRelease,
+) -> Result<(), Error> {
+    local(&window)?;
+    global_scope(&request.workspace_id)?;
+    global_operation(
+        &controller,
+        GlobalOperation::Release(request.expected_revision),
+    )
+    .await
+    .map(|_| ())
 }
 #[tauri::command]
-pub async fn global_workspace_recover(window: WebviewWindow, controller: State<'_, Arc<Controller>>, request: GlobalRelease) -> Result<Snapshot, Error> {
-    local(&window)?; global_scope(&request.workspace_id)?;
-    global_operation(&controller, GlobalOperation::Recover(request.expected_revision)).await?.ok_or_else(|| Error::new("uncertain", "Workspace recovery was not confirmed."))
+pub async fn global_workspace_recover(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: GlobalRelease,
+) -> Result<Snapshot, Error> {
+    local(&window)?;
+    global_scope(&request.workspace_id)?;
+    global_operation(
+        &controller,
+        GlobalOperation::Recover(request.expected_revision),
+    )
+    .await?
+    .ok_or_else(|| Error::new("uncertain", "Workspace recovery was not confirmed."))
 }

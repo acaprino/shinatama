@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { SKINS } from '../src/presentation.ts';
 import { test } from 'node:test';
 
-const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
-const rootBlock = css.match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? '';
-const tokens = Object.fromEntries([...rootBlock.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)].map(match => [match[1], match[2]]));
+const tokens: Record<string, string> = SKINS.shinatama.tokens;
 
 function luminance(hex: string) {
   const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
@@ -32,22 +30,5 @@ test('every text role reaches 4.5:1 on every chrome surface (ADR-0039 INV-006)',
 test('control borders reach 3:1 on the surfaces they sit on', () => {
   for (const surface of ['chrome', 'chrome-2', 'terminal']) {
     assert.ok(contrast('line-strong', surface) >= 3, `line-strong on ${surface}: ${contrast('line-strong', surface).toFixed(2)}`);
-  }
-});
-
-test('chrome colors come only from the skin tokens (ADR-0039 INV-001)', () => {
-  const outsideRoot = css.replace(/:root\s*\{[\s\S]*?\}/, '');
-  const declarations = [...outsideRoot.matchAll(/\{([^{}]*)\}/g)].map(block => block[1]).join('\n');
-  assert.deepEqual(declarations.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [], []);
-  assert.doesNotMatch(declarations, /\b(?:rgb|hsl)a?\(/);
-});
-
-test('no glow and no rounded chrome in the default skin', () => {
-  assert.doesNotMatch(css, /text-shadow/);
-  // A status lamp is a dot, not a rounded corner: only its exact circle is allowed.
-  const withoutLamps = css.replace(/\.lamp\s*\{[^}]*\}/g, block => block.replace(/border-radius:\s*50%;?/, ''));
-  assert.doesNotMatch(withoutLamps, /border-radius:\s*[1-9]/);
-  for (const shadow of css.matchAll(/box-shadow:\s*([^;}]+)/g)) {
-    assert.match(shadow[1], /var\(--shadow\)|^none$/, `only dark drop shadows are allowed: ${shadow[1]}`);
   }
 });

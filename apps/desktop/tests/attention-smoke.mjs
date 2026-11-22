@@ -48,7 +48,7 @@ try {
   await ipc('attention_dismiss',{id:unmuted.id});
   evidence.checks.unmutedSystemSoundPathExercised=true;
   // The alert switches live in the Alerts section of Settings, the last entry of the toolbar's "⋯" menu.
-  const openAlerts=async()=>{await main.locator('#toolbar-more').click();await main.locator('#open-settings').click();
+  const openAlerts=async()=>{await main.locator('.im-titlebar').getByRole('tab',{name:'Settings',exact:true}).click();
     await main.locator('#settings-dialog .settings-index-link',{hasText:'Alerts'}).click();
     await expect(main.locator('#settings-section-alerts-title')).toBeFocused();};
   await openAlerts();
@@ -106,7 +106,7 @@ try {
   await (await startSession(main, {project:otherProject, harness:'powershell'})).done(30000);
   await expect.poll(async()=>(await ipc('terminal_list')).length,{timeout:30000}).toBe(2);
   await main.locator('#tab-filter button', {hasText:'other-project'}).click();
-  await expect(main.locator(`.wm-tab[data-view-id="${session.id}"]`)).toHaveCount(0);
+  await expect(main.locator(`.im-tile-tab[data-view-id="${session.id}"]`)).toHaveCount(0);
   await delay(1500);
   await ipc('terminal_write',{id:session.id,data:[...Buffer.from("[Console]::Write(([char]27) + ']9;SHINATAMA_PRIVATE_PAYLOAD' + [char]7)\r")]});
   await expect.poll(async()=>(await ipc('attention_current')).current?.sessionId,{timeout:15000}).toBe(session.id);
@@ -118,11 +118,11 @@ try {
   expect(native().foreground).not.toBe(visible.handle);
   await widget.locator('#attention-open').click();
   await expect.poll(async()=>(await ipc('attention_current')).current).toBeNull();
-  const active=main.locator(`.wm-tab[data-view-id="${session.id}"]`);await expect(active).toHaveAttribute('aria-selected','true');
+  const active=main.locator(`.im-tile-tab[data-view-id="${session.id}"]`);await expect(active).toHaveAttribute('aria-selected','true');
   await expect(main.locator('#tab-filter button').first()).toHaveAttribute('aria-pressed','true');
   await expect(main.locator(`.thread-sidebar-anchor[data-workset-id="${targetThread}"]`)).toHaveAttribute('aria-current','true');
   expect(await main.evaluate(id => !!document.activeElement?.closest('.terminal-view') &&
-    document.activeElement.closest('.wm-pane')?.querySelector('.wm-tab[aria-selected="true"]')?.dataset.viewId === id, session.id)).toBe(true);
+    document.activeElement.closest('.im-pane')?.querySelector('.im-tile-tab[aria-selected="true"]')?.dataset.viewId === id, session.id)).toBe(true);
   evidence.checks.notificationRevealsFilteredTabAndSelectsItsThread=true;
   await ipc('terminal_write',{id:session.id,data:[...Buffer.from('exit\r')]});
   await expect.poll(async()=>(await ipc('attention_current')).current?.kind,{timeout:15000}).toBe('complete');
@@ -143,7 +143,7 @@ try {
   console.log(surfaceOnly?'PASS: native surface, non-activating window, sound path, mute/preferences, stale/privilege/disable guards and app close. Live PTY proof remains deferred.':'PASS: native overlay and real PTY OSC/BEL/exit integration.');
 } catch(error) {
   if(main && !main.isClosed()) {
-    console.error(await main.evaluate(async()=>({notice:document.querySelector('#notice')?.textContent,resources:await window.__TAURI_INTERNALS__.invoke('resources_status'),project:document.querySelector('#project')?.textContent,dialogs:[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.textContent?.slice(0,500))})));
+    console.error(await main.evaluate(async()=>({notice:[...document.querySelectorAll('.im-notice')].map(node => node.textContent).join(' | '),resources:await window.__TAURI_INTERNALS__.invoke('resources_status'),project:document.querySelector('#project')?.textContent,dialogs:[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.textContent?.slice(0,500))})));
     await main.screenshot({path:resolve(output,'attention-failure.png')}).catch(()=>{});
   }
   throw error;

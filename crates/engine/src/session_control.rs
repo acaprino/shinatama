@@ -39,7 +39,9 @@ pub trait BrowserTools: Send + Sync {
 }
 static BROWSER: OnceLock<Arc<dyn BrowserTools>> = OnceLock::new();
 pub fn install_browser(tools: Arc<dyn BrowserTools>) -> Result<(), &'static str> {
-    BROWSER.set(tools).map_err(|_| "The browser tools are already installed.")
+    BROWSER
+        .set(tools)
+        .map_err(|_| "The browser tools are already installed.")
 }
 fn browser() -> Option<&'static Arc<dyn BrowserTools>> {
     BROWSER.get()
@@ -64,7 +66,9 @@ pub struct Caller<'a> {
 }
 static THREADS: OnceLock<Arc<dyn ThreadTools>> = OnceLock::new();
 pub fn install_threads(tools: Arc<dyn ThreadTools>) -> Result<(), &'static str> {
-    THREADS.set(tools).map_err(|_| "The thread tools are already installed.")
+    THREADS
+        .set(tools)
+        .map_err(|_| "The thread tools are already installed.")
 }
 fn threads() -> Option<&'static Arc<dyn ThreadTools>> {
     THREADS.get()
@@ -105,7 +109,10 @@ pub fn thread_member_name(harness: &str, session_id: &str) -> Option<String> {
 }
 fn canonical_suffix<'a>(id: &'a str, prefix: &str) -> Option<&'a str> {
     id.strip_prefix(prefix).filter(|suffix| {
-        suffix.len() == 12 && suffix.bytes().all(|c| c.is_ascii_lowercase() || (b'2'..=b'7').contains(&c))
+        suffix.len() == 12
+            && suffix
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || (b'2'..=b'7').contains(&c))
     })
 }
 
@@ -117,7 +124,9 @@ pub(crate) fn runs_detached(bytes: &[u8]) -> bool {
             && message
                 .pointer("/params/name")
                 .and_then(Value::as_str)
-                .is_some_and(|name| name.starts_with("shinatama_browser_") || name.starts_with("shinatama_thread_"))
+                .is_some_and(|name| {
+                    name.starts_with("shinatama_browser_") || name.starts_with("shinatama_thread_")
+                })
     })
 }
 
@@ -400,9 +409,17 @@ pub fn member_name(value: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'_' | b'-'))
 }
 impl OpenArguments {
-    fn into_request(self, caller: &str, caller_thread: &str, project: &Path) -> Result<LaunchRequest, &'static str> {
+    fn into_request(
+        self,
+        caller: &str,
+        caller_thread: &str,
+        project: &Path,
+    ) -> Result<LaunchRequest, &'static str> {
         if !uuid(&self.request_id)
-            || !matches!(self.harness.as_str(), "claude_code" | "codex" | "opencode" | "pi")
+            || !matches!(
+                self.harness.as_str(),
+                "claude_code" | "codex" | "opencode" | "pi"
+            )
             || !matches!(self.mode.as_str(), "delegation" | "dialogue" | "review")
             || self.instruction.trim().is_empty()
             || self.instruction.len() > MAX_INSTRUCTION_BYTES
@@ -526,7 +543,9 @@ pub(crate) fn handle_rpc(
             if call.name.starts_with("shinatama_browser_") {
                 let value = match browser() {
                     Some(browser) => browser.call(caller, project, &call.name, call.arguments),
-                    None => json!({"content":[{"type":"text","text":"{\"error\":\"browser_unavailable\"}"}],"isError":true}),
+                    None => {
+                        json!({"content":[{"type":"text","text":"{\"error\":\"browser_unavailable\"}"}],"isError":true})
+                    }
                 };
                 return Some(json!({"jsonrpc":"2.0","id":id,"result":value}));
             }
@@ -537,7 +556,12 @@ pub(crate) fn handle_rpc(
                     .and_then(|request| broker.submit(request)),
                 THREAD_PEERS_TOOL => match threads() {
                     None => Err("threads_unavailable"),
-                    Some(_) if !call.arguments.as_object().is_some_and(serde_json::Map::is_empty) => {
+                    Some(_)
+                        if !call
+                            .arguments
+                            .as_object()
+                            .is_some_and(serde_json::Map::is_empty) =>
+                    {
                         Err("invalid_thread_request")
                     }
                     Some(tools) => tools.peers(identity),
@@ -579,36 +603,75 @@ mod tests {
     use super::*;
     #[test]
     fn only_browser_and_thread_tool_calls_leave_the_accept_loop() {
-        let call = |name: &str| json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":name,"arguments":{}}}).to_string();
+        let call = |name: &str| {
+            json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":name,"arguments":{}}}).to_string()
+        };
         assert!(runs_detached(call("shinatama_browser_open").as_bytes()));
         assert!(runs_detached(call(THREAD_PEERS_TOOL).as_bytes()));
         assert!(!runs_detached(call("shinatama_session_open").as_bytes()));
-        assert!(!runs_detached(br#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#));
+        assert!(!runs_detached(
+            br#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#
+        ));
         assert!(!runs_detached(b"not json"));
     }
     #[test]
     fn thread_room_and_member_names_are_stable_valid_mukade_names() {
-        assert_eq!(thread_room_name("w_abcdefgh2345").as_deref(), Some("shinatama-thread-abcdefgh2345"));
-        for bad in ["w_ABCDEFGH2345", "w_abc", "t_abcdefgh2345", "w_abcdefgh2341", ""] {
+        assert_eq!(
+            thread_room_name("w_abcdefgh2345").as_deref(),
+            Some("shinatama-thread-abcdefgh2345")
+        );
+        for bad in [
+            "w_ABCDEFGH2345",
+            "w_abc",
+            "t_abcdefgh2345",
+            "w_abcdefgh2341",
+            "",
+        ] {
             assert!(thread_room_name(bad).is_none(), "{bad}");
         }
-        assert_eq!(thread_member_name("claude_code", "t_abcdefgh2345").as_deref(), Some("claude-abcdefgh2345"));
-        assert_eq!(thread_member_name("codex", "t_abcdefgh2345").as_deref(), Some("codex-abcdefgh2345"));
-        assert_eq!(thread_member_name("pi", "t_abcdefgh2345").as_deref(), Some("pi-abcdefgh2345"));
-        assert_eq!(thread_member_name("__", "t_abcdefgh2345").as_deref(), Some("session-abcdefgh2345"));
+        assert_eq!(
+            thread_member_name("claude_code", "t_abcdefgh2345").as_deref(),
+            Some("claude-abcdefgh2345")
+        );
+        assert_eq!(
+            thread_member_name("codex", "t_abcdefgh2345").as_deref(),
+            Some("codex-abcdefgh2345")
+        );
+        assert_eq!(
+            thread_member_name("pi", "t_abcdefgh2345").as_deref(),
+            Some("pi-abcdefgh2345")
+        );
+        assert_eq!(
+            thread_member_name("__", "t_abcdefgh2345").as_deref(),
+            Some("session-abcdefgh2345")
+        );
         let long = thread_member_name("a_very_long_harness_name_indeed", "t_abcdefgh2345").unwrap();
-        assert!(long.len() <= 32 && member_name(&long) && long.ends_with("-abcdefgh2345"), "{long}");
+        assert!(
+            long.len() <= 32 && member_name(&long) && long.ends_with("-abcdefgh2345"),
+            "{long}"
+        );
         assert!(thread_member_name("codex", "w_abcdefgh2345").is_none());
         // The room name fits Mukade's room rule: at most 64, lowercase, digits, '_' or '-'.
         let room = thread_room_name("w_abcdefgh2345").unwrap();
-        assert!(room.len() <= 64 && room.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-'));
+        assert!(
+            room.len() <= 64
+                && room
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+        );
     }
     fn args() -> Value {
         json!({"request_id":uuid::Uuid::new_v4().to_string(),"instruction":"Implement the approved filter; test empty inputs."})
     }
     fn call(broker: &Broker, caller: &str, name: &str, arguments: Value) -> Value {
         let request = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":name,"arguments":arguments}});
-        let response = handle_rpc(broker, &Caller { instance: caller, session: "t_aaaaaaaaaaaa", harness: "claude_code" },
+        let response = handle_rpc(
+            broker,
+            &Caller {
+                instance: caller,
+                session: "t_aaaaaaaaaaaa",
+                harness: "claude_code",
+            },
             Path::new("C:/project"),
             &serde_json::to_vec(&request).unwrap(),
         )
@@ -664,12 +727,19 @@ mod tests {
         for harness in ["unknown", "OpenCode", "hermes", "", "opencode "] {
             let mut arguments = args();
             arguments["harness"] = json!(harness);
-            assert_eq!(call(&broker, "caller", "shinatama_session_open", arguments)["error"], "invalid_session_request", "{harness:?}");
+            assert_eq!(
+                call(&broker, "caller", "shinatama_session_open", arguments)["error"],
+                "invalid_session_request",
+                "{harness:?}"
+            );
         }
         assert!(broker.next().is_none());
         // The schema and the description say the same four programs.
         let tool = &tools()[0];
-        assert_eq!(tool["inputSchema"]["properties"]["harness"]["enum"], json!(["claude_code", "codex", "opencode", "pi"]));
+        assert_eq!(
+            tool["inputSchema"]["properties"]["harness"]["enum"],
+            json!(["claude_code", "codex", "opencode", "pi"])
+        );
         let description = tool["description"].as_str().unwrap();
         assert!(description.contains("opencode") && description.contains("pi"));
         assert!(description.contains("thread whose sessions talk"));
@@ -788,7 +858,13 @@ mod tests {
         let broker = Broker::new();
         let request = json!({"jsonrpc":"2.0","method":"tools/call","params":{"name":"shinatama_session_open","arguments":args()}});
         assert!(
-            handle_rpc(&broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness: "claude_code" },
+            handle_rpc(
+                &broker,
+                &Caller {
+                    instance: "caller",
+                    session: "t_aaaaaaaaaaaa",
+                    harness: "claude_code"
+                },
                 Path::new("C:/project"),
                 &serde_json::to_vec(&request).unwrap()
             )
@@ -796,7 +872,17 @@ mod tests {
         );
         assert!(broker.next().is_none());
         assert_eq!(
-            handle_rpc(&broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness: "claude_code" }, Path::new("C:/project"), b"{").unwrap()["error"]["code"],
+            handle_rpc(
+                &broker,
+                &Caller {
+                    instance: "caller",
+                    session: "t_aaaaaaaaaaaa",
+                    harness: "claude_code"
+                },
+                Path::new("C:/project"),
+                b"{"
+            )
+            .unwrap()["error"]["code"],
             -32700
         );
     }
@@ -807,14 +893,26 @@ mod tests {
         let request = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
             "name":"shinatama_session_open","arguments":args(),"_meta":{"progressToken":"progress-1"}
         }});
-        let response = handle_rpc(&broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness: "claude_code" }, Path::new("C:/project"), &serde_json::to_vec(&request).unwrap()).unwrap();
+        let response = handle_rpc(
+            &broker,
+            &Caller {
+                instance: "caller",
+                session: "t_aaaaaaaaaaaa",
+                harness: "claude_code",
+            },
+            Path::new("C:/project"),
+            &serde_json::to_vec(&request).unwrap(),
+        )
+        .unwrap();
         assert_eq!(response["result"]["isError"], false);
         assert_eq!(broker.next().unwrap().project, Path::new("C:/project"));
     }
     struct Stub;
     impl ThreadTools for Stub {
         fn peers(&self, caller: &Caller<'_>) -> Result<Value, &'static str> {
-            Ok(json!({"session": caller.session, "harness": caller.harness, "instance": caller.instance}))
+            Ok(
+                json!({"session": caller.session, "harness": caller.harness, "instance": caller.instance}),
+            )
         }
     }
     #[test]
@@ -822,27 +920,72 @@ mod tests {
         // Installed once per test process; every other test tolerates its presence.
         let _ = install_threads(Arc::new(Stub));
         let broker = Broker::new();
-        let listed = handle_rpc(&broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness: "codex" },
-            Path::new("C:/project"), br#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).unwrap();
-        assert!(listed["result"]["tools"].as_array().unwrap().iter().any(|tool| tool["name"] == THREAD_PEERS_TOOL));
-        let initialized = handle_rpc(&broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness: "codex" },
-            Path::new("C:/project"), br#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#).unwrap();
-        assert!(initialized["result"]["instructions"].as_str().unwrap().contains(THREAD_PEERS_TOOL));
+        let listed = handle_rpc(
+            &broker,
+            &Caller {
+                instance: "caller",
+                session: "t_aaaaaaaaaaaa",
+                harness: "codex",
+            },
+            Path::new("C:/project"),
+            br#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+        )
+        .unwrap();
+        assert!(
+            listed["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|tool| tool["name"] == THREAD_PEERS_TOOL)
+        );
+        let initialized = handle_rpc(
+            &broker,
+            &Caller {
+                instance: "caller",
+                session: "t_aaaaaaaaaaaa",
+                harness: "codex",
+            },
+            Path::new("C:/project"),
+            br#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+        )
+        .unwrap();
+        assert!(
+            initialized["result"]["instructions"]
+                .as_str()
+                .unwrap()
+                .contains(THREAD_PEERS_TOOL)
+        );
         let answer = call_as(&broker, "codex", THREAD_PEERS_TOOL, json!({}));
         assert_eq!(answer["is_error"], false);
         assert_eq!(answer["session"], "t_aaaaaaaaaaaa");
         assert_eq!(answer["harness"], "codex");
         // No argument can name another session.
-        let refused = call_as(&broker, "codex", THREAD_PEERS_TOOL, json!({"session": "t_bbbbbbbbbbbb"}));
+        let refused = call_as(
+            &broker,
+            "codex",
+            THREAD_PEERS_TOOL,
+            json!({"session": "t_bbbbbbbbbbbb"}),
+        );
         assert_eq!(refused["is_error"], true);
         assert_eq!(refused["error"], "invalid_thread_request");
         assert!(broker.next().is_none());
     }
     fn call_as(broker: &Broker, harness: &str, name: &str, arguments: Value) -> Value {
         let request = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":name,"arguments":arguments}});
-        let response = handle_rpc(broker, &Caller { instance: "caller", session: "t_aaaaaaaaaaaa", harness },
-            Path::new("C:/project"), &serde_json::to_vec(&request).unwrap()).unwrap();
-        let mut value: Value = serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+        let response = handle_rpc(
+            broker,
+            &Caller {
+                instance: "caller",
+                session: "t_aaaaaaaaaaaa",
+                harness,
+            },
+            Path::new("C:/project"),
+            &serde_json::to_vec(&request).unwrap(),
+        )
+        .unwrap();
+        let mut value: Value =
+            serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())
+                .unwrap();
         value["is_error"] = response["result"]["isError"].clone();
         value
     }

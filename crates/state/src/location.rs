@@ -685,7 +685,10 @@ mod portable_tests {
         ];
         assert_eq!(
             without_portable_root(roots, &root),
-            vec![PathBuf::from(r"D:\Software\Shinatama\cli"), PathBuf::from(r"D:\Projects\demo")]
+            vec![
+                PathBuf::from(r"D:\Software\Shinatama\cli"),
+                PathBuf::from(r"D:\Projects\demo")
+            ]
         );
     }
 }

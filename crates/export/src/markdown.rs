@@ -58,7 +58,10 @@ pub fn header(source: &ExportSource, thread: Option<&str>, mode: Mode, created: 
             .map(|v| format!(" {}", inline(v)))
             .unwrap_or_default()
     )];
-    facts.push(format!("- Session: `{}`", source.native_session_id.replace('`', "")));
+    facts.push(format!(
+        "- Session: `{}`",
+        source.native_session_id.replace('`', "")
+    ));
     if let Some(cwd) = &source.cwd {
         facts.push(format!("- Project: {}", inline(cwd)));
     }
@@ -103,7 +106,10 @@ impl Body {
             self.last_heading = Some(heading);
         }
         match item.kind {
-            ItemKind::UserText | ItemKind::AssistantText | ItemKind::Compaction | ItemKind::Meta => {
+            ItemKind::UserText
+            | ItemKind::AssistantText
+            | ItemKind::Compaction
+            | ItemKind::Meta => {
                 out.push_str(item.text.trim_end());
                 out.push_str("\n\n");
             }
@@ -114,15 +120,32 @@ impl Body {
             }
             ItemKind::ToolResult => {
                 let error = item.tool.as_ref().is_some_and(|t| t.is_error);
-                out.push_str(if error { "**Tool result (error):**\n\n" } else { "**Tool result:**\n\n" });
+                out.push_str(if error {
+                    "**Tool result (error):**\n\n"
+                } else {
+                    "**Tool result:**\n\n"
+                });
                 block(out, "", &item.text);
             }
             ItemKind::Attachment => {
-                let Some(attachment) = &item.attachment else { return };
-                let name = attachment.name.as_deref().map(inline).unwrap_or_else(|| inline(&attachment.kind));
+                let Some(attachment) = &item.attachment else {
+                    return;
+                };
+                let name = attachment
+                    .name
+                    .as_deref()
+                    .map(inline)
+                    .unwrap_or_else(|| inline(&attachment.kind));
                 match &attachment.copied_as {
-                    Some(path) => out.push_str(&format!("*Attachment:* {name} (`{}`, copied as `{}`)\n\n", attachment.sha256, path.replace('`', ""))),
-                    None => out.push_str(&format!("*Attachment:* {name} (`{}`, not copied)\n\n", attachment.sha256)),
+                    Some(path) => out.push_str(&format!(
+                        "*Attachment:* {name} (`{}`, copied as `{}`)\n\n",
+                        attachment.sha256,
+                        path.replace('`', "")
+                    )),
+                    None => out.push_str(&format!(
+                        "*Attachment:* {name} (`{}`, not copied)\n\n",
+                        attachment.sha256
+                    )),
                 }
             }
         }
@@ -130,7 +153,12 @@ impl Body {
 }
 
 pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
-    let mut out = header(&transcript.source, transcript.thread.as_deref(), mode, created);
+    let mut out = header(
+        &transcript.source,
+        transcript.thread.as_deref(),
+        mode,
+        created,
+    );
     let mut body = Body::new();
     for item in &transcript.items {
         body.item(&mut out, item);
@@ -145,12 +173,39 @@ mod tests {
 
     #[test]
     fn fences_survive_backticks_and_tool_results_are_blocks() {
-        let prov = Provenance { agent: "codex".into(), native_session_id: "s1".into(), entry_id: None, entry_ordinal: 0, timestamp: None };
+        let prov = Provenance {
+            agent: "codex".into(),
+            native_session_id: "s1".into(),
+            entry_id: None,
+            entry_ordinal: 0,
+            timestamp: None,
+        };
         let transcript = Transcript {
-            source: ExportSource { agent: "codex".into(), native_session_id: "s1".into(), title: Some("# not a heading".into()), ..Default::default() },
+            source: ExportSource {
+                agent: "codex".into(),
+                native_session_id: "s1".into(),
+                title: Some("# not a heading".into()),
+                ..Default::default()
+            },
             items: vec![
-                ExportItem { kind: ItemKind::UserText, text: "hello".into(), tool: None, attachment: None, provenance: prov.clone() },
-                ExportItem { kind: ItemKind::ToolResult, text: "```\ninner\n```".into(), tool: Some(ToolInfo { name: "shell".into(), call_id: None, is_error: true }), attachment: None, provenance: prov },
+                ExportItem {
+                    kind: ItemKind::UserText,
+                    text: "hello".into(),
+                    tool: None,
+                    attachment: None,
+                    provenance: prov.clone(),
+                },
+                ExportItem {
+                    kind: ItemKind::ToolResult,
+                    text: "```\ninner\n```".into(),
+                    tool: Some(ToolInfo {
+                        name: "shell".into(),
+                        call_id: None,
+                        is_error: true,
+                    }),
+                    attachment: None,
+                    provenance: prov,
+                },
             ],
             ..Default::default()
         };

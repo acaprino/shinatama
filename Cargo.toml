@@ -27,6 +27,7 @@ license = "Apache-2.0"
 # without major versions, against the pinned 1.99.1 toolchain. watchexec-supervisor and expectrl
 # are not used, per the C13 card.
 [workspace.dependencies]
+imago-shell = { git = "https://github.com/acaprino/imago.git", rev = "8418ccac391ffb56dc1a997b996e7237b714b606" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
@@ -36,6 +37,9 @@ getrandom = "=0.4.3"
 sha2 = "=0.10.9"
 subtle = "=2.6.1"
 rusqlite = { version = "0.40.2", features = ["bundled", "backup", "hooks"] }
+# The Windows resource of shinatama.exe (its icon, Imago's mark), compiled as Mukade's program does; the crate is
+# already in the lock at this version through tauri-winres, so the build graph gains no package.
+embed-resource = "=3.0.12"
 # Dependency inventory: THIRD_PARTY_NOTICES.md; full release audit remains register X3.
 portable-pty = "0.9"
 tauri = "2.9"

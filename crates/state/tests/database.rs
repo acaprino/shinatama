@@ -81,7 +81,20 @@ fn bundled_fts5_pragmas_and_private_files_are_effective() {
     let raw = Connection::open(location.database_path()).unwrap();
     let names: Vec<String> = raw.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([], |row| row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-    assert_eq!(names, ["activation", "project", "segment", "setting", "store_root", "thread", "workset", "workset_member", "workspace"]);
+    assert_eq!(
+        names,
+        [
+            "activation",
+            "project",
+            "segment",
+            "setting",
+            "store_root",
+            "thread",
+            "workset",
+            "workset_member",
+            "workspace"
+        ]
+    );
 }
 
 #[test]

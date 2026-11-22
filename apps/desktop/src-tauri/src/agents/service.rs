@@ -103,6 +103,7 @@ impl From<&'static str> for DriverError {
     }
 }
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(super) enum SessionOperation {
     New,
     Resume(ThreadResumeTarget),
@@ -226,6 +227,7 @@ pub(super) trait HarnessService: Send + Sync {
     fn descriptor(&self) -> HarnessDescriptor;
     fn diagnostics(&self) -> Value;
     fn check(&self) -> Result<AgentCheckup, ServiceError>;
+    #[allow(clippy::too_many_arguments)]
     fn open(
         &self,
         host: &TerminalHost,
@@ -314,7 +316,13 @@ impl ServiceContext {
                     .and_then(|value| value.observed_at_unix_ms)
                     != observed;
             if sidecar::launch_allowed(status.phase, status.healthy) {
-                crate::app_log::write("proxy", &format!("Ready {} ms after an open started it.", began.elapsed().as_millis()));
+                crate::app_log::write(
+                    "proxy",
+                    &format!(
+                        "Ready {} ms after an open started it.",
+                        began.elapsed().as_millis()
+                    ),
+                );
                 return self
                     .sidecar
                     .qualified_owner()
@@ -572,7 +580,11 @@ impl<D: HarnessDriver> Service<D> {
         let mut admit = || {
             self.context
                 .runtime
-                .prepare_interactive_support_workload(policy.probe_budget, 256 * 1024 * 1024, 15_000)
+                .prepare_interactive_support_workload(
+                    policy.probe_budget,
+                    256 * 1024 * 1024,
+                    15_000,
+                )
                 .map_err(DriverError::deferred)
         };
         let outcome = match self.driver.probe(
@@ -669,6 +681,7 @@ impl<D: HarnessDriver> Service<D> {
                     old.candidate.path == current.path && old.candidate.kind == current.kind
                 }))
     }
+    #[allow(clippy::too_many_arguments)]
     fn open_impl(
         &self,
         host: &TerminalHost,
@@ -683,6 +696,8 @@ impl<D: HarnessDriver> Service<D> {
         workset: Option<&str>,
         model: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError> {
+        // Until it ends, by any path, the idle cleanup of the proxy's archive waits for it.
+        let _opening = self.context.sidecar.opening();
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
         let descriptor = self.driver.descriptor();
@@ -760,21 +775,30 @@ impl<D: HarnessDriver> Service<D> {
             // it gets a thread of its own, as before; the launch is never refused for this.
             SessionOperation::New => workset
                 .filter(|workset| {
-                    state.store.workset_record(workset).ok().flatten().is_some_and(|record| {
-                        record.project_id == requested_thread.project_id && !record.archived
-                    })
+                    state
+                        .store
+                        .workset_record(workset)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|record| {
+                            record.project_id == requested_thread.project_id && !record.archived
+                        })
                 })
                 .map(str::to_owned),
-            SessionOperation::Resume(target) => state.store.workset_of_thread(&target.thread.id).ok().flatten(),
+            SessionOperation::Resume(target) => state
+                .store
+                .workset_of_thread(&target.thread.id)
+                .ok()
+                .flatten(),
         };
         // A resumed session joins in the role its agent has on the thread's team map.
         let resumed = match &operation {
             SessionOperation::Resume(target) => Some(target.thread.id.as_str()),
             _ => None,
         };
-        let chat = workset
-            .as_deref()
-            .and_then(|workset| crate::thread_chat::launch_hooks(state, descriptor.id, workset, resumed));
+        let chat = workset.as_deref().and_then(|workset| {
+            crate::thread_chat::launch_hooks(state, descriptor.id, workset, resumed)
+        });
         // Refresh only preparation, at most once and before any native start.
         // A running/failed-started process is never repeated by this loop.
         for attempt in 0..2 {
@@ -826,7 +850,8 @@ impl<D: HarnessDriver> Service<D> {
                 return Err(DriverError::StaleQualification);
             }
             let (sidecar, port, ca) = self.context.wait_for_qualified_sidecar()?;
-            let (selected_set, plugins_root) = session_set(self.driver.bundled_plugins(), descriptor.id)?;
+            let (selected_set, plugins_root) =
+                session_set(self.driver.bundled_plugins(), descriptor.id)?;
             let root = home.record.clone();
             crate::opening::report(descriptor.id, "prepare");
             let prepared = self.driver.prepare_session(
@@ -873,13 +898,14 @@ impl<D: HarnessDriver> Service<D> {
                 DriverError::Failed("Contained native terminal admission is unavailable.")
             })?;
             let thread = match &operation {
-                SessionOperation::New => {
-                    state.store.create_thread_in(&requested_thread, workset.as_deref()).map_err(|_| {
+                SessionOperation::New => state
+                    .store
+                    .create_thread_in(&requested_thread, workset.as_deref())
+                    .map_err(|_| {
                         DriverError::Failed(
                             "The work thread could not be saved. No harness was started.",
                         )
-                    })?
-                }
+                    })?,
                 SessionOperation::Resume(_) => requested_thread.clone(),
             };
             // From here a failure says whether the host could have started a process: only then
@@ -1145,9 +1171,25 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
             facts.last_start_failure = None;
         }
         let result = self
-            .open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset, model)
+            .open_impl(
+                host,
+                project,
+                rows,
+                cols,
+                operation,
+                mode,
+                initial_prompt,
+                require_mukade,
+                control_header,
+                workset,
+                model,
+            )
             .map_err(|error| {
-                explain(error, || self.context.sidecar.refusal(), self.context.sidecar.disk_full_line())
+                explain(
+                    error,
+                    || self.context.sidecar.refusal(),
+                    self.context.sidecar.disk_full_line(),
+                )
             });
         if let Err(error) = result {
             self.remember(error);

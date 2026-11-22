@@ -50,9 +50,13 @@ pub fn set_memory_target(window: &WebviewWindow, visible: bool) {
     let _ = window.with_webview(move |webview| {
         // SAFETY: run by Tauri on the thread that owns the webview, on live COM objects.
         unsafe {
-            let Ok(core) = webview.controller().CoreWebView2() else { return };
+            let Ok(core) = webview.controller().CoreWebView2() else {
+                return;
+            };
             // Older WebView2 runtimes lack the interface: their default stays.
-            let Ok(core) = core.cast::<ICoreWebView2_19>() else { return };
+            let Ok(core) = core.cast::<ICoreWebView2_19>() else {
+                return;
+            };
             let _ = core.SetMemoryUsageTargetLevel(if visible {
                 COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
             } else {
@@ -67,7 +71,9 @@ static MAIN_MINIMIZED: AtomicBool = AtomicBool::new(false);
 
 /// On every resize of the main window: minimizing and restoring change the target.
 pub fn main_resized(window: &WebviewWindow) {
-    let Ok(minimized) = window.is_minimized() else { return };
+    let Ok(minimized) = window.is_minimized() else {
+        return;
+    };
     if MAIN_MINIMIZED.swap(minimized, Ordering::AcqRel) != minimized {
         set_memory_target(window, !minimized);
     }

@@ -437,17 +437,35 @@ pub struct ForgetScope {
 fn forget_scope(connection: &Connection, key: &str) -> Result<ForgetScope> {
     let thread = load_thread(connection, key)?;
     let mut thread_ids = vec![key.to_owned()];
-    let mut companions = connection.prepare("SELECT id FROM thread WHERE companion_worker_thread_id=?1 ORDER BY id")?;
-    thread_ids.extend(companions.query_map([key], |row| row.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?);
+    let mut companions = connection
+        .prepare("SELECT id FROM thread WHERE companion_worker_thread_id=?1 ORDER BY id")?;
+    thread_ids.extend(
+        companions
+            .query_map([key], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?,
+    );
     let mut sessions = Vec::new();
     for thread in &thread_ids {
-        if connection.query_row("SELECT EXISTS(SELECT 1 FROM activation WHERE thread_id=?1 AND ended_at IS NULL)", [thread], |row| row.get::<_, bool>(0))? {
+        if connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM activation WHERE thread_id=?1 AND ended_at IS NULL)",
+            [thread],
+            |row| row.get::<_, bool>(0),
+        )? {
             return Err(ThreadError::OwnedElsewhere);
         }
         let mut segments = connection.prepare("SELECT harness,store_root_id,native_id FROM segment WHERE thread_id=?1 ORDER BY ordinal")?;
-        sessions.extend(segments.query_map([thread], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?.collect::<rusqlite::Result<Vec<_>>>()?);
+        sessions.extend(
+            segments
+                .query_map([thread], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+        );
     }
-    Ok(ForgetScope { thread_ids, sessions, revision: thread.revision, archived: thread.archived })
+    Ok(ForgetScope {
+        thread_ids,
+        sessions,
+        revision: thread.revision,
+        archived: thread.archived,
+    })
 }
 fn segment_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SegmentRecord> {
     Ok(SegmentRecord {
@@ -543,7 +561,8 @@ pub(crate) fn end_activation(
     if connection.execute(
         "UPDATE segment SET revision=revision+1 WHERE id=?1 AND revision<9007199254740991",
         [&current.segment_id],
-    )? != 1 {
+    )? != 1
+    {
         return Err(ThreadError::Conflict);
     }
     touch(connection, &current.thread_id, at)?;
@@ -606,7 +625,11 @@ impl Database {
     }
     /// `workset` names the thread the user has open (ADR-0055); a fork or companion ignores it
     /// and stays with its source.
-    pub fn create_thread_in(&self, record: &ThreadRecord, workset: Option<&str>) -> Result<ThreadRecord> {
+    pub fn create_thread_in(
+        &self,
+        record: &ThreadRecord,
+        workset: Option<&str>,
+    ) -> Result<ThreadRecord> {
         record.validate()?;
         if record.revision != 1 || record.archived {
             return Err(ThreadError::Invalid);
@@ -774,7 +797,12 @@ impl Database {
     /// history in one transaction; refused while any of them is open, and with `Conflict` if the
     /// thread changed since `expected_revision` (archive, rename, a new segment). Threads forked from it keep their records and lose only the
     /// lineage pointer. Native sessions are not touched.
-    pub fn forget_thread_records(&self, key: &str, expected_revision: u64, at: i64) -> Result<ForgetScope> {
+    pub fn forget_thread_records(
+        &self,
+        key: &str,
+        expected_revision: u64,
+        at: i64,
+    ) -> Result<ForgetScope> {
         id(key, CanonicalIdKind::Thread)?;
         revision(expected_revision)?;
         millis(at)?;
@@ -872,6 +900,16 @@ impl Database {
         touch(&tx, &record.thread_id, record.created_at)?;
         tx.commit()?;
         Ok(record.clone())
+    }
+    /// The native id of every segment of every thread that exists, archived ones included: the
+    /// sessions the model proxy's archive keeps (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
+    pub fn segment_native_ids(&self) -> Result<std::collections::HashSet<String>> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare("SELECT native_id FROM segment")?;
+        let ids = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(ids)
     }
     pub fn segment_record(&self, key: &str) -> Result<Option<SegmentRecord>> {
         id(key, CanonicalIdKind::Segment)?;

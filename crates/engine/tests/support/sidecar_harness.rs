@@ -381,6 +381,8 @@ impl Running {
                     cleanup_timeout: Duration::from_secs(5),
                     reservation_lease: Duration::from_secs(30),
                     drain_timeout: Duration::from_secs(30),
+                    maintenance_at_start: Duration::ZERO,
+                    maintenance_command_timeout: Duration::from_secs(120),
                 },
                 provider,
             ),
@@ -759,7 +761,14 @@ pub fn forward_control(
     user_text: &str,
     kind: ControlKind,
 ) -> ProofResult<Forwarded> {
-    forward_with_header(sidecar_port, origin, session, history, user_text, control_header(kind, user_text))
+    forward_with_header(
+        sidecar_port,
+        origin,
+        session,
+        history,
+        user_text,
+        control_header(kind, user_text),
+    )
 }
 /// `forward` with any control header, including one whose hash does not belong to `user_text`.
 pub fn forward_with_header(
@@ -873,8 +882,15 @@ pub fn last_user_text_at_origin_as(
     user_text: &str,
     kind: ControlKind,
 ) -> String {
-    let forwarded = forward_control(sidecar.port, origin, &new_session(), history, user_text, kind)
-        .expect("forward the probe");
+    let forwarded = forward_control(
+        sidecar.port,
+        origin,
+        &new_session(),
+        history,
+        user_text,
+        kind,
+    )
+    .expect("forward the probe");
     let (_, message) = human_message(&forwarded).expect("human message");
     message_text(message).join("\n<<next block>>\n")
 }

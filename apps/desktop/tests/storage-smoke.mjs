@@ -1,10 +1,14 @@
 // Real embedded app: rejected storage cannot write or disable window controls.
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { mkdtemp, access } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, access, readdir } from 'node:fs/promises';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mainPage } from './main-page.mjs';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('Storage UI checks require Windows.');
 const root = process.cwd();
@@ -29,7 +33,7 @@ async function check(home, valid, index) {
       catch { await delay(300); }
     }
     if (!browser) throw new Error('Desktop did not expose its local test endpoint.');
-    const page = browser.contexts()[0].pages()[0];
+    const page = await mainPage(browser);
     await expect(page.locator('#runtime-status')).toContainText(valid ? 'Local runtime' : 'Storage unavailable', { timeout: 15000 });
     const error = () => invoke(page, 'storage_location').then(() => null, error => String(error));
     if (valid) {
@@ -42,7 +46,7 @@ async function check(home, valid, index) {
     } else {
       await expect(page.locator('#runtime-status')).toHaveText('Storage unavailable', { timeout: 15000 });
       expect(await error()).toContain('SHINATAMA_HOME');
-      await expect(page.locator('#notice')).toBeVisible();
+      await expect(page.locator('.im-notice').first()).toBeVisible();
     }
     // These commands remain responsive even when storage is rejected.
     expect(await invoke(page, 'terminal_list')).toEqual([]);
@@ -60,6 +64,10 @@ async function check(home, valid, index) {
 
 await check(resolve(fixture, 'data'), true, 0);
 await check(forbidden, false, 1);
-expect(await access(forbidden).then(() => true, () => false)).toBe(false);
+if (await access(forbidden).then(() => true, () => false)) {
+  // Which component wrote into the rejected location says where the write slipped past the check.
+  const written = await readdir(forbidden, { recursive: true }).catch(error => [`unreadable: ${error.message}`]);
+  throw new Error(`The rejected storage location was created; it holds: ${JSON.stringify(written.slice(0, 64))}`);
+}
 await check(String.raw`\\shinatama-invalid-network-host\missing\state`, false, 2);
 console.log('PASS storage: exact data path, project conflict rejected, no writes to rejected project/UNC location, usable frame and close.');

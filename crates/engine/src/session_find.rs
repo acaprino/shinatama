@@ -129,18 +129,21 @@ pub fn read_find_progress(
         let mut event_ordinal = 0usize;
         let mut entry_ordinal = 0usize;
         let mut failure = None;
-        let streamed = opened.streamed(snapshot, &request.detail, &mut |entry| {
-            match scan(&mut search, entry_ordinal, event_ordinal, &entry) {
-                Ok(events) => {
-                    entry_ordinal += 1;
-                    event_ordinal += events;
-                    progress(entry_ordinal, search.total);
-                    Ok(())
-                }
-                Err(issue) => {
-                    failure = Some(issue);
-                    Err(StreamStop)
-                }
+        let streamed = opened.streamed(snapshot, &request.detail, &mut |entry| match scan(
+            &mut search,
+            entry_ordinal,
+            event_ordinal,
+            &entry,
+        ) {
+            Ok(events) => {
+                entry_ordinal += 1;
+                event_ordinal += events;
+                progress(entry_ordinal, search.total);
+                Ok(())
+            }
+            Err(issue) => {
+                failure = Some(issue);
+                Err(StreamStop)
             }
         });
         let fingerprint = match streamed {
@@ -169,9 +172,7 @@ pub fn read_find_progress(
             }),
             issue: None,
         };
-        if !serde_json::to_vec(&reply)
-            .is_ok_and(|bytes| bytes.len() <= MAX_FIND_REPLY_BYTES)
-        {
+        if !serde_json::to_vec(&reply).is_ok_and(|bytes| bytes.len() <= MAX_FIND_REPLY_BYTES) {
             return Err(FindIssue::OutputLimit);
         }
         Ok(reply)
@@ -278,7 +279,12 @@ mod tests {
     impl Drop for Fixture {
         fn drop(&mut self) {
             if self.0.parent() == Some(fs::canonicalize(std::env::temp_dir()).unwrap().as_path())
-                && self.0.file_name().unwrap().to_string_lossy().starts_with("shinatama-session-find-")
+                && self
+                    .0
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("shinatama-session-find-")
             {
                 let _ = fs::remove_dir_all(&self.0);
             }
@@ -286,12 +292,18 @@ mod tests {
     }
     #[test]
     fn real_reader_search_pages_canonical_text_excludes_private_payloads_and_pins_source() {
-        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
-            .join(format!("shinatama-session-find-{}", uuid::Uuid::new_v4())));
+        let fixture = Fixture(
+            fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-session-find-{}", uuid::Uuid::new_v4())),
+        );
         let location = StorageLocation::resolve(LocationRequest {
-            local_data_directory: std::env::temp_dir(), home_override: Some(fixture.0.clone()),
-            project_roots: Vec::new(), synchronized_roots: Vec::new(),
-        }).unwrap();
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.0.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        })
+        .unwrap();
         location.prepare_private_directory().unwrap();
         let project = location.directory().join("projects/synthetic");
         fs::create_dir_all(&project).unwrap();
@@ -306,38 +318,94 @@ mod tests {
             "message":{"id":"a-msg","role":"assistant","model":"synthetic","stop_reason":"end_turn","content":[
                 {"type":"thinking","thinking":"private-needle","signature":"private-needle"},
                 {"type":"text","text":"visible answer"}]}}));
-        let bytes = rows.iter().map(|row|serde_json::to_string(row).unwrap()).collect::<Vec<_>>().join("\n")+"\n";
-        fs::write(&path,&bytes).unwrap();
-        let record = StoreRootRecord { id:"find-root".into(), harness:"claude_code".into(),
-            kind:RootKind::Box, scope:RootScope::Primary,
-            resolved_path:location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
-            origin:RootOrigin::Configured,config_revision:1,access:RootAccess::ReadWrite,available:true };
-        let root=RootSelector {store_root_id:record.id.clone(),configuration_revision:1};
-        let snapshot=TrustedRootSnapshot::from_record(&record,&root).unwrap();
-        let mut detail=DetailRequest {root,native_id:"find-fixture".into(),cursor:None,limit:50, overview_only: false};
-        let first=read_detail(&snapshot,&detail); assert!(first.issue.is_none());
-        detail.cursor=Some(DetailCursor{offset:0,fingerprint:first.page.unwrap().fingerprint});
-        let mut request=FindRequest {detail,query:"aLPHa".into(),cursor:None};
-        let found=read_find(&snapshot,&request); assert!(found.issue.is_none());
-        let page=found.page.unwrap(); assert_eq!(page.total_hits,53); assert_eq!(page.hits.len(),50);
-        assert!(page.hits.iter().all(|hit| hit.snippet.contains("Alpha") && hit.snippet.len()<=512));
-        let target=&page.hits[20];
-        let mut jump=request.detail.clone(); jump.cursor.as_mut().unwrap().offset=target.event_ordinal;
-        let jumped=read_detail(&snapshot,&jump).page.unwrap();
-        assert_eq!(jumped.events[0].entry_ordinal,target.entry_ordinal);
+        let bytes = rows
+            .iter()
+            .map(|row| serde_json::to_string(row).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        fs::write(&path, &bytes).unwrap();
+        let record = StoreRootRecord {
+            id: "find-root".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
+        };
+        let root = RootSelector {
+            store_root_id: record.id.clone(),
+            configuration_revision: 1,
+        };
+        let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
+        let mut detail = DetailRequest {
+            root,
+            native_id: "find-fixture".into(),
+            cursor: None,
+            limit: 50,
+            overview_only: false,
+        };
+        let first = read_detail(&snapshot, &detail);
+        assert!(first.issue.is_none());
+        detail.cursor = Some(DetailCursor {
+            offset: 0,
+            fingerprint: first.page.unwrap().fingerprint,
+        });
+        let mut request = FindRequest {
+            detail,
+            query: "aLPHa".into(),
+            cursor: None,
+        };
+        let found = read_find(&snapshot, &request);
+        assert!(found.issue.is_none());
+        let page = found.page.unwrap();
+        assert_eq!(page.total_hits, 53);
+        assert_eq!(page.hits.len(), 50);
+        assert!(
+            page.hits
+                .iter()
+                .all(|hit| hit.snippet.contains("Alpha") && hit.snippet.len() <= 512)
+        );
+        let target = &page.hits[20];
+        let mut jump = request.detail.clone();
+        jump.cursor.as_mut().unwrap().offset = target.event_ordinal;
+        let jumped = read_detail(&snapshot, &jump).page.unwrap();
+        assert_eq!(jumped.events[0].entry_ordinal, target.entry_ordinal);
         assert!(jumped.events[0].text.contains("Alpha"));
-        request.cursor=page.next; let tail=read_find(&snapshot,&request).page.unwrap();
-        assert_eq!(tail.hits.len(),3); assert!(tail.next.is_none());
-        assert_eq!(tail.hits[0].match_ordinal,50);
-        request.cursor=None; request.query="private-needle".into();
-        let private=read_find(&snapshot,&request).page.unwrap(); assert_eq!(private.total_hits,0);
-        request.query="🦀".repeat(33);
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::InvalidQuery));
-        request.query="Alpha".into();
-        let mut changed=bytes.clone(); changed.push_str("\n"); fs::write(&path,changed).unwrap();
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::Detail(DetailIssue::SourceChanged)));
-        request.detail.cursor=None;
-        assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::FingerprintRequired));
+        request.cursor = page.next;
+        let tail = read_find(&snapshot, &request).page.unwrap();
+        assert_eq!(tail.hits.len(), 3);
+        assert!(tail.next.is_none());
+        assert_eq!(tail.hits[0].match_ordinal, 50);
+        request.cursor = None;
+        request.query = "private-needle".into();
+        let private = read_find(&snapshot, &request).page.unwrap();
+        assert_eq!(private.total_hits, 0);
+        request.query = "🦀".repeat(33);
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::InvalidQuery)
+        );
+        request.query = "Alpha".into();
+        let mut changed = bytes.clone();
+        changed.push('\n');
+        fs::write(&path, changed).unwrap();
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::Detail(DetailIssue::SourceChanged))
+        );
+        request.detail.cursor = None;
+        assert_eq!(
+            read_find(&snapshot, &request).issue,
+            Some(FindIssue::FingerprintRequired)
+        );
     }
 
     #[test]
@@ -349,9 +417,20 @@ mod tests {
         assert!(view.issue.is_none(), "{:?}", view.issue);
         let page = view.page.unwrap();
         // The view shows 4 KiB of the result: the marker, 12 MiB in, is not in it.
-        assert!(page.events.iter().all(|event| !event.text.contains(large_fixture::DEEP_MARKER)));
-        detail.cursor = Some(DetailCursor { offset: 0, fingerprint: page.fingerprint });
-        let mut request = FindRequest { detail, query: large_fixture::DEEP_MARKER.to_lowercase(), cursor: None };
+        assert!(
+            page.events
+                .iter()
+                .all(|event| !event.text.contains(large_fixture::DEEP_MARKER))
+        );
+        detail.cursor = Some(DetailCursor {
+            offset: 0,
+            fingerprint: page.fingerprint,
+        });
+        let mut request = FindRequest {
+            detail,
+            query: large_fixture::DEEP_MARKER.to_lowercase(),
+            cursor: None,
+        };
         let found = read_find(&large.snapshot, &request);
         assert!(found.issue.is_none(), "{:?}", found.issue);
         let hits = found.page.unwrap();
@@ -367,6 +446,9 @@ mod tests {
         let mut grown = std::fs::read(&large.path).unwrap();
         grown.push(10);
         std::fs::write(&large.path, grown).unwrap();
-        assert_eq!(read_find(&large.snapshot, &request).issue, Some(FindIssue::Detail(DetailIssue::SourceChanged)));
+        assert_eq!(
+            read_find(&large.snapshot, &request).issue,
+            Some(FindIssue::Detail(DetailIssue::SourceChanged))
+        );
     }
 }

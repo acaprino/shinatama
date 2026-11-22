@@ -23,6 +23,7 @@ NOTICE = 'THIRD_PARTY_NOTICES.md'
 POLICY = 'docs/implementation/dependency-policy.md'
 SKIP_DIRECTORIES = {'.git', '.agents', '.codex', '.daodan', '.jcode', '.prototype-evidence', '.verification', '__pycache__', 'node_modules', 'target', 'dist', 'verify'}
 EXACT_VERSION = re.compile(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z')
+PINNED_NPM_GIT = re.compile(r'git\+https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\.git#[0-9a-f]{40}\Z')
 KNOWN_LICENSES = {'MIT', 'MIT-0', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'CC0-1.0', 'Unlicense', 'Zlib', 'Unicode-3.0', 'BSL-1.0', 'MPL-2.0'}
 REVIEW_LICENSES = {'MPL-2.0'}
 NPM_LICENSE_WRAPPERS = {'@rolldown/binding-win32-x64-msvc':'rolldown', '@tauri-apps/cli-win32-x64-msvc':'@tauri-apps/cli'}
@@ -213,9 +214,13 @@ def validate_npm(root: Path) -> list[str]:
         if entries != locked_root.get(section, {}):
             errors.append(f'package.json: {section} do not agree with package-lock.json')
         for name, version in entries.items():
+            locked = lock.get('packages', {}).get(f'node_modules/{name}', {})
+            if isinstance(version, str) and PINNED_NPM_GIT.fullmatch(version):
+                if locked.get('resolved') != version or not EXACT_VERSION.fullmatch(locked.get('version') or ''):
+                    errors.append(f'package-lock.json: {name} must resolve the declared Git repository and full commit with an exact package version')
+                continue
             if not isinstance(version, str) or not EXACT_VERSION.fullmatch(version):
                 errors.append(f'package.json: {name} must use an exact version')
-            locked = lock.get('packages', {}).get(f'node_modules/{name}', {})
             if locked.get('version') != version:
                 errors.append(f'package-lock.json: {name} resolved version differs from its declaration')
     mirror_verified, prepared_errors = validate_prepared_sidecar(root)

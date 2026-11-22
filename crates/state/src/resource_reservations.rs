@@ -162,7 +162,14 @@ impl ReservationPolicy {
 
 /// A budget as the aggregate ceiling counts it: an advisory slot's CPU is not counted.
 fn charged(budget: Budget, advisory: bool) -> Budget {
-    if advisory { Budget { cpu_basis_points: 0, ..budget } } else { budget }
+    if advisory {
+        Budget {
+            cpu_basis_points: 0,
+            ..budget
+        }
+    } else {
+        budget
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -253,7 +260,9 @@ impl ReservationSnapshot {
     pub fn charged_total(&self) -> Result<Budget> {
         self.slots
             .iter()
-            .try_fold(Budget::default(), |total, slot| total.add(charged(slot.budget, slot.advisory)))
+            .try_fold(Budget::default(), |total, slot| {
+                total.add(charged(slot.budget, slot.advisory))
+            })
     }
     fn validate(&self) -> Result<()> {
         if self.format_version != 1
@@ -395,7 +404,9 @@ fn validate_lease(policy: &ReservationPolicy, now_ms: i64, expires_at_ms: i64) -
     Ok(())
 }
 
-pub(crate) fn read_ledger(connection: &rusqlite::Connection) -> Result<Option<ReservationSnapshot>> {
+pub(crate) fn read_ledger(
+    connection: &rusqlite::Connection,
+) -> Result<Option<ReservationSnapshot>> {
     let value: Option<Option<String>> = connection
         .query_row(
             "SELECT CASE WHEN octet_length(value)<=65536 THEN value END FROM setting WHERE key=?1",
@@ -413,7 +424,10 @@ pub(crate) fn read_ledger(connection: &rusqlite::Connection) -> Result<Option<Re
     Ok(Some(ledger))
 }
 
-pub(crate) fn write_ledger(connection: &rusqlite::Connection, ledger: &ReservationSnapshot) -> Result<()> {
+pub(crate) fn write_ledger(
+    connection: &rusqlite::Connection,
+    ledger: &ReservationSnapshot,
+) -> Result<()> {
     ledger.validate()?;
     let json = serde_json::to_string(ledger).map_err(|_| ReservationError::Malformed)?;
     if json.len() > MAX_LEDGER_BYTES {
@@ -665,7 +679,12 @@ impl Database {
                 let index = ledger.ticket_index(&observation.expected)?;
                 if let Some(proof) = &observation.closed_empty_job {
                     proof.verify(&observation.expected, now_ms)?;
-                    crate::native_session_cleanup::record_cleanup(connection, stamp, &observation.expected, now_ms)?;
+                    crate::native_session_cleanup::record_cleanup(
+                        connection,
+                        stamp,
+                        &observation.expected,
+                        now_ms,
+                    )?;
                     ledger.slots.remove(index);
                     ledger.next_revision()?;
                 } else if ledger.slots[index].state != ReservationState::Retired {
@@ -1047,15 +1066,35 @@ mod tests {
     #[test]
     fn advisory_sessions_are_not_charged_cpu_and_older_ledgers_still_read() {
         // Four advisory sessions whose CPU alone would exceed the ceiling fit; memory still counts.
-        let mut snapshot = ReservationSnapshot { format_version: 1, revision: 0, policy: policy(), slots: Vec::new() };
+        let mut snapshot = ReservationSnapshot {
+            format_version: 1,
+            revision: 0,
+            policy: policy(),
+            slots: Vec::new(),
+        };
         snapshot.policy.aggregate_ceiling.processes = 2;
         let ceiling = snapshot.policy.aggregate_ceiling;
-        let session = Budget { cpu_basis_points: ceiling.cpu_basis_points, ..Budget { memory_bytes: 1, processes: 1, cpu_basis_points: 1, queue_bytes: 1, queue_items: 1 } };
+        let session = Budget {
+            cpu_basis_points: ceiling.cpu_basis_points,
+            ..Budget {
+                memory_bytes: 1,
+                processes: 1,
+                cpu_basis_points: 1,
+                queue_bytes: 1,
+                queue_items: 1,
+            }
+        };
         for index in 0..2u64 {
             snapshot.revision += 1;
             snapshot.slots.push(ReservationTicket {
-                id: uuid::Uuid::new_v4().to_string(), job_key: uuid::Uuid::new_v4().to_string(), owner: owner(),
-                budget: session, state: ReservationState::Active, lease_expires_at_ms: 1000, revision: index + 1, advisory: true,
+                id: uuid::Uuid::new_v4().to_string(),
+                job_key: uuid::Uuid::new_v4().to_string(),
+                owner: owner(),
+                budget: session,
+                state: ReservationState::Active,
+                lease_expires_at_ms: 1000,
+                revision: index + 1,
+                advisory: true,
             });
         }
         assert!(snapshot.reserved_total().unwrap().cpu_basis_points > ceiling.cpu_basis_points);
@@ -1063,13 +1102,20 @@ mod tests {
         snapshot.validate().unwrap();
         // A non-advisory slot is charged in full.
         snapshot.slots[0].advisory = false;
-        assert_eq!(snapshot.charged_total().unwrap().cpu_basis_points, ceiling.cpu_basis_points);
+        assert_eq!(
+            snapshot.charged_total().unwrap().cpu_basis_points,
+            ceiling.cpu_basis_points
+        );
         // `advisory` is written only when set, and a ticket saved without it reads as not advisory.
         let plain = serde_json::to_string(&snapshot.slots[0]).unwrap();
         assert!(!plain.contains("advisory"));
         let read: ReservationTicket = serde_json::from_str(&plain).unwrap();
         assert!(!read.advisory);
-        assert!(serde_json::to_string(&snapshot.slots[1]).unwrap().contains("\"advisory\":true"));
+        assert!(
+            serde_json::to_string(&snapshot.slots[1])
+                .unwrap()
+                .contains("\"advisory\":true")
+        );
     }
     fn raw(database: &Database) -> String {
         database

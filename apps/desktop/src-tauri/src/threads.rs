@@ -302,15 +302,16 @@ pub async fn thread_recover(
                 .ok_or(Error {
                     code: "unavailable",
                 })?;
-            let certificate = NativeTerminationCertificate {
-                owner,
-                kind,
+            let certificate = NativeTerminationCertificate { owner, kind, at };
+            db.certify_native_session_termination(
+                &certificate,
+                request.expected_revision,
+                &active,
                 at,
-            };
-            db.certify_native_session_termination(&certificate, request.expected_revision, &active, at)
-                .map_err(|_| Error {
-                    code: "source_changed",
-                })?;
+            )
+            .map_err(|_| Error {
+                code: "source_changed",
+            })?;
             Ok(())
         })
         .await
@@ -480,7 +481,12 @@ pub async fn thread_archive(
     controller
         .inner()
         .work(move |db| {
-            let current = current(db, &request.project_id, &request.thread_id, request.expected_revision)?;
+            let current = current(
+                db,
+                &request.project_id,
+                &request.thread_id,
+                request.expected_revision,
+            )?;
             db.update_thread_metadata(
                 &request.thread_id,
                 request.expected_revision,
@@ -506,12 +512,27 @@ pub async fn thread_forget(
         .inner()
         .work_result(move |db| {
             // Archive state and revision are checked again inside the delete transaction.
-            let thread = db.thread_record(&request.thread_id)?.ok_or(Error { code: "not_found" })?;
+            let thread = db
+                .thread_record(&request.thread_id)?
+                .ok_or(Error { code: "not_found" })?;
             if thread.project_id != request.project_id {
                 return Err(Error { code: "invalid" });
             }
-            let location = services.load().map_err(|_| Error { code: "unavailable" })?.location.clone();
-            forget_thread(&location, db, &request.thread_id, Some(request.expected_revision), now_ms()?).map_err(|error| Error {
+            let location = services
+                .load()
+                .map_err(|_| Error {
+                    code: "unavailable",
+                })?
+                .location
+                .clone();
+            forget_thread(
+                &location,
+                db,
+                &request.thread_id,
+                Some(request.expected_revision),
+                now_ms()?,
+            )
+            .map_err(|error| Error {
                 code: match error {
                     ForgetError::NotFound => "not_found",
                     ForgetError::Invalid => "invalid",
@@ -526,6 +547,11 @@ pub async fn thread_forget(
         .await?;
     for id in &report.thread_ids {
         crate::titles::forget_cached(id);
+    }
+    // The forgotten thread's proxy state goes at the next cleanup: now, when no agent is open.
+    #[cfg(windows)]
+    if let Some(sidecar) = window.try_state::<Arc<crate::sidecar::Controller>>() {
+        sidecar.maintain_soon();
     }
     Ok(report)
 }
@@ -676,7 +702,9 @@ pub async fn workset_adopt(
     local(&window)?;
     controller
         .inner()
-        .work(move |db| db.move_thread_to_workset(&request.thread_id, &request.workset_id, now_ms()?))
+        .work(move |db| {
+            db.move_thread_to_workset(&request.thread_id, &request.workset_id, now_ms()?)
+        })
         .await
 }
 #[derive(Deserialize)]

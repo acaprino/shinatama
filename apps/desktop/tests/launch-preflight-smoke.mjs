@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { tmpdir as systemTmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from '@playwright/test';
+// The temporary folder by its long name: a runner's is C:\Users\RUNNER~1\..., and the app answers with the long one.
+const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This preflight bridge check qualifies Windows only.');
 const workspace = process.cwd();
@@ -44,7 +47,9 @@ try {
   });
   app = spawn(resolve(workspace, 'target/debug/shinatama-desktop.exe'), [], {
     cwd: workspace, windowsHide: true, stdio: 'ignore',
-    env: { ...process.env, SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview'),
+    // Marionette's background install writes its store once the data folder is accepted, at a moment of
+    // its own: off here, so "preflight writes nothing" compares the folder without it.
+    env: { ...process.env, SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview'), SHINATAMA_MARIONETTE: 'off',
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` },
   });
   let spawnError;
@@ -66,7 +71,10 @@ try {
   const pathKey = value => value.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').toLowerCase();
   assert.equal(pathKey(storage.directory), pathKey(data));
   assert.deepEqual(await invoke('terminal_list'), []);
-  const beforeFiles = (await readdir(data)).sort();
+  // shinatama.log is the diagnostic log (app_log.rs): the window writes "The main window loaded." when its start ends,
+  // which may come after this read. It is neither a launch nor a store, so the folder is compared without it.
+  const stored = async () => (await readdir(data)).filter(name => !/^shinatama\.log(\.1)?$/.test(name)).sort();
+  const beforeFiles = await stored();
 
   for (const action of ['start', 'resume']) {
     for (const program of ['system', 'own']) {
@@ -102,7 +110,7 @@ try {
   }
   evidence.checks.invalidInputRedacted = true;
   assert.deepEqual(await invoke('terminal_list'), []);
-  assert.deepEqual((await readdir(data)).sort(), beforeFiles);
+  assert.deepEqual(await stored(), beforeFiles);
   assert.ok(!(await readdir(fixture)).includes('cli-unused-home'));
   evidence.checks.noLaunchOrStorePreparation = true;
   assert.equal(await page.evaluate(() => new Promise(done => requestAnimationFrame(() => done('responsive')))), 'responsive');

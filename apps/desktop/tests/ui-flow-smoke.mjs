@@ -75,7 +75,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   const calls = command => page.evaluate(name => window.__bridge.calls.filter(call => call.command === name).map(call => call.args), command);
   const runtimeIds = () => page.evaluate(() => window.__bridge.live.map(info => info.id).sort());
-  const pane = id => page.locator('.wm-pane:has([data-view-id="' + id + '"])');
+  const pane = id => page.locator('.im-pane:has([data-view-id="' + id + '"])');
   const choose = async path => {
     await page.locator('#folder').fill(path);
     await page.getByRole('button', { name: 'Use folder', exact: true }).click();
@@ -83,7 +83,7 @@ try {
   };
   await page.goto('http://127.0.0.1:1437/');
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await expect(page.locator('.im-pane')).toHaveCount(1);
   await page.getByRole('button', { name: 'Open terminal', exact: true }).click();
   await choose('D:\\Projects\\alpha');
   await expect(page.locator('.terminal-view')).toBeVisible();
@@ -92,7 +92,7 @@ try {
 
   await page.locator('#project').click();
   await page.evaluate(() => { void window.__bridge.emit('confirm-close'); });
-  await expect(page.locator('#confirm-dialog')).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   const beforeBrowse = (await calls('catalog_browse')).length;
   const beforeCreate = (await calls('new_project_options')).length;
   await page.keyboard.press('F3'); await page.keyboard.press('n');
@@ -108,7 +108,7 @@ try {
   }
   await page.locator('#window-minimize').click();
   expect((await calls('plugin:window|minimize')).length).toBe(1);
-  await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.locator('#project-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   passed.push('overlay blocks picker F3/n while custom frame stays reachable');
 
@@ -116,28 +116,28 @@ try {
   await expect(page.getByRole('tab')).toHaveCount(2);
   const ids = await runtimeIds();
   const destination = await pane('t1').getAttribute('data-group-id');
-  const tab = id => page.locator('.wm-tab[data-view-id="' + id + '"]');
+  const tab = id => page.locator('.im-tile-tab[data-view-id="' + id + '"]');
   // A tab pressed and released without moving is a click: nothing is rearranged.
   await tab('t2').click();
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await expect(page.locator('.im-pane')).toHaveCount(1);
   await dragTab(page, tab('t2'), pane('t2'), 'right');
-  await expect(page.locator('.wm-pane')).toHaveCount(2);
-  await expect(page.locator('.wm-drop-preview')).toBeHidden();
+  await expect(page.locator('.im-pane')).toHaveCount(2);
+  await expect(page.locator('.im-drop-preview')).toBeHidden();
   expect(await runtimeIds()).toEqual(ids);
-  await dragTab(page, tab('t2'), page.locator('.wm-pane[data-group-id="' + destination + '"]'), 'center');
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await dragTab(page, tab('t2'), page.locator('.im-pane[data-group-id="' + destination + '"]'), 'center');
+  await expect(page.locator('.im-pane')).toHaveCount(1);
   // Escape drops nothing.
   const box = await tab('t2').boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-  await page.mouse.move(box.x + 300, box.y + 200, { steps: 8 }); await expect(page.locator('.wm-drop-preview')).toBeVisible();
+  await page.mouse.move(box.x + 300, box.y + 200, { steps: 8 }); await expect(page.locator('.im-drop-preview')).toBeVisible();
   await page.keyboard.press('Escape'); await page.mouse.up();
-  await expect(page.locator('.wm-pane')).toHaveCount(1);
-  await expect(page.locator('.wm-drop-preview')).toBeHidden();
+  await expect(page.locator('.im-pane')).toHaveCount(1);
+  await expect(page.locator('.im-drop-preview')).toBeHidden();
   // The keyboard twin of a drag to the bottom.
   await tab('t2').focus(); await page.keyboard.press('Alt+Shift+ArrowDown');
-  await expect(page.locator('.wm-pane')).toHaveCount(2);
+  await expect(page.locator('.im-pane')).toHaveCount(2);
   const secondId = await pane('t2').getAttribute('data-group-id');
-  const second = page.locator('.wm-pane[data-group-id="' + secondId + '"]');
+  const second = page.locator('.im-pane[data-group-id="' + secondId + '"]');
   await expect(second.getByRole('tab')).toHaveCount(1);
   expect(await runtimeIds()).toEqual(ids);
   expect(await calls('terminal_stop')).toEqual([]);
@@ -152,7 +152,7 @@ try {
   expect((await calls('terminal_start')).at(-1).cwd).toBe('D:\\Projects\\alpha');
   await page.evaluate(() => { window.__bridge.exits.t3 = 0; });
   await second.getByRole('button', { name: 'Close terminal', exact: true }).click();
-  await expect(page.locator('#confirm-dialog')).toBeHidden();
+  await expect(page.getByRole('dialog', { name: /Stop terminal|Close session/ })).toBeHidden();
   expect(await runtimeIds()).toEqual(['t1']);
   passed.push('exited terminals require explicit restart or close');
 
@@ -165,11 +165,11 @@ try {
   await page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect.poll(() => page.evaluate(() => !!window.__bridge.releaseSelection)).toBe(true);
   await page.evaluate(() => { void window.__bridge.emit('confirm-close'); });
-  await expect(page.locator('#confirm-dialog')).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   await page.evaluate(() => { window.__bridge.releaseSelection(); });
   await expect(page.locator('#project-dialog')).toBeHidden();
   expect(await calls('terminal_start')).toEqual([]);
-  await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('.terminal-view')).toBeVisible();
   expect((await calls('terminal_start')).length).toBe(1);
   await page.locator('#project').click();

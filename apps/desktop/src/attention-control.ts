@@ -1,3 +1,4 @@
+import { uiButton, uiInput, uiPart, uiTraits } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 
 type Preferences = { enabled: boolean; sound: boolean };
@@ -24,25 +25,24 @@ export function createAttentionControl(desktop: boolean, report: (message: strin
   let configured = false;
   let initialization: Promise<void> | null = null;
 
-  const fields = document.createElement('div'); fields.className = 'attention-fields';
-  const description = document.createElement('p');
+  const fields = uiPart('stack');
+  const description = uiPart('paragraph');
   description.textContent = 'Shinatama shows its face and a speech bubble over the desktop when a terminal raises a native alert or a process ends. Alerts work while the app is open.';
-  const limits = document.createElement('p'); limits.className = 'hint';
+  const limits = uiPart('hint');
   limits.textContent = 'Which signals arrive depends on the agent. Read the question and answer it in the session: the alert opens the terminal and grants nothing.';
 
   function checkbox(id: string, text: string) {
-    const label = document.createElement('label'); label.htmlFor = id; label.className = 'settings-check';
-    const input = document.createElement('input'); input.id = id; input.type = 'checkbox';
-    label.append(input, document.createTextNode(` ${text}`));
+    const label = uiTraits(uiPart('field'), 'row'); label.htmlFor = id;
+    const input = uiInput('checkbox'); input.id = id;
+    label.append(input, uiPart('text', text));
     return { label, input };
   }
   const enabled = checkbox('attention-enabled', 'Show desktop alerts');
   const sound = checkbox('attention-sound', 'Play a short sound');
-  const status = document.createElement('p'); status.id = 'attention-settings-status';
-  status.className = 'hint'; status.setAttribute('role', 'status');
-  const actions = document.createElement('div'); actions.className = 'settings-row';
-  const preview = document.createElement('button'); preview.id = 'attention-test';
-  preview.type = 'button'; preview.textContent = 'Test alert';
+  const status = uiPart('status'); status.id = 'attention-settings-status';
+
+  const actions = uiPart('actions');
+  const preview = uiButton('Test alert', { attrs: { id: 'attention-test' } });
   actions.append(preview);
   fields.append(description, enabled.label, sound.label, actions, status, limits);
   fields.setAttribute('aria-busy', 'false');

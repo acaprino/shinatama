@@ -44,11 +44,13 @@ what turned Smooth light grey before 2026-11-19. The rule:
 | Smooth, theme Light | `light` |
 | Smooth, theme Dark | `dark` |
 | Smooth, theme Windows | `system` (no theme of its own: the window follows Windows) |
-| ONI MODE (Classic) | `dark` (always) |
+| ONI, theme Light | `light` |
+| ONI, theme Dark | `dark` |
+| ONI, theme Windows | `dark` (ONI follows Windows dark; a skin paints ONI dark only) |
 
 Implementation in Shinatama:
 
-- `presentation.ts`: `windowThemeFor(look, theme)` gives the value; `applyWindowTheme()` runs in
+- `presentation.ts`: Imago's `windowThemeFor(look, theme)` gives the value; `applyWindowTheme()` runs in
   `apply()` and sends it only when it changes:
   `invoke('presentation_window_theme', { theme })`.
 - `presentation.rs`: the command `presentation_window_theme` calls
@@ -116,7 +118,7 @@ window from the screen:
 - Raise the window once (topmost) and keep it there for every capture of a run; a window
   lowered between captures ends up behind the window in use.
 - Discard a capture whose title bar pixel is not the app's: it photographed the window in
-  front. Switch looks through `#presentation-theme` (a `change` event), not by reloading.
+  front. Switch looks with the palette's Appearance commands (Ctrl+K), not by reloading.
 
 Measured on 2026-11-19 over a dark terminal window: Smooth dark frame 23,26,37 (before
 27-37 neutral grey), Smooth light frame 241,241,242 (before 230,231,235), ONI MODE 12,15,30

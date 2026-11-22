@@ -145,7 +145,11 @@ mod tests {
         .unwrap();
         let flags: Vec<_> = args.tokens().iter().step_by(2).collect();
         assert_eq!(flags, ["-e", "--skill"]);
-        assert!(args.tokens()[1].to_string_lossy().ends_with(r"pi\extensions\policy.js"));
+        assert!(
+            args.tokens()[1]
+                .to_string_lossy()
+                .ends_with(r"pi\extensions\policy.js")
+        );
         assert!(args.tokens()[3].to_string_lossy().ends_with(r"pi\skills"));
         assert_eq!(
             plan_marionette(Path::new("relative")).unwrap_err(),

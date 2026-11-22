@@ -25,7 +25,7 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 fn unhex(text: &str) -> Option<Vec<u8>> {
-    if text.len() % 2 != 0 || text.len() > 64 * 1024 {
+    if !text.len().is_multiple_of(2) || text.len() > 64 * 1024 {
         return None;
     }
     let nibble = |c: u8| match c {

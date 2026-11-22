@@ -67,7 +67,13 @@ pub struct Titles {
 }
 
 #[tauri::command]
-pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services>, controller: State<'_, Arc<sessions::Controller>>, host: State<'_, crate::Host>, requests: Vec<TitleRequest>) -> Result<Titles, String> {
+pub async fn instance_titles(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    controller: State<'_, Arc<sessions::Controller>>,
+    host: State<'_, crate::Host>,
+    requests: Vec<TitleRequest>,
+) -> Result<Titles, String> {
     crate::local(&window)?;
     if requests.len() > 32 {
         return Err("Too many instances.".into());
@@ -77,7 +83,10 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
         let services = services.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let store = &services.load()?.store;
-            Ok::<_, String>((store.titles_enabled().map_err(|e| e.to_string())?, store.summaries_excluded().map_err(|e| e.to_string())?))
+            Ok::<_, String>((
+                store.titles_enabled().map_err(|e| e.to_string())?,
+                store.summaries_excluded().map_err(|e| e.to_string())?,
+            ))
         })
         .await
         .map_err(|_| "The title worker stopped.".to_owned())??
@@ -89,7 +98,15 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
     let deadline = Instant::now() + SUMMARIES_DEADLINE;
     let mut touched: HashMap<String, Vec<String>> = HashMap::new();
     for request in requests {
-        let mut row = TitleRow { instance_id: request.instance_id, thread_id: request.thread_id.clone(), title: None, source: "verbatim", reason: None, touched: 0, usage: None };
+        let mut row = TitleRow {
+            instance_id: request.instance_id,
+            thread_id: request.thread_id.clone(),
+            title: None,
+            source: "verbatim",
+            reason: None,
+            touched: 0,
+            usage: None,
+        };
         let Some(thread) = request.thread_id else {
             row.reason = Some("no thread");
             rows.push(row);
@@ -108,16 +125,23 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                     row.usage = snapshot.usage;
                     touched.insert(row.instance_id.clone(), snapshot.touched);
                 }
-                _ if reads >= MAX_READS_PER_CALL || Instant::now() >= deadline => row.reason = Some("refresh deferred"),
+                _ if reads >= MAX_READS_PER_CALL || Instant::now() >= deadline => {
+                    row.reason = Some("refresh deferred")
+                }
                 _ => {
                     reads += 1;
                     let target = {
                         let services = services.clone();
                         let thread = thread.clone();
-                        tauri::async_runtime::spawn_blocking(move || services.load().ok().and_then(|s| s.store.thread_resume_target(&thread).ok()))
-                            .await
-                            .ok()
-                            .flatten()
+                        tauri::async_runtime::spawn_blocking(move || {
+                            services
+                                .load()
+                                .ok()
+                                .and_then(|s| s.store.thread_resume_target(&thread).ok())
+                        })
+                        .await
+                        .ok()
+                        .flatten()
                     };
                     match target {
                         None => row.reason = Some("no session yet"),
@@ -126,7 +150,17 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                                 .inner()
                                 .detail_background_by(
                                     DetailRequest {
-                                        root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+                                        root: RootSelector {
+                                            store_root_id: target
+                                                .segment
+                                                .native
+                                                .store_root_id
+                                                .clone(),
+                                            configuration_revision: target
+                                                .segment
+                                                .native
+                                                .store_revision,
+                                        },
                                         native_id: target.segment.native.native_id.clone(),
                                         cursor: None,
                                         limit: 1,
@@ -143,13 +177,21 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                                         output_tokens: page.ledger.total.output,
                                         hit_rate_permille: page.ledger.hit_rate_permille,
                                     });
-                                    let snapshot = Snapshot { title: page.activity_title.clone(), touched: page.touched_paths.clone(), usage };
+                                    let snapshot = Snapshot {
+                                        title: page.activity_title.clone(),
+                                        touched: page.touched_paths.clone(),
+                                        usage,
+                                    };
                                     row.title = snapshot.title.clone();
                                     row.touched = snapshot.touched.len();
                                     row.usage = snapshot.usage.clone();
-                                    touched.insert(row.instance_id.clone(), snapshot.touched.clone());
+                                    touched
+                                        .insert(row.instance_id.clone(), snapshot.touched.clone());
                                     if let Ok(mut c) = cache().lock() {
-                                        c.insert(thread.clone(), (Instant::now(), request.state.clone(), snapshot));
+                                        c.insert(
+                                            thread.clone(),
+                                            (Instant::now(), request.state.clone(), snapshot),
+                                        );
                                     }
                                 }
                                 None => row.reason = Some("session not readable now"),
@@ -166,47 +208,80 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
     let collisions = tauri::async_runtime::spawn_blocking(move || {
         use shinatama_projects::collisions::{InstanceWork, detect};
         let mut work = Vec::new();
-        let mut modified: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+        let mut modified: std::collections::BTreeMap<String, Vec<String>> =
+            std::collections::BTreeMap::new();
         let mut roots: HashMap<String, Option<String>> = HashMap::new();
         for (instance, cwd) in &cwds {
             let root = roots
                 .entry(cwd.clone())
                 .or_insert_with(|| {
-                    shinatama_projects::git::changes(std::path::Path::new(cwd), shinatama_projects::git::DEFAULT_TIMEOUT).map(|(root, paths)| {
+                    shinatama_projects::git::changes(
+                        std::path::Path::new(cwd),
+                        shinatama_projects::git::DEFAULT_TIMEOUT,
+                    )
+                    .map(|(root, paths)| {
                         modified.insert(root.clone(), paths);
                         root
                     })
                 })
                 .clone();
             if let Some(root) = root {
-                work.push(InstanceWork { instance: instance.clone(), worktree: root, touched: touched.get(instance).cloned().unwrap_or_default() });
+                work.push(InstanceWork {
+                    instance: instance.clone(),
+                    worktree: root,
+                    touched: touched.get(instance).cloned().unwrap_or_default(),
+                });
             }
         }
         detect(&work, &modified)
     })
     .await
     .unwrap_or_default();
-    Ok(Titles { enabled, excluded, rows, collisions })
+    Ok(Titles {
+        enabled,
+        excluded,
+        rows,
+        collisions,
+    })
 }
 
 /// Whether activity titles are on, for the Sessions section of Settings. Unlike instance_titles it
 /// reads no session and runs no Git.
 #[tauri::command]
-pub async fn titles_enabled(window: WebviewWindow, services: State<'_, Services>) -> Result<bool, String> {
+pub async fn titles_enabled(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+) -> Result<bool, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || services.load()?.store.titles_enabled().map_err(|e| e.to_string()))
-        .await
-        .map_err(|_| "The title worker stopped.".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        services
+            .load()?
+            .store
+            .titles_enabled()
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "The title worker stopped.".to_owned())?
 }
 
 #[tauri::command]
-pub async fn titles_set_enabled(window: WebviewWindow, services: State<'_, Services>, enabled: bool) -> Result<(), String> {
+pub async fn titles_set_enabled(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    enabled: bool,
+) -> Result<(), String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || services.load()?.store.set_titles_enabled(enabled).map_err(|e| e.to_string()))
-        .await
-        .map_err(|_| "The title worker stopped.".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        services
+            .load()?
+            .store
+            .set_titles_enabled(enabled)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "The title worker stopped.".to_owned())?
 }
 
 /// A forgotten thread's generated title leaves memory too (FRD-0014 R27).
@@ -218,15 +293,26 @@ pub fn forget_cached(thread_id: &str) {
 
 /// R14's "pause summaries" action: the thread is never read for titles while paused.
 #[tauri::command]
-pub async fn thread_summaries_pause(window: WebviewWindow, services: State<'_, Services>, thread_id: String, paused: bool) -> Result<Vec<String>, String> {
+pub async fn thread_summaries_pause(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    thread_id: String,
+    paused: bool,
+) -> Result<Vec<String>, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     if paused && let Ok(mut c) = cache().lock() {
         c.remove(&thread_id);
     }
-    tauri::async_runtime::spawn_blocking(move || services.load()?.store.set_summaries_excluded(&thread_id, paused).map_err(|e| e.to_string()))
-        .await
-        .map_err(|_| "The title worker stopped.".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        services
+            .load()?
+            .store
+            .set_summaries_excluded(&thread_id, paused)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "The title worker stopped.".to_owned())?
 }
 
 /// The name a thread is shown under while the user has not named it: the title its agent gives
@@ -245,7 +331,12 @@ pub struct ThreadName {
 const NAMES_DEADLINE: Duration = Duration::from_secs(5);
 
 #[tauri::command]
-pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, controller: State<'_, Arc<sessions::Controller>>, thread_ids: Vec<String>) -> Result<Vec<ThreadName>, String> {
+pub async fn thread_names(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    controller: State<'_, Arc<sessions::Controller>>,
+    thread_ids: Vec<String>,
+) -> Result<Vec<ThreadName>, String> {
     crate::local(&window)?;
     if thread_ids.len() > 16 {
         return Err("Too many threads.".into());
@@ -258,19 +349,30 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
     let deadline = Instant::now() + NAMES_DEADLINE;
     for thread in thread_ids {
         if Instant::now() >= deadline {
-            rows.push(ThreadName { thread_id: thread, name: None });
+            rows.push(ThreadName {
+                thread_id: thread,
+                name: None,
+            });
             continue;
         }
         let target = {
             let services = services.clone();
             let thread = thread.clone();
-            tauri::async_runtime::spawn_blocking(move || services.load().ok().and_then(|s| s.store.thread_resume_target(&thread).ok()))
-                .await
-                .ok()
-                .flatten()
+            tauri::async_runtime::spawn_blocking(move || {
+                services
+                    .load()
+                    .ok()
+                    .and_then(|s| s.store.thread_resume_target(&thread).ok())
+            })
+            .await
+            .ok()
+            .flatten()
         };
         let Some(target) = target else {
-            rows.push(ThreadName { thread_id: thread, name: None });
+            rows.push(ThreadName {
+                thread_id: thread,
+                name: None,
+            });
             continue;
         };
         // The read itself stops waiting at the deadline: no abandoned read stays queued on the
@@ -279,7 +381,10 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
             .inner()
             .detail_by(
                 DetailRequest {
-                    root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+                    root: RootSelector {
+                        store_root_id: target.segment.native.store_root_id.clone(),
+                        configuration_revision: target.segment.native.store_revision,
+                    },
                     native_id: target.segment.native.native_id.clone(),
                     cursor: None,
                     limit: 1,
@@ -288,8 +393,14 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
                 deadline,
             )
             .await;
-        let name = detail.ok().and_then(|reply| reply.page).and_then(|page| page.overview.title);
-        rows.push(ThreadName { thread_id: thread, name });
+        let name = detail
+            .ok()
+            .and_then(|reply| reply.page)
+            .and_then(|page| page.overview.title);
+        rows.push(ThreadName {
+            thread_id: thread,
+            name,
+        });
     }
     Ok(rows)
 }

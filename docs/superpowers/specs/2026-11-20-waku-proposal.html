@@ -1,0 +1,1310 @@
+<title>Waku</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one 1240px reading column; each look sits on a full-width desktop "stage" holding a live app window. */
+:root {
+  --paper: #EEF1F6;
+  --card: #FFFFFF;
+  --ink: #121722;
+  --ink-2: #434D61;
+  --ink-3: #667085;
+  --rule: #D8DEE8;
+  --rule-2: #C2CAD7;
+  --mark: #2F5AA0;
+  --mark-soft: #DCE6F7;
+  --f-display: Bahnschrift, "Barlow Semi Condensed", "Segoe UI", system-ui, sans-serif;
+  --f-text: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Cascadia Mono", "Cascadia Code", "IBM Plex Mono", Consolas, ui-monospace, monospace;
+  --f-ui: "Segoe UI Variable Text", "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0B0E14; --card: #121722; --ink: #E7ECF4; --ink-2: #AFB9CB; --ink-3: #8691A7;
+    --rule: #222A38; --rule-2: #313B4D; --mark: #8FB0F0; --mark-soft: #1A2846; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0B0E14; --card: #121722; --ink: #E7ECF4; --ink-2: #AFB9CB; --ink-3: #8691A7;
+  --rule: #222A38; --rule-2: #313B4D; --mark: #8FB0F0; --mark-soft: #1A2846; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--paper); }
+body { color: var(--ink); font: 400 15px/1.6 var(--f-text); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--paper); }
+.page { max-width: 1240px; margin: 0 auto; padding-block: 8px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3, h4 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h2 { font-size: 30px; font-weight: 600; letter-spacing: -.005em; line-height: 1.15; }
+h3 { font-size: 21px; font-weight: 600; line-height: 1.2; }
+p { margin: 0; }
+a { color: var(--mark); }
+code, .mono { font-family: var(--f-mono); font-size: .9em; }
+.eyebrow { font: 600 12px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.lede { font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 68ch; }
+.prose { max-width: 70ch; color: var(--ink-2); }
+section.block { padding-top: 64px; display: grid; gap: 22px; }
+.block-h { display: grid; gap: 10px; }
+
+/* ---------- sticky controls ---------- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule); }
+.bar-in { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar-name { font: 700 15px/1 var(--f-display); letter-spacing: .16em; text-transform: uppercase; margin-right: auto; }
+.ctl { display: flex; align-items: center; gap: 8px; }
+.ctl > span { font: 600 11px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.pick { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+.pick button { font: 500 13px/1 var(--f-text); color: var(--ink-2); background: none; border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.pick button:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.pick button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.pick button:focus-visible, .jump:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.sw-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+
+/* ---------- hero and summary ---------- */
+.hero { display: grid; gap: 14px; padding-top: 40px; }
+.hero h1 { font-size: clamp(54px, 9vw, 96px); font-weight: 700; letter-spacing: .02em; line-height: .95; }
+.hero h1 small { display: block; font: 500 clamp(18px, 2.4vw, 24px)/1.3 var(--f-text); letter-spacing: 0; color: var(--ink-2); margin-top: 12px; max-width: 34ch; }
+.kanji { font-family: var(--f-text); color: var(--ink-3); font-size: 14px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 28px; }
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 20px 22px; display: grid; gap: 12px; align-content: start; }
+.card.rec { border-color: var(--mark); box-shadow: inset 0 0 0 1px var(--mark); }
+.card h3 { font-size: 22px; }
+.card ul, .card ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--ink-2); }
+.card li b { color: var(--ink); }
+.jump { justify-self: start; font: 600 14px/1 var(--f-text); color: var(--mark); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 2px; }
+.apps-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.app-chip { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); }
+.app-chip i { grid-row: span 2; width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--was) 50%, var(--now) 50%); border: 1px solid var(--rule-2); }
+.app-chip b { font: 600 14px/1.2 var(--f-display); letter-spacing: .04em; }
+.app-chip small { color: var(--ink-3); font-size: 12px; line-height: 1.3; }
+
+/* ---------- best of each ---------- */
+.best { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.best .card { padding: 16px 18px; gap: 8px; }
+.best h4 { font-size: 16px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.best h4 i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.best p { font-size: 14px; color: var(--ink-2); }
+.best .take { font-size: 14px; color: var(--ink-2); margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.best .drop { font-size: 13px; color: var(--ink-3); border-top: 1px dashed var(--rule-2); padding-top: 8px; }
+
+/* ---------- direction blocks ---------- */
+.dir { display: grid; gap: 14px; padding-top: 34px; }
+.dir-h { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; align-items: start; }
+.dir-l { grid-row: span 2; width: 52px; height: 52px; display: grid; place-items: center; font: 700 28px/1 var(--f-display); border: 2px solid var(--ink); border-radius: 12px; }
+.dir-h h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-size: 26px; }
+.tag { font: 600 11px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--rule-2); color: var(--ink-2); }
+.tag.go { border-color: var(--mark); color: var(--mark); }
+.dir-cap { color: var(--ink-2); max-width: 78ch; }
+.dir-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.dir-notes .card { padding: 14px 16px; gap: 6px; }
+.dir-notes h4 { font: 600 12px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.dir-notes p, .dir-notes li { font-size: 14px; color: var(--ink-2); }
+.dir-notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.diffs { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.diffs li { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: baseline; padding: 10px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); color: var(--ink-2); font-size: 14.5px; }
+.diffs b { font: 700 13px/1 var(--f-display); letter-spacing: .08em; color: var(--ink); }
+
+/* ---------- desktop stage (wallpaper behind the window) ---------- */
+.stage { position: relative; isolation: isolate; border-radius: 14px; padding: 26px; overflow: hidden; }
+.stage[data-wall="night"] { background: radial-gradient(60% 70% at 10% 15%, #4C2F9C 0%, transparent 62%), radial-gradient(55% 65% at 90% 20%, #0E6A9E 0%, transparent 60%), radial-gradient(70% 60% at 55% 105%, #9A2F64 0%, transparent 62%), #090C18; }
+.stage[data-wall="day"] { background: radial-gradient(60% 70% at 10% 15%, #C3D6FF 0%, transparent 62%), radial-gradient(55% 65% at 90% 20%, #FFD3E4 0%, transparent 60%), radial-gradient(70% 60% at 55% 105%, #CDEFE5 0%, transparent 62%), #EEF2F8; }
+.stage[data-wall="vivid"] { background: radial-gradient(55% 65% at 12% 22%, #2F6BFF 0%, transparent 60%), radial-gradient(50% 60% at 88% 18%, #FF5C9A 0%, transparent 58%), radial-gradient(65% 60% at 60% 105%, #FFB23F 0%, transparent 60%), #141A3A; }
+/* Two "other windows" behind the app, so the acrylic has something to blur. */
+.stage--demo::before { content: ""; position: absolute; z-index: 0; right: 5%; top: 9%; width: 40%; height: 64%; border-radius: 8px; background: repeating-linear-gradient(180deg, transparent 0 22px, #1B2333 22px 25px) 24px 60px / calc(100% - 48px) calc(100% - 80px) no-repeat, #F7F8FA; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+.stage--demo::after { content: ""; position: absolute; z-index: 0; left: 3%; bottom: 7%; width: 36%; height: 48%; border-radius: 8px; background: repeating-linear-gradient(180deg, transparent 0 16px, #5FE3A0 16px 18px, transparent 18px 34px, #F48FB8 34px 36px) 22px 40px / 70% calc(100% - 60px) no-repeat, #0B0F17; box-shadow: 0 24px 60px rgba(0,0,0,.4); }
+.stage .win { margin: 0 auto; }
+
+/* =====================================================================
+   The window. Every look reads the same tokens; only the values and a
+   few shape rules change. Design size 1160 x 680, scaled to fit.
+   ===================================================================== */
+.win {
+  --wall-w: 1160px;
+  position: relative; z-index: 1; width: var(--wall-w); height: 680px; border-radius: 8px; overflow: hidden;
+  color: var(--on); font: 400 var(--fs) / 1.45 var(--f-body); text-align: left;
+  -webkit-user-select: none; user-select: none; cursor: default;
+  box-shadow: 0 0 0 1px var(--win-edge), 0 30px 70px rgba(0,0,0,.45);
+  --fs: 13px;
+}
+.win::before { /* Windows' acrylic: blur of what is behind, tint from the window theme only */
+  content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 .05'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"), var(--acrylic);
+  -webkit-backdrop-filter: blur(42px) saturate(1.8); backdrop-filter: blur(42px) saturate(1.8);
+}
+.win::after { /* the app's ground, painted over the acrylic */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--ground-img, none), var(--ground);
+}
+.win *, .win *::before, .win *::after { box-sizing: border-box; }
+/* reset kept at zero class weight, so every component rule wins over it */
+:where(.win) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; text-align: inherit; }
+:where(.win) input { font: inherit; color: inherit; }
+.win :focus-visible { outline: 2px solid var(--a-text); outline-offset: 2px; }
+.win .ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.win .sp { flex: 1 1 auto; }
+.win .num, .win .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* parts */
+.w-sheet { display: none; }
+.w-top { display: flex; align-items: center; min-width: 0; }
+.w-brand { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
+.w-mark { width: 22px; height: 22px; display: grid; place-items: center; background: var(--a); color: var(--a-on); border-radius: var(--r-sm); flex: none; }
+.w-mark svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.w-word { font: 600 15px/1 var(--f-head); color: var(--on-hi); }
+.w-ver { font: 400 12px/20px var(--f-mono); color: var(--muted); padding-left: 12px; border-left: 1px solid var(--line-soft); }
+.w-ctx { display: none; font: 600 12px/1 var(--f-head); color: var(--muted); letter-spacing: var(--caps-track); text-transform: var(--label-case); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-tabs { display: flex; align-items: stretch; gap: 4px; min-width: 0; }
+.w-tab { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; white-space: nowrap; color: var(--muted); font: 500 var(--fs-tab, 13.5px)/1 var(--f-head); letter-spacing: var(--tab-track, 0); text-transform: var(--tab-case, none); transition: color .15s, background-color .15s; }
+.w-tab:hover { color: var(--on); }
+.w-tab[aria-selected="true"] { color: var(--on-hi); font-weight: 600; }
+.w-tools { display: none; align-items: center; gap: 8px; }
+.w-search { display: inline-flex; align-items: center; gap: 8px; height: var(--h-ctl); min-width: 200px; padding: 0 6px 0 10px; color: var(--muted); background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.w-search span { flex: 1; }
+.w-caps { display: flex; align-self: stretch; flex: none; }
+.w-caps span { width: 46px; display: grid; place-items: center; color: var(--muted); }
+.w-caps .ic { width: 14px; height: 14px; stroke-width: 1.2; }
+.w-caps span:hover { background: var(--hover); color: var(--on); }
+.w-caps span.x:hover { background: #C42B1C; color: #FFFFFF; }
+.w-status { display: flex; align-items: center; gap: 12px; min-width: 0; white-space: nowrap; color: var(--muted); }
+.w-stx { color: var(--on-2); overflow: hidden; text-overflow: ellipsis; }
+.w-body { min-height: 0; }
+.w-actbar { display: none; }
+.w-foot { display: flex; align-items: center; gap: 14px; min-width: 0; white-space: nowrap; overflow: hidden; color: var(--muted); font-size: 12px; }
+.fdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+.w-ftx { overflow: hidden; text-overflow: ellipsis; }
+.keys { display: flex; gap: 14px; }
+.keys > span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* atoms */
+.k { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; font: 500 11px/1 var(--f-mono); color: var(--muted); border: 1px solid var(--line); border-radius: var(--r-xs); white-space: nowrap; letter-spacing: 0; text-transform: none; }
+.cnt { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 6px; font: 600 11px/1 var(--f-mono); color: var(--chip-t); background: var(--chip-bg); border-radius: var(--r-pill); letter-spacing: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 7px; white-space: nowrap; font: 600 11.5px/1 var(--f-head); letter-spacing: var(--chip-track, 0); text-transform: var(--chip-case, none); color: var(--chip-t); background: var(--chip-bg); border-radius: var(--r-chip); }
+.chip[data-tone] { color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+.chip[data-tone]::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+[data-tone="ok"] { --tone: var(--ok); } [data-tone="warn"] { --tone: var(--warn); } [data-tone="err"] { --tone: var(--err); } [data-tone="acc"] { --tone: var(--a-text); } [data-tone="info"] { --tone: var(--info); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot[data-tone] { background: var(--tone); }
+.av { width: 26px; height: 26px; display: grid; place-items: center; flex: none; font: 700 10.5px/1 var(--f-head); letter-spacing: .04em; color: var(--on-2); background: var(--chip-bg); border: 1px solid var(--line); border-radius: var(--r-sm); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; height: var(--h-ctl); padding: 0 12px; white-space: nowrap; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--btn-bg); color: var(--on); font: 500 var(--fs) / 1 var(--f-head); letter-spacing: var(--btn-track, 0); text-transform: var(--btn-case, none); transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
+.btn:hover { background: var(--hover); }
+.btn:active { background: var(--press); }
+.btn .k { margin-right: -5px; }
+.btn--pri { background: var(--a); border-color: var(--a); color: var(--a-on); font-weight: 600; }
+.btn--pri:hover { background: var(--a-hover); border-color: var(--a-hover); }
+.btn--pri .k { color: inherit; border-color: color-mix(in srgb, currentColor 35%, transparent); }
+.btn--ghost { border-color: transparent; background: transparent; color: var(--on-2); }
+.btn--danger { border-color: color-mix(in srgb, var(--err) 55%, transparent); color: var(--err); background: transparent; }
+.btn--sm { height: 24px; padding: 0 8px; font-size: 12px; }
+.ib { width: var(--h-ctl); height: var(--h-ctl); display: inline-grid; place-items: center; border-radius: var(--r-sm); color: var(--muted); }
+.ib:hover { background: var(--hover); color: var(--on); }
+
+/* fields */
+.in { display: flex; align-items: center; gap: 8px; height: var(--h-ctl); padding: 0 10px; min-width: 0; color: var(--on); background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.in input { all: unset; flex: 1; min-width: 0; font: inherit; color: var(--on); cursor: text; -webkit-user-select: text; user-select: text; }
+.in input::placeholder { color: var(--muted); }
+.in:focus-within { border-color: var(--a-text); box-shadow: 0 0 0 1px var(--a-text); }
+.in .ic { color: var(--muted); }
+.in--mono { font-family: var(--f-mono); font-size: 12px; }
+.in--sel { justify-content: space-between; min-width: 160px; }
+.fld { display: grid; gap: 6px; }
+.fld-l { font: 600 12.5px/1.2 var(--f-head); color: var(--on-2); letter-spacing: var(--label-track); text-transform: var(--label-case); }
+.fld-h { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.ck, .rd, .sw { display: inline-block; vertical-align: middle; }
+.ck { position: relative; width: 15px; height: 15px; flex: none; border: 1.5px solid var(--line-strong); border-radius: var(--r-ck); background: var(--field); }
+.ck[data-state="on"] { background: var(--a); border-color: var(--a); }
+.ck[data-state="on"]::after { content: ""; position: absolute; left: 3.5px; top: 1.5px; width: 4px; height: 8px; border: solid var(--a-on); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.ck[data-state="part"] { border-color: var(--a-text); }
+.ck[data-state="part"]::after { content: ""; position: absolute; left: 2.5px; right: 2.5px; top: calc(50% - 1px); height: 2px; background: var(--a-text); }
+.rd { position: relative; width: 15px; height: 15px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-strong); }
+.rd[data-state="on"] { border-color: var(--a); }
+.rd[data-state="on"]::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--a); }
+.sw { position: relative; width: 32px; height: 18px; flex: none; border-radius: 999px; background: var(--field); border: 1px solid var(--line-strong); }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); transition: transform .18s cubic-bezier(.16,1,.3,1); }
+.sw[data-on="true"] { background: var(--a); border-color: var(--a); }
+.sw[data-on="true"]::after { transform: translateX(14px); background: var(--a-on); }
+.opt { display: inline-flex; align-items: center; gap: 8px; color: var(--on); white-space: nowrap; }
+
+/* segmented */
+.seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); flex: none; }
+.seg button { display: inline-flex; align-items: center; gap: 6px; height: calc(var(--h-ctl) - 6px); padding: 0 9px; border-radius: max(0px, calc(var(--r-sm) - 2px)); color: var(--muted); font: 500 12.5px/1 var(--f-head); letter-spacing: var(--btn-track, 0); text-transform: var(--btn-case, none); white-space: nowrap; }
+.seg button:hover { color: var(--on); }
+.seg button[aria-selected="true"] { background: var(--seg-on); color: var(--on-hi); box-shadow: var(--seg-shadow, none); }
+.seg .k { height: 16px; min-width: 16px; padding: 0 4px; font-size: 10px; }
+
+/* panels */
+.pn { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; position: relative; }
+.pn-h { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 var(--pn-pad); flex: none; }
+.pn-t { margin: 0; font: var(--head-weight) var(--fs-head, 14px) / 1.15 var(--f-head); letter-spacing: var(--head-track); text-transform: var(--head-case); color: var(--head-c); white-space: nowrap; }
+.pn-sub { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pn-tool { display: flex; align-items: center; gap: 8px; padding: 0 var(--pn-pad) 10px; flex: none; min-width: 0; }
+.pn-tool .in { flex: 1; }
+.pn-b { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.pn-foot { padding: 10px var(--pn-pad); color: var(--muted); font-size: 12px; border-top: 1px solid var(--line-soft); flex: none; }
+.pn-f { display: flex; align-items: center; gap: 8px; padding: 10px var(--pn-pad); border-top: 1px solid var(--line-soft); flex: none; }
+.grp-h { padding: 4px var(--pn-pad) 6px; font: 600 11.5px/1 var(--f-head); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* rows and lists */
+.list { display: flex; flex-direction: column; gap: 1px; padding: 0 var(--list-pad) 8px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-row); min-width: 0; }
+.row:hover { background: var(--hover); }
+.row[aria-selected="true"] { background: var(--sel); box-shadow: var(--sel-edge, none); }
+.row[aria-selected="true"] .row-t { color: var(--sel-t); }
+.row-tx { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.row-t { font-weight: 600; color: var(--row-t); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-s { font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-m { font: 500 12px/1 var(--f-mono); color: var(--on-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; padding: 2px var(--pn-pad) 14px; font-size: 12.5px; }
+.facts dt { color: var(--fact-k); font: 600 12px/1.45 var(--f-head); letter-spacing: var(--label-track); text-transform: var(--label-case); }
+.facts dd { margin: 0; color: var(--fact-v); font-weight: 500; overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; }
+
+/* table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tbl th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 8px 10px; font: 600 12px/1 var(--f-head); letter-spacing: var(--label-track); text-transform: var(--th-case, none); color: var(--muted); background: var(--th-bg); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.tbl td.c0, .tbl th.c0 { width: 30px; padding-right: 0; }
+.tbl .num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--on-2); }
+.tbl tr.grp td { background: var(--band); padding-block: 8px; }
+.tbl tr.grp .ct { font: 700 12.5px/1 var(--f-head); letter-spacing: var(--grp-track, .04em); text-transform: var(--grp-case, none); color: var(--grp-t); }
+.tbl tbody tr:not(.grp):hover td { background: var(--hover); }
+.tbl tr[aria-selected="true"] td { background: var(--sel); }
+.tbl tr[aria-selected="true"] .ct { color: var(--sel-t); }
+.ct { display: block; font-weight: 600; color: var(--row-t); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
+.cs { display: block; font-size: 11.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
+.cs.bad { color: var(--warn); }
+.okv { display: inline-flex; align-items: center; gap: 5px; color: var(--on-2); font: 500 12px/1 var(--f-mono); }
+.okv .ic { width: 13px; height: 13px; color: var(--ok); stroke-width: 2.2; }
+.none { color: var(--muted); }
+
+/* notices, menus, progress, steps */
+.note { display: flex; align-items: center; gap: 12px; padding: 10px 12px; width: 100%; border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent); background: color-mix(in srgb, var(--tone) 10%, transparent); border-radius: var(--r-md); }
+.note > .ic { color: var(--tone); }
+.note b { display: block; font-weight: 600; color: var(--on-hi); }
+.note span { display: block; color: var(--on-2); font-size: 12px; }
+.menu { width: 220px; padding: 4px; background: var(--sheet-menu); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: 0 18px 50px var(--shadow); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5); }
+.mi { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px; border-radius: var(--r-sm); color: var(--on); }
+.mi .k { margin-left: auto; }
+.mi[aria-selected="true"] { background: var(--sel); }
+.menu hr { border: 0; border-top: 1px solid var(--line-soft); margin: 4px 2px; }
+.prog { display: block; flex: 1; height: 6px; border-radius: 999px; background: var(--field); border: 1px solid var(--line-soft); overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--a); border-radius: inherit; }
+.prog-row { display: flex; align-items: center; gap: 12px; min-width: 220px; flex: 1; }
+.prog-v { font: 600 13px/1 var(--f-mono); color: var(--on-hi); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.steps li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--field); }
+.steps b { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border: 1px solid var(--line-strong); border-radius: var(--r-sm); font: 600 11.5px/1 var(--f-mono); color: var(--muted); }
+.steps span { display: grid; gap: 2px; min-width: 0; font-weight: 600; color: var(--on); white-space: nowrap; }
+.steps small { font-weight: 400; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+.steps li[data-s="done"] b { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 60%, transparent); }
+.steps li[data-s="now"] { border-color: var(--a-text); background: var(--sel); }
+.steps li[data-s="now"] b { background: var(--a); border-color: var(--a); color: var(--a-on); }
+.steps li[data-s="todo"] span { color: var(--muted); }
+
+/* app content */
+.feed { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--list-pad) 8px; }
+.msg { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 3px 10px; padding: 9px 10px; border-radius: var(--r-row); }
+.msg[aria-selected="true"] { background: var(--sel); box-shadow: var(--sel-edge, none); }
+.msg .av { grid-row: span 3; }
+.msg-h { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.msg-h b { color: var(--row-t); font-weight: 600; }
+.msg-h .role { color: var(--muted); font-size: 12px; }
+.msg-h time { margin-left: auto; color: var(--muted); font: 400 11.5px/1 var(--f-mono); }
+.msg p { margin: 0; color: var(--on); -webkit-user-select: text; user-select: text; }
+.msg-f { display: flex; gap: 8px; align-items: center; color: var(--sub); font-size: 12px; }
+.term { flex: 1; min-height: 0; margin: 0 var(--term-m) 0; padding: 12px 14px; overflow: auto; white-space: pre; font: 400 12.5px/1.55 var(--f-mono); color: var(--on); background: var(--term-bg); border: 1px solid var(--line-soft); border-radius: var(--r-md); -webkit-user-select: text; user-select: text; }
+.t-a { color: var(--a-text); } .t-ok { color: var(--ok); } .t-w { color: var(--warn); } .t-m { color: var(--muted); }
+.caret { display: inline-block; width: 8px; height: 15px; vertical-align: -3px; background: var(--a-text); animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.ptabs { display: flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 var(--pn-pad); }
+.ptab { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border-radius: var(--r-sm); color: var(--muted); font: 500 12.5px/1 var(--f-mono); white-space: nowrap; }
+.ptab[aria-selected="true"] { background: var(--sel); color: var(--on-hi); }
+.ptab .ic { width: 13px; height: 13px; }
+.pstat { display: flex; align-items: center; gap: 14px; padding: 8px var(--pn-pad); color: var(--muted); font: 400 12px/1 var(--f-mono); white-space: nowrap; overflow: hidden; }
+.proj { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; padding: 10px var(--pn-pad); border-bottom: 1px solid var(--line-soft); }
+.proj .ic { color: var(--a-text); width: 15px; height: 15px; margin-top: 2px; }
+.proj .ic.off { color: var(--muted); }
+.proj b { color: var(--row-t); font-weight: 600; }
+.proj small { grid-column: 2; color: var(--sub); font-size: 12px; }
+.proj .acts { grid-column: 2; display: flex; gap: 6px; margin-top: 6px; }
+.form { display: grid; gap: 14px; padding: 2px var(--pn-pad) 14px; }
+.metric { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.metric .lbl { display: block; font: 600 11.5px/1 var(--f-head); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.metric b { font-weight: 600; color: var(--on-hi); font-size: 14px; }
+.metric .big { font: 600 40px/1 var(--f-display); color: var(--on-hi); letter-spacing: -.01em; }
+.metric .big small { font-size: 16px; color: var(--muted); margin-left: 2px; }
+.pipe { display: grid; gap: 14px; padding: 0 var(--pn-pad) 14px; }
+.stage-l { display: grid; gap: 2px; }
+.stage-l .row { padding-block: 6px; }
+.sec-t { margin: 4px 0 0; font: 600 12px/1 var(--f-head); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.mini-graph { margin: 0 var(--pn-pad) 12px; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: radial-gradient(circle, var(--line) 1px, transparent 1.2px) 0 0 / 14px 14px, var(--field); }
+.mini-graph svg { display: block; width: 100%; height: auto; }
+.mini-graph .n rect { fill: var(--btn-bg); stroke: var(--line-strong); }
+.mini-graph .n.on rect { stroke: var(--a); }
+.mini-graph .n text { fill: var(--on); font: 600 10px var(--f-body); }
+.mini-graph path { stroke: var(--line-strong); fill: none; stroke-width: 1.2; }
+.mini-graph path.hot { stroke: var(--a); stroke-width: 1.6; }
+.mbr { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px var(--pn-pad); }
+.mbr b { color: var(--row-t); font-weight: 600; }
+.mbr small { color: var(--muted); font: 400 11.5px/1 var(--f-mono); }
+
+/* ---------------------------------------------------------------------
+   Accent per app. --ad dark, --al light text, --af light fill.
+   --------------------------------------------------------------------- */
+.win[data-app="xiox"]      { --ad: #FFB21E; --ad-on: #1A1104; --ad-hi: #FFD257; --al: #8A4A06; --af: #FFB21E; --af-on: #1A1104; }
+.win[data-app="shinatama"] { --ad: #F48FB8; --ad-on: #1C0811; --ad-hi: #FFB3D0; --al: #B0286A; --af: #B0286A; --af-on: #FFFFFF; }
+.win[data-app="mukade"]    { --ad: #B49CFF; --ad-on: #160B33; --ad-hi: #D3C6FF; --al: #6236D9; --af: #6A3FE0; --af-on: #FFFFFF; }
+.win[data-app="muro"]      { --ad: #5FE3C4; --ad-on: #03221B; --ad-hi: #A6F2DF; --al: #0B7560; --af: #0B7A63; --af-on: #FFFFFF; }
+.win[data-app="daodan"]    { --ad: #6CCBFF; --ad-on: #04182A; --ad-hi: #B5E4FF; --al: #0B6699; --af: #0E70AA; --af-on: #FFFFFF; }
+.win[data-tone="dark"]  { --a: var(--ad); --a-on: var(--ad-on); --a-text: var(--ad); --a-hi: var(--ad-hi); --a-hover: color-mix(in srgb, var(--ad) 84%, #FFFFFF); }
+.win[data-tone="light"] { --a: var(--af); --a-on: var(--af-on); --a-text: var(--al); --a-hi: var(--al); --a-hover: color-mix(in srgb, var(--af) 86%, #000000); }
+
+/* =====================================================================
+   A · SMOOTH — Xiox Smooth = Qamille tokens = Shinatama Smooth.
+   Two depths: title bar and sidebar on the glass ground, the work on
+   one sheet with a 10px corner. Underlined tabs, sentence case.
+   ===================================================================== */
+.win[data-dir="smooth"] {
+  --f-body: var(--f-text); --f-head: var(--f-text); --fs: 13.5px; --h-ctl: 32px;
+  --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-row: 6px; --r-chip: 4px; --r-ck: 4px; --r-pill: 999px;
+  --head-case: none; --head-track: 0; --head-weight: 600; --label-case: none; --label-track: 0; --caps-track: 0;
+  --pn-pad: 20px; --list-pad: 10px; --term-m: 20px;
+  display: grid; grid-template-columns: 232px minmax(0, 1fr) 300px; grid-template-rows: 46px auto minmax(0, 1fr) auto 30px;
+  grid-template-areas: "brand tabs caps" "side status status" "side main insp" "side acts acts" "side foot foot";
+}
+.win[data-dir="smooth"][data-tone="dark"] {
+  --acrylic: rgba(32, 33, 38, .55); --ground: rgba(12, 17, 29, .80); --sheet: rgba(26, 32, 44, .94); --sheet-menu: rgba(36, 41, 53, .9);
+  --field: #1E2533; --btn-bg: #1A202C; --line: #2A3240; --line-soft: #242B38; --line-strong: #7A8396;
+  --on: #E8ECF3; --on-2: #C0C8D6; --on-hi: #FFFFFF; --muted: #9AA5B8; --sub: #9AA5B8; --row-t: var(--on); --head-c: var(--on-hi);
+  --hover: rgba(232, 236, 243, .06); --press: #2A3240; --sel: color-mix(in srgb, var(--a) 15%, transparent); --sel-t: var(--on-hi);
+  --chip-bg: #303B4D; --chip-t: #A8B3C6; --band: #1D2331; --th-bg: #1A202C; --grp-t: var(--on-hi); --seg-on: #2A3240;
+  --fact-k: var(--muted); --fact-v: var(--on); --term-bg: rgba(14, 17, 24, .7);
+  --ok: #A3CFB8; --warn: #E8BB72; --err: #EF9BA1; --info: #9DB8EA; --shadow: rgba(0, 0, 0, .45); --win-edge: rgba(232, 236, 243, .14);
+  --side-bg: transparent;
+}
+.win[data-dir="smooth"][data-tone="light"] {
+  --acrylic: rgba(243, 243, 243, .6); --ground: rgba(246, 247, 249, .88); --sheet: rgba(255, 255, 255, .95); --sheet-menu: rgba(255, 255, 255, .94);
+  --field: #F7F8FA; --btn-bg: #FFFFFF; --line: #E3E6EA; --line-soft: #EEF0F3; --line-strong: #767E8B;
+  --on: #111827; --on-2: #4B5563; --on-hi: #0B1220; --muted: #5B6472; --sub: #5B6472; --row-t: var(--on); --head-c: var(--on-hi);
+  --hover: #F4F5F8; --press: #ECEEF2; --sel: color-mix(in srgb, var(--af) 12%, #FFFFFF); --sel-t: var(--on-hi);
+  --chip-bg: #EEF0F5; --chip-t: #4A5363; --band: #F9FAFB; --th-bg: #FFFFFF; --grp-t: var(--on-hi); --seg-on: #FFFFFF; --seg-shadow: 0 1px 2px rgba(17, 24, 39, .12);
+  --fact-k: var(--muted); --fact-v: var(--on); --term-bg: #FFFFFF;
+  --ok: #3F7560; --warn: #8A5A00; --err: #B03F49; --info: #2B4A80; --shadow: rgba(21, 39, 74, .16); --win-edge: rgba(17, 24, 39, .14);
+  --side-bg: rgba(22, 24, 29, .95);
+}
+/* In light the sidebar stays a dark column, as in Qamille and Xiox. */
+.win[data-dir="smooth"][data-tone="light"] :is(.w-side, .w-brand) {
+  --on: #E8ECF3; --on-2: #C0C8D6; --on-hi: #FFFFFF; --muted: #9AA5B8; --sub: #9AA5B8; --row-t: #E8ECF3; --head-c: #FFFFFF;
+  --line: #2A3240; --line-soft: #242B38; --line-strong: #7A8396; --field: #1E2533; --btn-bg: #1A202C;
+  --hover: rgba(232, 236, 243, .06); --press: #2A3240; --sel: color-mix(in srgb, var(--ad) 18%, #16181D); --sel-t: #FFFFFF;
+  --chip-bg: #303B4D; --chip-t: #A8B3C6; --a-text: var(--ad); color: var(--on); background: var(--side-bg);
+}
+.win[data-dir="smooth"] .w-sheet { display: block; grid-row: 2 / -1; grid-column: 2 / -1; background: var(--sheet); border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-top-left-radius: 10px; }
+.win[data-dir="smooth"] :is(.w-top, .w-body) { display: contents; }
+.win[data-dir="smooth"] .w-brand { grid-area: brand; padding-left: 16px; }
+.win[data-dir="smooth"] .w-ver { display: none; }
+.win[data-dir="smooth"] .w-tabs { grid-area: tabs; padding-left: 12px; }
+.win[data-dir="smooth"] .w-tab::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--a-text); transform: scaleX(0); transition: transform .3s cubic-bezier(.16,1,.3,1); }
+.win[data-dir="smooth"] .w-tab[aria-selected="true"]::after { transform: scaleX(1); }
+.win[data-dir="smooth"] .w-tab .ic { display: none; }
+.win[data-dir="smooth"] .w-caps { grid-area: caps; justify-self: end; }
+.win[data-dir="smooth"] .w-status { grid-area: status; padding: 14px 20px 4px; }
+.win[data-dir="smooth"] .w-side { grid-area: side; padding-top: 8px; }
+.win[data-dir="smooth"] .w-side { --pn-pad: 16px; --list-pad: 8px; }
+.win[data-dir="smooth"] .w-main { grid-area: main; }
+.win[data-dir="smooth"] .w-insp { grid-area: insp; border-left: 1px solid var(--line); --pn-pad: 16px; }
+.win[data-dir="smooth"] .w-actbar { grid-area: acts; display: flex; justify-content: flex-end; gap: 8px; padding: 10px 20px; border-top: 1px solid var(--line-soft); }
+.win[data-dir="smooth"] .w-foot { grid-area: foot; padding: 0 20px; border-top: 1px solid var(--line-soft); }
+.win[data-dir="smooth"] .k { font-family: var(--f-text); font-size: 11.5px; }
+.win[data-dir="smooth"][data-side="off"] { grid-template-columns: 180px minmax(0, 1fr) 330px; grid-template-areas: "brand tabs caps" "status status status" "main main insp" "acts acts acts" "foot foot foot"; }
+.win[data-dir="smooth"][data-side="off"] .w-sheet { grid-column: 1 / -1; margin-left: 10px; }
+.win[data-dir="smooth"][data-side="off"] :is(.w-status, .w-actbar, .w-foot) { margin-left: 10px; }
+.win[data-dir="smooth"][data-side="off"] .w-main { margin-left: 10px; }
+.win[data-dir="smooth"][data-side="off"] .w-brand { background: none; }
+.win[data-dir="smooth"][data-tone="light"][data-side="off"] .w-brand { --on-hi: #0B1220; --muted: #5B6472; }
+
+/* =====================================================================
+   B · ONI — Xiox ONI MODE: cut-corner frames with the top notch,
+   chamfered buttons in capitals, the app colour as text, the 22px grid.
+   ===================================================================== */
+.win[data-dir="oni"] {
+  --f-body: var(--f-ui); --f-head: var(--f-display); --fs: 13px; --h-ctl: 28px;
+  --r-xs: 0; --r-sm: 0; --r-md: 0; --r-row: 0; --r-chip: 0; --r-ck: 0; --r-pill: 0;
+  --head-case: uppercase; --head-track: .06em; --head-weight: 700; --label-case: none; --label-track: 0; --caps-track: .06em;
+  --btn-case: uppercase; --btn-track: .06em; --chip-case: uppercase; --chip-track: .06em; --tab-case: uppercase; --tab-track: .06em; --fs-tab: 13px;
+  --grp-case: uppercase; --grp-track: .06em;
+  --pn-pad: 16px; --list-pad: 0px; --term-m: 12px;
+  display: grid; grid-template-rows: 38px 34px minmax(0, 1fr) 26px;
+  font-weight: 600;
+}
+.win[data-dir="oni"][data-tone="dark"] {
+  --acrylic: rgba(22, 16, 40, .55); --ground: rgba(11, 4, 22, .86);
+  --ground-img: linear-gradient(90deg, #2A4A8018 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(0deg, #2A4A8018 1px, transparent 1px) 0 0 / 22px 22px, radial-gradient(700px 360px at 80% 60%, #2B4F9A40, transparent 70%);
+  --pane: rgba(13, 10, 34, .80); --inner: #6AA0E633; --sheet-menu: rgba(16, 8, 31, .94);
+  --field: rgba(13, 10, 34, .9); --btn-bg: #24457A; --btn-pri: #2F5AA0; --line: #3F6FB5; --line-soft: #3F6FB555; --line-strong: #6AA0E6;
+  --on: #DCE7FF; --on-2: #9CC4F5; --on-hi: #FFFFFF; --muted: #7F9FD0; --sub: #7F9FD0; --row-t: var(--a-text); --head-c: #9CC4F5; --ice: #9CC4F5; --live: #8FD6FF;
+  --hover: #2A4F8F33; --press: color-mix(in srgb, #2A4F8F 60%, transparent); --sel: #2A4F8F99; --sel-t: var(--a-hi);
+  --chip-bg: transparent; --chip-t: #9CC4F5; --band: #15234C; --th-bg: rgba(13, 10, 34, .96); --grp-t: #9CC4F5; --seg-on: #234483;
+  --fact-k: #9CC4F5; --fact-v: var(--a-text); --term-bg: rgba(5, 3, 14, .7);
+  --ok: #7FE0A0; --warn: #FF6A3A; --err: #FF6B6B; --info: #8FD6FF; --shadow: rgba(0, 0, 0, .6); --win-edge: #3F6FB5AA;
+}
+.win[data-dir="oni"][data-tone="light"] {
+  --acrylic: rgba(243, 243, 243, .6); --ground: rgba(233, 238, 248, .9);
+  --ground-img: linear-gradient(90deg, #3F6FB51C 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(0deg, #3F6FB51C 1px, transparent 1px) 0 0 / 22px 22px, radial-gradient(700px 360px at 80% 60%, #6AA0E62E, transparent 70%);
+  --pane: rgba(255, 255, 255, .80); --inner: #FFFFFFB3; --sheet-menu: rgba(250, 252, 255, .96);
+  --field: #FFFFFF; --btn-bg: #E1EAF8; --btn-pri: #24457A; --line: #3F6FB5; --line-soft: #3F6FB540; --line-strong: #24457A;
+  --on: #0F1D3D; --on-2: #1B2C52; --on-hi: #0A1430; --muted: #4A5F8C; --sub: #3F5C96; --row-t: var(--a-text); --head-c: #1B2C52; --ice: #1B2C52; --live: #1E5FA8;
+  --hover: #3F6FB51A; --press: #3F6FB533; --sel: #CFDDF5; --sel-t: var(--on-hi);
+  --chip-bg: transparent; --chip-t: #1B2C52; --band: #DCE6F7; --th-bg: #F3F7FD; --grp-t: #1B2C52; --seg-on: #CFDDF5;
+  --fact-k: #1B2C52; --fact-v: var(--a-text); --term-bg: #FFFFFF;
+  --ok: #1F7A4D; --warn: #B0441A; --err: #B3261E; --info: #1E5FA8; --shadow: rgba(30, 50, 110, .25); --win-edge: #3F6FB5AA;
+}
+.win[data-dir="oni"] :is(.w-sheet, .w-actbar, .w-ctx, .w-search) { display: none; }
+.win[data-dir="oni"] .w-top { gap: 14px; padding-left: 10px; }
+.win[data-dir="oni"] .w-mark { display: none; }
+.win[data-dir="oni"] .w-word { font: 700 22px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: transparent; -webkit-background-clip: text; background-clip: text; background-image: linear-gradient(180deg, #FFFFFF 0%, var(--ad-hi) 34%, color-mix(in srgb, var(--ad) 55%, #000000) 52%, var(--ad) 68%, var(--ad-hi) 100%); filter: drop-shadow(0 1px 0 #00000080); }
+.win[data-dir="oni"][data-tone="light"] .w-word { background-image: linear-gradient(180deg, color-mix(in srgb, var(--al) 70%, #FFFFFF) 0%, var(--al) 45%, color-mix(in srgb, var(--al) 60%, #000000) 55%, var(--al) 100%); filter: none; }
+.win[data-dir="oni"] .w-tabs { align-self: center; gap: 2px; margin-left: 6px; }
+.win[data-dir="oni"] .w-tab { height: 26px; padding: 0 9px; color: var(--a-text); border: 1px solid transparent; }
+.win[data-dir="oni"] .w-tab .ic { display: none; }
+.win[data-dir="oni"] .w-tab:hover { background: var(--hover); color: var(--a-text); }
+.win[data-dir="oni"] .w-tab[aria-selected="true"] { background: var(--seg-on); border-color: var(--line-strong); color: var(--a-hi); }
+.win[data-dir="oni"] .w-tab .k, .win[data-dir="oni"] .w-tab .cnt { border: 0; background: none; color: var(--muted); padding: 0; min-width: 0; font-weight: 500; }
+.win[data-dir="oni"] .w-tools { display: flex; margin-left: auto; gap: 6px; }
+.win[data-dir="oni"] .w-status { padding: 0 10px; }
+.win[data-dir="oni"] .w-status .chip { height: auto; padding: 1px 7px; font-size: 12px; background: none; border: 1px solid currentColor; }
+.win[data-dir="oni"] .w-status .chip::before { display: none; }
+.win[data-dir="oni"] .w-stx { color: var(--a-text); }
+.win[data-dir="oni"] .w-body { display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; gap: 8px; padding: 2px 8px 8px; }
+.win[data-dir="oni"][data-side="off"] .w-body { grid-template-columns: minmax(0, 1fr) 330px; }
+.win[data-dir="oni"] .w-foot { padding: 0 10px; border-top: 1px solid var(--line-soft); }
+.win[data-dir="oni"] .w-foot .fdot { border-radius: 0; background: var(--ice); }
+.win[data-dir="oni"] .keys { font-family: var(--f-mono); }
+.win[data-dir="oni"] .keys .k { border: 0; padding: 0; min-width: 0; color: var(--a-text); font-weight: 600; }
+.win[data-dir="oni"] .pn {
+  border: 2px solid var(--line); background: var(--pane); box-shadow: inset 0 0 0 1px var(--inner);
+  clip-path: polygon(0 14px, 14px 0, calc(50% - 30px) 0, calc(50% - 22px) 6px, calc(50% + 22px) 6px, calc(50% + 30px) 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px));
+}
+.win[data-dir="oni"] .pn-h { min-height: 40px; }
+.win[data-dir="oni"] .pn-h .cnt { margin-left: auto; order: 9; background: none; color: var(--muted); padding: 0; }
+.win[data-dir="oni"] .row { padding: 6px 16px; }
+.win[data-dir="oni"] .row-t { font-weight: 600; }
+.win[data-dir="oni"] .row-m { color: var(--ice); font-weight: 600; }
+.win[data-dir="oni"] .ck { width: 14px; height: 14px; border-width: 2px; background: var(--btn-bg); }
+.win[data-dir="oni"] .ck[data-state="on"] { background: var(--btn-bg); border-color: var(--ice); }
+.win[data-dir="oni"] .ck[data-state="on"]::after { inset: 1px; left: 1px; top: 1px; width: auto; height: auto; border: 0; transform: none; background: var(--ok); }
+.win[data-dir="oni"] .ck[data-state="part"] { border-color: var(--ice); }
+.win[data-dir="oni"] .ck[data-state="part"]::after { background: var(--ice); }
+.win[data-dir="oni"] .rd { border-width: 2px; border-color: var(--line-strong); }
+.win[data-dir="oni"] .rd[data-state="on"] { border-color: var(--ice); }
+.win[data-dir="oni"] .rd[data-state="on"]::after { background: var(--ok); }
+.win[data-dir="oni"] .sw { border-radius: 0; border-width: 2px; border-color: var(--line-strong); background: var(--btn-bg); }
+.win[data-dir="oni"] .sw::after { border-radius: 0; top: 2px; left: 2px; background: var(--ice); }
+.win[data-dir="oni"] .sw[data-on="true"] { border-color: var(--ice); background: var(--btn-bg); }
+.win[data-dir="oni"] .sw[data-on="true"]::after { background: var(--ok); }
+.win[data-dir="oni"] .btn {
+  border: 2px solid var(--line); background: var(--btn-bg); color: var(--a-text); font: 700 13px/1 var(--f-display); padding: 0 12px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.win[data-dir="oni"] .btn:hover { border-color: var(--live); background: color-mix(in srgb, var(--btn-bg) 88%, #000000); }
+.win[data-dir="oni"] .btn:active { background: color-mix(in srgb, var(--btn-bg) 70%, #000000); }
+.win[data-dir="oni"] .btn--pri { background: var(--btn-pri); border-color: var(--line-strong); color: var(--a-hi); }
+.win[data-dir="oni"][data-tone="light"] .btn--pri { color: #FFFFFF; }
+.win[data-dir="oni"] .btn--ghost { background: transparent; border-color: var(--line-soft); }
+.win[data-dir="oni"] .btn--danger { background: color-mix(in srgb, var(--warn) 22%, transparent); border-color: var(--warn); color: var(--on-hi); }
+.win[data-dir="oni"] .btn--sm { height: 22px; padding: 0 8px; font-size: 12px; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.win[data-dir="oni"] .btn .k { border: 0; padding: 0; min-width: 0; color: inherit; opacity: .8; font-weight: 500; }
+.win[data-dir="oni"] .ib { color: var(--ice); }
+.win[data-dir="oni"] .chip[data-tone] { background: none; border: 1px solid currentColor; }
+.win[data-dir="oni"] .chip[data-tone]::before { display: none; }
+.win[data-dir="oni"] .chip:not([data-tone]) { border: 1px solid var(--line-soft); color: var(--muted); }
+.win[data-dir="oni"] .cnt { background: none; border: 1px solid var(--line-soft); color: var(--ice); }
+.win[data-dir="oni"] .k { border-color: var(--line-soft); color: var(--ice); }
+.win[data-dir="oni"] .in, .win[data-dir="oni"] .seg { border-width: 1px; border-color: var(--line); }
+.win[data-dir="oni"] .seg button { color: var(--a-text); font: 700 12px/1 var(--f-display); }
+.win[data-dir="oni"] .seg button[aria-selected="true"] { color: var(--a-hi); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.win[data-dir="oni"] .tbl th { font: 500 12px/1 var(--f-mono); text-transform: lowercase; letter-spacing: 0; }
+.win[data-dir="oni"] .tbl td { border-bottom-color: #3F6FB526; }
+.win[data-dir="oni"] .note { border: 1px solid var(--tone); background: color-mix(in srgb, var(--tone) 8%, transparent); }
+.win[data-dir="oni"] .av { border-color: var(--line); background: var(--btn-bg); color: var(--ice); }
+.win[data-dir="oni"] .steps li { border-color: var(--line); }
+.win[data-dir="oni"] .steps li[data-s="now"] { background: var(--seg-on); border-color: var(--line-strong); }
+.win[data-dir="oni"] .prog { border-radius: 0; border-color: var(--line); height: 8px; }
+.win[data-dir="oni"] .prog i { border-radius: 0; }
+.win[data-dir="oni"] .metric .big { color: var(--a-text); }
+.win[data-dir="oni"] .term { border-color: var(--line-soft); }
+.win[data-dir="oni"] .ptab { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--a-text); }
+.win[data-dir="oni"] .ptab[aria-selected="true"] { background: var(--seg-on); color: var(--a-hi); }
+.win[data-dir="oni"] .menu { border: 2px solid var(--line); }
+
+/* =====================================================================
+   C · MODULES — every region detaches and floats on the acrylic as a
+   glass module; tabs and actions sit in two docks; headers are readouts.
+   ===================================================================== */
+.win[data-dir="mod"] {
+  --f-body: var(--f-ui); --f-head: var(--f-display); --fs: 13px; --h-ctl: 30px;
+  --r-xs: 5px; --r-sm: 8px; --r-md: 12px; --r-row: 8px; --r-chip: 6px; --r-ck: 4px; --r-pill: 6px;
+  --head-case: uppercase; --head-track: .14em; --head-weight: 600; --fs-head: 11px; --label-case: none; --label-track: 0; --caps-track: .1em;
+  --pn-pad: 14px; --list-pad: 6px; --term-m: 10px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: 34px 44px minmax(0, 1fr) 34px; row-gap: 10px; padding-bottom: 10px;
+  grid-template-areas: "brand ctx caps" "tabs tools tools" "body body body" "foot foot foot";
+}
+.win[data-dir="mod"][data-tone="dark"] {
+  --acrylic: rgba(24, 26, 34, .48); --ground: rgba(8, 10, 18, .24); --mod: rgba(20, 24, 38, .74); --mod-hi: rgba(255, 255, 255, .13); --sheet-menu: rgba(30, 34, 50, .9);
+  --field: rgba(8, 10, 18, .55); --btn-bg: rgba(210, 222, 255, .06); --line: rgba(210, 222, 255, .14); --line-soft: rgba(210, 222, 255, .08); --line-strong: rgba(210, 222, 255, .42);
+  --on: #EEF2FA; --on-2: #C3CBDB; --on-hi: #FFFFFF; --muted: #98A2B6; --sub: #98A2B6; --row-t: var(--on); --head-c: var(--muted);
+  --hover: rgba(210, 222, 255, .07); --press: rgba(210, 222, 255, .12); --sel: color-mix(in srgb, var(--a) 17%, transparent); --sel-t: var(--on-hi); --sel-edge: inset 0 0 0 1px color-mix(in srgb, var(--a) 50%, transparent);
+  --chip-bg: rgba(210, 222, 255, .08); --chip-t: #C3CBDB; --band: rgba(210, 222, 255, .04); --th-bg: rgba(18, 21, 34, .96); --grp-t: var(--on-hi); --seg-on: color-mix(in srgb, var(--a) 20%, transparent); --seg-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 55%, transparent);
+  --fact-k: var(--muted); --fact-v: var(--on); --term-bg: rgba(6, 8, 14, .6);
+  --ok: #7CDB8A; --warn: #E8BB72; --err: #FF8495; --info: #9DB8EA; --shadow: rgba(0, 0, 0, .4); --win-edge: rgba(210, 222, 255, .14);
+}
+.win[data-dir="mod"][data-tone="light"] {
+  --acrylic: rgba(243, 243, 243, .58); --ground: rgba(255, 255, 255, .22); --mod: rgba(255, 255, 255, .76); --mod-hi: rgba(255, 255, 255, .95); --sheet-menu: rgba(255, 255, 255, .95);
+  --field: rgba(255, 255, 255, .9); --btn-bg: rgba(255, 255, 255, .7); --line: rgba(16, 24, 48, .12); --line-soft: rgba(16, 24, 48, .07); --line-strong: rgba(16, 24, 48, .4);
+  --on: #0F1524; --on-2: #3A4458; --on-hi: #070B14; --muted: #5F697D; --sub: #5F697D; --row-t: var(--on); --head-c: var(--muted);
+  --hover: rgba(16, 24, 48, .05); --press: rgba(16, 24, 48, .09); --sel: color-mix(in srgb, var(--af) 13%, #FFFFFF); --sel-t: var(--on-hi); --sel-edge: inset 0 0 0 1px color-mix(in srgb, var(--af) 45%, transparent);
+  --chip-bg: rgba(16, 24, 48, .06); --chip-t: #3A4458; --band: rgba(16, 24, 48, .03); --th-bg: rgba(250, 251, 253, .98); --grp-t: var(--on-hi); --seg-on: color-mix(in srgb, var(--af) 14%, #FFFFFF); --seg-shadow: inset 0 0 0 1px color-mix(in srgb, var(--af) 50%, transparent);
+  --fact-k: var(--muted); --fact-v: var(--on); --term-bg: rgba(255, 255, 255, .9);
+  --ok: #1A7F37; --warn: #8A5A00; --err: #B3261E; --info: #2B4A80; --shadow: rgba(16, 24, 48, .14); --win-edge: rgba(16, 24, 48, .12);
+}
+.win[data-dir="mod"] :is(.w-sheet, .w-actbar, .w-status, .w-ver) { display: none; }
+.win[data-dir="mod"] .w-top { display: contents; }
+.win[data-dir="mod"] .w-brand { grid-area: brand; padding-left: 14px; }
+.win[data-dir="mod"] .w-word { font: 600 15px/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; }
+.win[data-dir="mod"] .w-ctx { display: block; grid-area: ctx; justify-self: center; align-self: center; }
+.win[data-dir="mod"] .w-caps { grid-area: caps; }
+.win[data-dir="mod"] :is(.w-tabs, .w-tools, .pn, .w-foot) {
+  background: var(--mod); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--mod-hi), 0 14px 36px var(--shadow);
+}
+.win[data-dir="mod"] .w-tabs { grid-area: tabs; justify-self: start; align-self: stretch; margin-left: 10px; padding: 5px; gap: 3px; }
+.win[data-dir="mod"] .w-tab { border-radius: 9px; padding: 0 12px; color: var(--on-2); font: 600 13px/1 var(--f-display); }
+.win[data-dir="mod"] .w-tab[aria-selected="true"] { background: var(--seg-on); box-shadow: var(--seg-shadow); color: var(--on-hi); }
+.win[data-dir="mod"] .w-tab .ic { color: var(--muted); }
+.win[data-dir="mod"] .w-tab[aria-selected="true"] .ic { color: var(--a-text); }
+.win[data-dir="mod"] .w-tools { display: flex; grid-area: tools; justify-self: end; margin-right: 10px; padding: 6px; }
+.win[data-dir="mod"] .w-search { border-radius: 9px; min-width: 200px; }
+.win[data-dir="mod"] .w-body { grid-area: body; display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; gap: 10px; padding: 0 10px; }
+.win[data-dir="mod"][data-side="off"] .w-body { grid-template-columns: minmax(0, 1fr) 330px; }
+.win[data-dir="mod"] .w-foot { grid-area: foot; margin: 0 10px; padding: 0 14px; border-radius: 10px; }
+.win[data-dir="mod"] .pn-h { min-height: 46px; }
+.win[data-dir="mod"] .pn-h .cnt { order: 9; margin-left: auto; height: auto; padding: 0; min-width: 0; background: none; color: var(--on-hi); font: 600 22px/1 var(--f-display); letter-spacing: -.01em; }
+.win[data-dir="mod"] .pn-sub { font-size: 12px; }
+.win[data-dir="mod"] .btn { border-color: var(--line); border-radius: 9px; font-weight: 600; }
+.win[data-dir="mod"] .btn--pri { box-shadow: 0 0 0 1px color-mix(in srgb, var(--a) 60%, transparent), 0 6px 22px color-mix(in srgb, var(--a) 42%, transparent); }
+.win[data-dir="mod"] .btn--ghost { border-color: transparent; }
+.win[data-dir="mod"] .k { border-radius: 5px; }
+.win[data-dir="mod"] .row { border-radius: 9px; }
+.win[data-dir="mod"] .steps li { border-radius: 12px; }
+.win[data-dir="mod"] .metric .big { font-size: 44px; }
+
+/* ---------- gallery: the same parts outside a window ---------- */
+.gal { display: grid; gap: 10px; }
+.gal-row { display: grid; grid-template-columns: 180px repeat(3, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.gal-head { display: grid; grid-template-columns: 180px repeat(3, minmax(0, 1fr)); gap: 10px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 58px); z-index: 5; }
+.gal-head span { font: 700 13px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; padding: 10px 12px; background: var(--card); border: 1px solid var(--rule); border-radius: 8px; }
+.gal-lbl { display: grid; gap: 4px; align-content: start; padding: 6px 4px; }
+.gal-lbl b { font: 600 15px/1.2 var(--f-display); }
+.gal-lbl small { color: var(--ink-3); font-size: 13px; line-height: 1.4; }
+.stage--mini { padding: 10px; border-radius: 12px; display: grid; }
+.win.bare { width: auto; height: auto; min-height: 92px; display: flex !important; flex-wrap: wrap; align-items: center; align-content: center; gap: 10px; padding: 14px; box-shadow: 0 0 0 1px var(--win-edge), 0 10px 30px rgba(0,0,0,.3); }
+.win.bare[data-dir="oni"] .w-tabs, .win.bare .w-tabs { display: flex; align-self: auto; height: 34px; }
+.win.bare[data-dir="mod"] .w-tabs { padding: 4px; margin: 0; }
+.win.bare .list { padding: 0; flex: 1 1 100%; }
+.win.bare .facts { padding: 0; flex: 1 1 100%; }
+.win.bare .steps { flex: 1 1 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.win.bare .note { flex: 1 1 100%; }
+.win.bare .fld { flex: 1 1 100%; }
+.win.bare[data-dir="oni"] .list .row { padding-inline: 8px; }
+
+/* ---------- wireframe (low fidelity, greyscale) ---------- */
+.wf-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.wf-ctl label { font: 600 13px/1 var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.wf-ctl input[type="range"] { flex: 1 1 260px; accent-color: var(--ink); }
+.wf-ctl output { font: 600 14px/1 var(--f-mono); min-width: 84px; }
+.wf-rules { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.wf-rules li { font-size: 13px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--rule-2); color: var(--ink-2); background: var(--card); }
+.wf-view { overflow-x: auto; padding-bottom: 6px; }
+.wf { container-type: inline-size; container-name: shell; margin: 0 auto; }
+.wf-g { position: relative; display: grid; height: 400px; gap: 4px; padding: 4px; border-radius: 10px; background: var(--rule); font: 500 12px/1.35 var(--f-text); color: var(--ink-2);
+  grid-template-columns: 220px minmax(0, 1fr) 300px; grid-template-rows: 40px 28px minmax(0, 1fr) 40px 26px;
+  grid-template-areas: "t t t" "s st st" "s m i" "s a a" "s f f"; }
+.wf-g > div { background: var(--card); border: 1px dashed var(--rule-2); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow: hidden; }
+.wf-g b { font: 700 12px/1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+.wf-g small { color: var(--ink-3); font-size: 11.5px; }
+.wf-t { grid-area: t; flex-direction: row !important; align-items: center; gap: 12px !important; }
+.wf-st { grid-area: st; flex-direction: row !important; align-items: center; gap: 12px !important; }
+.wf-s { grid-area: s; } .wf-m { grid-area: m; } .wf-i { grid-area: i; } .wf-a { grid-area: a; flex-direction: row !important; align-items: center; justify-content: flex-end; gap: 8px !important; } .wf-f { grid-area: f; flex-direction: row !important; align-items: center; gap: 12px !important; }
+.wf-line { height: 8px; border-radius: 4px; background: var(--rule); }
+.wf-box { border: 1px solid var(--rule-2); border-radius: 4px; height: 22px; }
+.wf-m .wf-box.big { flex: 1; }
+.wf-rail, .wf-menu { display: none; }
+.wf-pill { display: inline-block; height: 14px; width: 54px; border-radius: 4px; background: var(--rule); }
+.wf-pill.on { background: var(--ink-3); }
+@container shell (max-width: 999px) {
+  .wf-g { grid-template-columns: 220px minmax(0, 1fr); grid-template-areas: "t t" "s st" "s m" "s a" "s f"; }
+  .wf-i { position: absolute; right: 8px; top: 80px; bottom: 76px; width: min(300px, 60%); box-shadow: -12px 0 30px rgba(0,0,0,.18); border-style: solid !important; z-index: 2; }
+}
+@container shell (max-width: 849px) {
+  .wf-g { grid-template-columns: 56px minmax(0, 1fr); }
+  .wf-s .wf-full { display: none; }
+  .wf-s .wf-rail { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .wf-s .wf-rail i { width: 26px; height: 26px; border-radius: 6px; background: var(--rule); display: block; }
+}
+@container shell (max-width: 619px) {
+  .wf-g { grid-template-columns: minmax(0, 1fr); grid-template-areas: "t" "st" "m" "a" "f"; }
+  .wf-s { display: none !important; }
+  .wf-tabs { display: none !important; }
+  .wf-menu { display: inline-flex; }
+  .wf-i { width: auto; left: 8px; }
+}
+.map-wrap, .t-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.map { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 14px; }
+.map th, .map td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.map thead th { font: 700 12px/1.2 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); background: color-mix(in srgb, var(--ink) 3%, var(--card)); }
+.map tbody th { font: 600 14px/1.3 var(--f-display); white-space: nowrap; }
+.map td { color: var(--ink-2); }
+.map td small { display: block; color: var(--ink-3); font-size: 12.5px; }
+.map tr:last-child > * { border-bottom: 0; }
+.map .no { color: var(--ink-3); }
+
+/* ---------- shell layers ---------- */
+.layers { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.layers li { display: grid; grid-template-columns: 40px minmax(160px, 1.1fr) repeat(3, minmax(0, 1fr)); gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--rule); background: var(--card); font-size: 14px; color: var(--ink-2); }
+.layers li.lh { background: none; border: 0; padding-block: 0; font: 700 12px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.layers b { font: 700 18px/1 var(--f-display); color: var(--ink-3); }
+.layers strong { color: var(--ink); font-weight: 600; display: block; }
+.layers small { display: block; color: var(--ink-3); font-size: 12.5px; }
+.cols3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.cols3 h4 { font-size: 15px; letter-spacing: .04em; }
+.cols3 ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; font-size: 14px; color: var(--ink-2); }
+pre.code { margin: 0; padding: 16px 18px; overflow-x: auto; border-radius: 12px; background: #0F131C; color: #D7DEEA; font: 400 13px/1.6 var(--f-mono); border: 1px solid var(--rule); }
+pre.code .c { color: #7F8AA0; }
+pre.code .h { color: #FFB21E; }
+.plan { counter-reset: p; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.plan li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--rule); background: var(--card); color: var(--ink-2); font-size: 14.5px; }
+.plan li::before { counter-increment: p; content: counter(p); font: 700 18px/1 var(--f-display); color: var(--ink-3); }
+.plan b { color: var(--ink); }
+.plan .est { font: 600 13px/1 var(--f-mono); color: var(--ink); white-space: nowrap; }
+.dec { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: d; }
+.dec li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--rule); background: var(--card); }
+.dec li::before { counter-increment: d; content: counter(d); grid-row: span 2; font: 700 22px/1 var(--f-display); color: var(--mark); }
+.dec b { font: 600 16px/1.3 var(--f-display); }
+.dec p { color: var(--ink-2); font-size: 14.5px; }
+.dec .rec-l { color: var(--mark); font-weight: 600; }
+footer.end { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 13px; }
+
+@media (max-width: 760px) {
+  .gal-head { display: none; }
+  .gal-row { grid-template-columns: 1fr; }
+  .gal-row .stage--mini::before { content: attr(data-l); font: 700 12px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: #FFFFFF; padding: 0 2px 8px; }
+  .layers li { grid-template-columns: 30px 1fr; }
+  .layers li > span:nth-child(n+3) { grid-column: 2; }
+  .layers li.lh { display: none; }
+  .stage { padding: 12px; }
+  .plan li { grid-template-columns: 28px 1fr; }
+  .plan .est { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="bar" id="bar">
+  <div class="bar-in">
+    <span class="bar-name">Waku</span>
+    <div class="ctl"><span>App</span><div class="pick" id="pick-app" role="group" aria-label="App">
+      <button type="button" data-v="xiox" aria-pressed="true"><i class="sw-dot" style="--c:#FFB21E"></i>Xiox</button>
+      <button type="button" data-v="mukade" aria-pressed="false"><i class="sw-dot" style="--c:#B49CFF"></i>Mukade</button>
+      <button type="button" data-v="shinatama" aria-pressed="false"><i class="sw-dot" style="--c:#F48FB8"></i>Shinatama</button>
+      <button type="button" data-v="muro" aria-pressed="false"><i class="sw-dot" style="--c:#5FE3C4"></i>Muro</button>
+      <button type="button" data-v="daodan" aria-pressed="false"><i class="sw-dot" style="--c:#6CCBFF"></i>Daodan</button>
+    </div></div>
+    <div class="ctl"><span>Tema</span><div class="pick" id="pick-tone" role="group" aria-label="Tema delle finestre">
+      <button type="button" data-v="dark" aria-pressed="true">Scuro</button>
+      <button type="button" data-v="light" aria-pressed="false">Chiaro</button>
+    </div></div>
+    <div class="ctl"><span>Sfondo</span><div class="pick" id="pick-wall" role="group" aria-label="Sfondo del desktop">
+      <button type="button" data-v="night" aria-pressed="true">Notte</button>
+      <button type="button" data-v="day" aria-pressed="false">Giorno</button>
+      <button type="button" data-v="vivid" aria-pressed="false">Colore</button>
+    </div></div>
+  </div>
+</div>
+
+<main class="page">
+  <header class="hero">
+    <p class="eyebrow">Proposta · 20 novembre 2026</p>
+    <h1>Waku<small>Un solo design system per Shinatama, Mukade, Muro, Xiox e Daodan</small></h1>
+    <p class="lede">Token, primitive, controlli, un modello di layout e la shell desktop Tauri con l'acrylic di Windows 11. Ogni app li importa da un pacchetto, invece di riscriverli. Qui sotto ci sono tre look sulla stessa finestra e con gli stessi dati, così il confronto è alla pari.</p>
+    <p class="kanji">Waku (枠) vuol dire «cornice». È un nome di lavoro.</p>
+  </header>
+
+  <div class="summary">
+    <div class="card">
+      <span class="eyebrow">Cosa ho trovato</span>
+      <ul>
+        <li><b>Stesso stack ovunque.</b> Shinatama, Mukade, Muro e Xiox usano Tauri 2.12, Vite 8 e TypeScript senza framework. Un pacchetto condiviso funziona senza adattatori.</li>
+        <li><b>Gli stessi due look, scritti tre volte.</b> Shinatama, Xiox e Mukade hanno già Smooth e ONI, e ognuna li reimplementa da sé. Lo Smooth di Xiox usa i token di Qamille, che coincidono con quelli di Shinatama.</li>
+        <li><b>Due app fuori famiglia.</b> Muro (un solo foglio di stile, viola) e Daodan (un prototipo web chiaro, rosa) hanno uno stile proprio, e il loro colore si sovrappone a quello di Mukade e di Shinatama.</li>
+      </ul>
+    </div>
+    <div class="card rec">
+      <span class="eyebrow">Consiglio</span>
+      <h3>A di default, B come secondo look</h3>
+      <p class="prose">Lo hai già scelto tu, app per app: Shinatama, Xiox e Mukade hanno Smooth come default e ONI come alternativa (Xiox dal 18 novembre). Waku lo fa una volta sola per tutte e cinque, con gli stessi componenti. C non diventa un look, ma le sue letture numeriche vanno bene per i cruscotti di Daodan.</p>
+      <a class="jump" href="#decidi">Le 5 decisioni per te</a>
+    </div>
+  </div>
+
+  <section class="block" aria-labelledby="h-best">
+    <div class="block-h">
+      <h2 id="h-best">Il meglio di ogni app</h2>
+      <p class="prose">Cosa entra nel sistema comune e cosa resta fuori. Il quadrato di ogni app mostra il colore di oggi (in alto a sinistra) e quello proposto (in basso a destra).</p>
+    </div>
+    <div class="apps-strip">
+      <div class="app-chip" style="--was:#FFB21E;--now:#FFB21E"><i></i><b>XIOX</b><small>ambra, invariato</small></div>
+      <div class="app-chip" style="--was:#F48FB8;--now:#F48FB8"><i></i><b>SHINATAMA</b><small>rosa, invariato</small></div>
+      <div class="app-chip" style="--was:#A78BFA;--now:#B49CFF"><i></i><b>MUKADE</b><small>viola, invariato</small></div>
+      <div class="app-chip" style="--was:#B79CFF;--now:#5FE3C4"><i></i><b>MURO</b><small>da viola a menta</small></div>
+      <div class="app-chip" style="--was:#E0457B;--now:#6CCBFF"><i></i><b>DAODAN</b><small>da rosa a ciano</small></div>
+    </div>
+    <div class="best">
+      <div class="card"><h4><i style="--c:#FFB21E"></i>Xiox</h4>
+        <ul class="take"><li>Entrambi i look: Smooth (due profondità, schede sottolineate) e ONI (cornici tagliate con la tacca, pulsanti smussati).</li><li>La barra dei tasti rapidi in basso e il tasto stampato sui pulsanti.</li><li>Il dettaglio chiave/valore e i test di contrasto sui colori.</li></ul>
+        <p class="drop">Resta fuori: il logo cromato come immagine; diventa un trattamento del testo.</p></div>
+      <div class="card"><h4><i style="--c:#F48FB8"></i>Shinatama</h4>
+        <ul class="take"><li>Tutta la shell desktop: acrylic con il tema della finestra dal look, Snap Layouts sul pulsante HTML, niente comportamenti da browser, recupero di WebView2, zoom.</li><li>I livelli del vetro misurati sullo schermo.</li><li>DESIGN.md con i token esportati in CSS e DTCG.</li></ul>
+        <p class="drop">Resta fuori: due look mantenuti in due fogli di stile separati.</p></div>
+      <div class="card"><h4><i style="--c:#B49CFF"></i>Mukade</h4>
+        <ul class="take"><li>Le tre colonne: lista, contenuto, dettagli.</li><li>Il selettore di vista con conteggio e tasto (Graph 1, Lanes 2, Feed 3).</li><li>Gli stati open, closed, waiting e done come etichette con testo.</li></ul>
+        <p class="drop">Resta fuori: la sua versione locale dei due look (<code>smooth.css</code> e <code>styles.css</code>); diventa un import.</p></div>
+      <div class="card"><h4><i style="--c:#5FE3C4"></i>Muro</h4>
+        <ul class="take"><li>Il drawer con i campi e la barra azioni fissa: Stop managing, Cancel, Save.</li><li>La matrice plugin × harness con celle di stato.</li><li>Il riepilogo «3 changes ready to apply» con gli orari.</li></ul>
+        <p class="drop">Resta fuori: la larghezza minima di 760 px; con le regole comuni scende a 500.</p></div>
+      <div class="card"><h4><i style="--c:#6CCBFF"></i>Daodan</h4>
+        <ul class="take"><li>Le fasi numerate (qui l'ordine è vero: Repository, Pre-mappa, Analisi, Sintesi).</li><li>La metrica grande con barra e il feed degli eventi.</li><li>Il canvas a punti per il grafo e la cura del tema chiaro.</li></ul>
+        <p class="drop">Resta fuori: l'aspetto da sito web, con card grandi e titolo d'apertura.</p></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-dirs">
+    <div class="block-h">
+      <h2 id="h-dirs">Tre look sulla stessa finestra</h2>
+      <p class="prose">Il markup è lo stesso in tutte e tre: cambiano solo token e poche regole di forma. Usa la barra in alto per cambiare app, tema e sfondo del desktop. Lo sfondo mostra quanto vetro passa: l'acrylic vero lo dipinge Windows, qui è simulato con una sfocatura.</p>
+    </div>
+
+    <article class="dir" id="dir-a">
+      <div class="dir-h"><span class="dir-l">A</span><h3>Smooth <span class="tag">Classica</span><span class="tag go">Consigliato come default</span></h3>
+        <p class="dir-cap">È il look di default di Xiox, Shinatama e Mukade, reso unico. Ha due profondità: la barra del titolo e la colonna laterale stanno sul vetro, il lavoro su un unico foglio con l'angolo arrotondato. Schede sottolineate, testo normale, azioni in basso a destra, un solo colore d'accento.</p></div>
+      <div class="stage stage--demo" data-wall="night"><div class="win" data-dir="smooth" data-role="demo"></div></div>
+      <div class="dir-notes">
+        <div class="card"><h4>Prende da</h4><ul><li>Xiox Smooth: struttura a due profondità, barra azioni.</li><li>Qamille: token chiari e scuri, colonna scura anche nel tema chiaro.</li><li>Shinatama Smooth: vetro misurato, barra del titolo.</li></ul></div>
+        <div class="card"><h4>Forza</h4><p>Si legge bene anche nei testi lunghi, ha un tema chiaro vero ed è già il default di tre app.</p></div>
+        <div class="card"><h4>Rischio</h4><p>Da solo è sobrio: il carattere sta tutto nell'accento e nel vetro.</p></div>
+      </div>
+    </article>
+
+    <article class="dir" id="dir-b">
+      <div class="dir-h"><span class="dir-l">B</span><h3>ONI <span class="tag">Carattere</span><span class="tag go">Consigliato come secondo look</span></h3>
+        <p class="dir-cap">È l'ONI MODE di Xiox per tutte le app. Cornici con gli angoli tagliati e la tacca in alto, pulsanti smussati in maiuscolo con il tasto rapido, il colore dell'app come testo sul viola-navy con la griglia di 22 px. Il tema chiaro è nuovo: Xiox oggi ha ONI solo scuro.</p></div>
+      <div class="stage stage--demo" data-wall="night"><div class="win" data-dir="oni" data-role="demo"></div></div>
+      <div class="dir-notes">
+        <div class="card"><h4>Prende da</h4><ul><li>Xiox ONI: cornici, pulsanti, badge di stato, griglia, barra dei tasti.</li><li>Shinatama ONI: vetro scuro e skin.</li><li>Mukade ONI: schede con i tasti.</li></ul></div>
+        <div class="card"><h4>Forza</h4><p>Ha un'identità forte e riconoscibile e mette la tastiera al centro. È denso, adatto a liste e tabelle.</p></div>
+        <div class="card"><h4>Rischio</h4><p>Il maiuscolo stanca: va tenuto su titoli, schede e pulsanti. Il testo in ambra o rosa regge solo nelle righe corte.</p></div>
+      </div>
+    </article>
+
+    <article class="dir" id="dir-c">
+      <div class="dir-h"><span class="dir-l">C</span><h3>Moduli <span class="tag">Nuova</span></h3>
+        <p class="dir-cap">Ogni regione si stacca e galleggia sull'acrylic come un modulo di vetro. Schede e azioni stanno in due dock; le intestazioni diventano letture, con un'etichetta piccola e il numero grande. Il vetro si vede tra un modulo e l'altro.</p></div>
+      <div class="stage stage--demo" data-wall="night"><div class="win" data-dir="mod" data-role="demo"></div></div>
+      <div class="dir-notes">
+        <div class="card"><h4>Prende da</h4><ul><li>Daodan: metriche grandi, grafo.</li><li>Mukade: vista a grafo e a lane.</li><li>Shinatama: vetro e sheet sfocati.</li></ul></div>
+        <div class="card"><h4>Forza</h4><p>Il vetro si vede di più. È ottimo per cruscotti e grafi.</p></div>
+        <div class="card"><h4>Rischio</h4><p>Lascia 10 px di vuoto attorno a ogni modulo, e nelle app dense (terminali, tabelle) si perde spazio. Ha anche più livelli trasparenti da disegnare.</p></div>
+      </div>
+    </article>
+
+    <ul class="diffs" aria-label="Le differenze in una frase">
+      <li><b>A ↔ B</b><span>A è un foglio arrotondato e sobrio, in testo normale; B chiude ogni regione in una cornice tagliata, con titoli e pulsanti in maiuscolo.</span></li>
+      <li><b>B ↔ C</b><span>B tiene le regioni attaccate in una finestra classica; C le stacca in moduli di vetro che galleggiano, con due dock.</span></li>
+      <li><b>A ↔ C</b><span>A dà al lavoro un unico foglio; C lo divide in moduli separati sopra il vetro.</span></li>
+    </ul>
+  </section>
+
+  <section class="block" aria-labelledby="h-gal">
+    <div class="block-h">
+      <h2 id="h-gal">Controlli e primitive a confronto</h2>
+      <p class="prose">Ogni riga è lo stesso markup nei tre look, con il colore dell'app scelta in alto. Lo stato si legge sempre anche dal testo, mai solo dal colore.</p>
+    </div>
+    <div class="gal" id="gal">
+      <div class="gal-head" aria-hidden="true"><span>Parte</span><span>A · Smooth</span><span>B · ONI</span><span>C · Moduli</span></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-wf">
+    <div class="block-h">
+      <h2 id="h-wf">Il modello di layout</h2>
+      <p class="prose">Una sola struttura per tutte le app: barra del titolo, riga di stato, colonna laterale, contenuto, ispettore, barra azioni e piè di pagina. Ogni app accende solo le regioni che le servono. Sposta il cursore per vedere come la finestra si compatta: sono le soglie che Shinatama usa già (1000, 850 e 620 px; minimo 500 px per le zone di Snap).</p>
+    </div>
+    <div class="wf-ctl">
+      <label for="wf-w">Larghezza finestra</label>
+      <input type="range" id="wf-w" min="500" max="1400" step="10" value="1280">
+      <output id="wf-out" for="wf-w">1280 px</output>
+    </div>
+    <ul class="wf-rules" id="wf-rules" aria-live="polite"></ul>
+    <div class="wf-view">
+      <div class="wf" id="wf" style="width:1280px">
+        <div class="wf-g">
+          <div class="wf-t"><b>Barra del titolo</b><span class="wf-tabs"><span class="wf-pill on"></span> <span class="wf-pill"></span> <span class="wf-pill"></span></span><span class="wf-menu wf-pill on"></span><small>marchio · schede delle viste con conteggio e tasto · pulsanti finestra con Snap Layouts</small></div>
+          <div class="wf-st"><b>Stato</b><small>esito dell'ultima operazione · riepilogo · info a destra</small></div>
+          <div class="wf-s"><div class="wf-full"><b>Colonna laterale</b><small>220 px · la lista degli oggetti</small><div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div><div class="wf-line"></div></div><div class="wf-rail" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+          <div class="wf-m"><b>Contenuto</b><small>fluido, almeno 420 px · intestazione, strumenti, corpo che scorre</small><div class="wf-box"></div><div class="wf-box big"></div></div>
+          <div class="wf-i"><b>Ispettore</b><small>300–360 px · dettagli, membri, modulo</small><div class="wf-line"></div><div class="wf-line"></div><div class="wf-box"></div></div>
+          <div class="wf-a"><b>Azioni</b><small>la primaria a destra</small></div>
+          <div class="wf-f"><b>Piè di pagina</b><small>servizio · conteggi · tasti rapidi</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <table class="map">
+        <thead><tr><th>Regione</th><th>Shinatama</th><th>Mukade</th><th>Muro</th><th>Xiox</th><th>Daodan</th></tr></thead>
+        <tbody>
+          <tr><th>Schede</th><td>Workspace, Sessions, Overview, Files, Leftovers</td><td>Sessions, Chat, Harnesses</td><td>Sync, Activity, Settings</td><td>Cleanup, Registry, Services &amp; RAM, Developers</td><td>Analisi, Grafo, Code review</td></tr>
+          <tr><th>Colonna laterale</th><td>Thread</td><td>Stanze</td><td class="no">nessuna</td><td>Categorie e opzioni</td><td>Progetti</td></tr>
+          <tr><th>Contenuto</th><td>Pannelli dei terminali</td><td>Grafo, lane, feed</td><td>Matrice plugin × harness</td><td>Tabella degli elementi</td><td>Pipeline e grafo</td></tr>
+          <tr><th>Ispettore</th><td>Progetti, impostazioni<small>oggi drawer</small></td><td>Membri, istruzioni</td><td>Modulo dell'harness<small>oggi drawer</small></td><td>Dettaglio dell'elemento<small>oggi riquadro in basso</small></td><td>Costruzione del grafo</td></tr>
+          <tr><th>Azioni</th><td>New session</td><td>Launch agent</td><td>Apply</td><td>Analyze, Clean</td><td>Riprendi demo</td></tr>
+          <tr><th>Piè di pagina</th><td>runtime, risorse, terminali</td><td>servizio MCP, sessioni</td><td>ultima sincronizzazione</td><td>utente, RAM</td><td>stato del prototipo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols3">
+      <div class="card"><h4>Primitive di layout</h4><ul><li><b>Shell</b>: le sette regioni e le soglie</li><li><b>Panel</b>: intestazione, strumenti, corpo, piede</li><li><b>Stack</b> e <b>Cluster</b>: colonne e righe con gap</li><li><b>Split</b>: due pannelli con splitter</li><li><b>Scroll</b>: area che scorre con barra sottile</li><li><b>Surface</b>: fondo, foglio, denso, sheet</li></ul></div>
+      <div class="card"><h4>Controlli</h4><ul><li>Button (primario, secondario, ghost, pericolo, icona), Kbd, Count</li><li>Field, Search, Select, Checkbox, Radio, Switch</li><li>Tabs, Segmented, Menu, Tooltip</li><li>Row, Table, Facts, Tree, Avatar</li><li>Chip di stato, Notice, Toast, Progress, Steps</li><li>Drawer, Sheet, Dialog (mai <code>showModal</code>)</li></ul></div>
+      <div class="card"><h4>Token comuni</h4><ul><li>Misure: titolo 46 / 38 px, controllo 28–32 px, piè 26–30 px</li><li>Spaziatura: 4, 8, 12, 16, 24 px</li><li>Raggi: A 4/6/10 · B tagli 6/8/14 · C 5/9/14</li><li>Movimento: 120, 160, 320 ms, ease-out (0.16, 1, 0.3, 1)</li><li>Font: IBM Plex Sans (A), Bahnschrift e Segoe UI (B, C), Cascadia Mono per dati e tasti</li></ul></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-shell">
+    <div class="block-h">
+      <h2 id="h-shell">La shell desktop Tauri</h2>
+      <p class="prose">Il vetro sono sei livelli, dal fondo verso l'alto. Windows dipinge solo il primo e ignora la tinta di <code>windowEffects</code>: conta solo il tema della finestra, che segue il look ed è salvato per il primo frame. Ogni livello dipinto dalla pagina deve restare leggibile da solo, perché Windows toglie il vetro quando la finestra è inattiva, con il risparmio batteria o con il contrasto elevato.</p>
+    </div>
+    <ul class="layers">
+      <li class="lh"><span></span><span>Livello</span><span>A · Smooth</span><span>B · ONI</span><span>C · Moduli</span></li>
+      <li><b>1</b><span><strong>Acrylic</strong><small>Windows, segue il tema</small></span><span>scuro o chiaro</span><span>scuro o chiaro</span><span>scuro o chiaro</span></li>
+      <li><b>2</b><span><strong>Fondo</strong><small>#app</small></span><span>#0C111D all'80% · bianco all'88%</span><span>#0B0416 all'86% e griglia di 22 px</span><span>al 22–24%: l'acrylic resta visibile</span></li>
+      <li><b>3</b><span><strong>Barre</strong><small>titolo, stato, piè</small></span><span>niente: sono il fondo</span><span>niente, linea sottile sopra il piè</span><span>dock al 74–76%</span></li>
+      <li><b>4</b><span><strong>Pannelli</strong></span><span>un foglio al 94–95%</span><span>cornici all'80%</span><span>moduli al 74–76%</span></li>
+      <li><b>5</b><span><strong>Contenuti densi</strong><small>terminali, tabelle</small></span><span>70% · bianco pieno</span><span>70% · bianco pieno</span><span>60% · 90%</span></li>
+      <li><b>6</b><span><strong>Menu, drawer, avvisi</strong></span><span style="grid-column: 3 / -1">sheet al 90–96% con sfocatura di 18 px e saturazione 1,5, uguale nei tre look</span></li>
+    </ul>
+    <div class="map-wrap">
+      <table class="map">
+        <thead><tr><th>Comportamento</th><th>Come</th><th>Va in</th><th>Da</th></tr></thead>
+        <tbody>
+          <tr><th>Niente lampo bianco</th><td>finestra trasparente, <code>backgroundColor #00000000</code></td><td>config</td><td>Shinatama</td></tr>
+          <tr><th>Acrylic e tema della finestra</th><td><code>windowEffects</code> acrylic; il tema segue il look ed è salvato per il primo frame</td><td>crate + TS</td><td>Shinatama</td></tr>
+          <tr><th>Barra del titolo HTML con Snap Layouts</th><td>finestra figlia che risponde <code>HTMAXBUTTON</code> sopra il pulsante massimizza</td><td>crate + TS</td><td>Shinatama</td></tr>
+          <tr><th>Non è una pagina web</th><td>navigazione chiusa, niente nuove finestre, tasti del browser spenti, selezione solo nei contenuti</td><td>crate + TS + CSS</td><td>Shinatama, Xiox</td></tr>
+          <tr><th>Crash di WebView2</th><td>finestra ricostruita sul posto, al massimo tre ricariche al minuto</td><td>crate</td><td>Shinatama</td></tr>
+          <tr><th>Zoom</th><td>Ctrl + / − / 0, dal 50 al 200%, salvato per macchina</td><td>TS</td><td>Shinatama</td></tr>
+          <tr><th>Dialoghi</th><td>drawer, sheet e dialog senza <code>showModal</code>, che renderebbe inerte la barra del titolo</td><td>TS + CSS</td><td>Shinatama, Muro</td></tr>
+          <tr><th>Contrasto elevato</th><td>contorni in colori di sistema dove spariscono i riempimenti</td><td>CSS</td><td>Xiox</td></tr>
+          <tr><th>Tasti rapidi</th><td>un tasto per ogni azione, mostrato sul pulsante e nel piè di pagina</td><td>TS + CSS</td><td>Xiox, Mukade</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-arch">
+    <div class="block-h">
+      <h2 id="h-arch">Il pacchetto e la migrazione</h2>
+      <p class="prose">Un repository nuovo con le sue release, come le altre app: <code>main</code> e <code>develop</code>, versione dal workflow. Ogni app fissa una versione e la aggiorna quando vuole.</p>
+    </div>
+<pre class="code"><span class="h">acaprino/waku</span>
+├─ tokens/waku.tokens.json   <span class="c"># sorgente unica DTCG: look × tema, accento per app, misure</span>
+├─ css/
+│  ├─ tokens.css             <span class="c"># generato dai token</span>
+│  ├─ base.css               <span class="c"># reset desktop, font, selezione solo nei contenuti</span>
+│  ├─ primitives.css         <span class="c"># shell, panel, stack, cluster, split, scroll, surface</span>
+│  ├─ controls.css           <span class="c"># button, field, check, tabs, seg, chip, row, table…</span>
+│  └─ looks/oni.css          <span class="c"># le forme di B: tagli, tacca, griglia</span>
+├─ ts/shell/                 <span class="c"># window-controls, zoom, desktop-guard, window-theme</span>
+├─ ts/ui/                    <span class="c"># menu, drawer, sheet, dialog, notice, keys</span>
+├─ crates/waku-shell/        <span class="c"># Rust: acrylic, tema, Snap Layouts, guardia, recupero WebView2</span>
+└─ docs/                     <span class="c"># DESIGN.md, desktop-shell.md, galleria</span>
+
+<span class="c"># in ogni app</span>
+package.json      "@acaprino/waku": "github:acaprino/waku#v0.1.0"
+src-tauri/Cargo   waku-shell = { git = "https://github.com/acaprino/waku", tag = "v0.1.0" }
+main.ts           import "@acaprino/waku/css/waku.css"</pre>
+    <ol class="plan">
+      <li><span><b>Waku 0.1</b>: token, primitive, controlli e shell, estratti da Shinatama e Xiox, con la galleria.</span><span class="est">~2 giorni</span></li>
+      <li><span><b>Xiox</b>: ha già entrambi i look; sostituisce i suoi fogli di stile con Waku.</span><span class="est">~1 giorno</span></li>
+      <li><span><b>Mukade</b>: la copia dei look di Shinatama diventa un import.</span><span class="est">~1 giorno</span></li>
+      <li><span><b>Muro</b>: un solo foglio di stile; acquista colonna, shell e soglie comuni.</span><span class="est">~1 giorno</span></li>
+      <li><span><b>Shinatama</b>: l'interfaccia più grande; terminali e pannelli restano suoi.</span><span class="est">~2–3 giorni</span></li>
+      <li><span><b>Daodan</b>: il viewer web prende CSS e controlli; la shell arriva con l'app desktop.</span><span class="est">~½ giorno</span></li>
+    </ol>
+    <p class="prose">Le stime sono per una sessione agente che lavora con i test esistenti di ogni app. Ogni passo si chiude con lo screenshot dei due look sul vetro vero.</p>
+  </section>
+
+  <section class="block" id="decidi" aria-labelledby="h-dec">
+    <div class="block-h">
+      <h2 id="h-dec">Le decisioni per te</h2>
+      <p class="prose">Con queste risposte scrivo DESIGN.md e i token di Waku, poi parto da Xiox.</p>
+    </div>
+    <ol class="dec">
+      <li><b>Quale Xiox intendevi?</b><p>Smooth (il default di oggi, foglio arrotondato) o ONI (cornici navy)? Diventa il look di default di tutte le app. <span class="rec-l">Consiglio: Smooth.</span></p></li>
+      <li><b>Secondo look selezionabile</b><p>Tenere l'altro look in tutte le app, come oggi in Shinatama, Xiox e Mukade? <span class="rec-l">Consiglio: sì, B.</span></p></li>
+      <li><b>Colore di ogni app</b><p>Shinatama rosa, Xiox ambra, Mukade viola, Muro menta, Daodan ciano. Oggi Muro e Mukade sono entrambe viola, Daodan e Shinatama entrambe rosa. <span class="rec-l">Consiglio: come proposto.</span></p></li>
+      <li><b>Dove vive</b><p>Repository nuovo <code>acaprino/waku</code> con release proprie, oppure dentro Shinatama. <span class="rec-l">Consiglio: repository nuovo.</span></p></li>
+      <li><b>Nome</b><p>Waku oppure un altro.</p></li>
+    </ol>
+  </section>
+
+  <footer class="end">Fonti: <code>docs/design-system/</code> di Shinatama, gli stili di Xiox (<code>tokens.css</code>, <code>frame.css</code>, <code>shell.css</code>, <code>smooth.css</code>), gli screenshot di test di Mukade e Muro, il prototipo di Daodan. Pagina generata il 20 novembre 2026.</footer>
+</main>
+
+<script>
+(() => {
+  const IC = {
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    min: '<path d="M5 12h14"/>',
+    max: '<rect x="5.5" y="5.5" width="13" height="13" rx="1.5"/>',
+    chev: '<path d="M7 10l5 5 5-5"/>',
+    check: '<path d="M5 12.5l4.2 4.2L19 7"/>',
+    trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
+    db: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/>',
+    chip: '<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+    code: '<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
+    folder: '<path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/>',
+    down: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/>',
+    reload: '<path d="M19 12a7 7 0 1 1-2.05-4.95M19 5v4h-4"/>',
+    play: '<path d="M8 5.5v13l10-6.5z"/>',
+    term: '<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M7.5 10l3 2.5-3 2.5M12.5 15.5h4"/>',
+    chat: '<path d="M5 6h14v9H10l-4 3.5V15H5z"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+    cube: '<path d="M12 3.5l7.5 4.25v8.5L12 20.5l-7.5-4.25v-8.5zM4.5 7.75L12 12l7.5-4.25M12 12v8.5"/>',
+    graph: '<circle cx="6" cy="7" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="17" r="2"/><path d="M7.6 8.4l3.2 6.8M16.4 8.4l-3.2 6.8M8 7h8"/>',
+    lanes: '<path d="M7 4v16M12 4v16M17 4v16"/>',
+    feed: '<path d="M5 7h14M5 12h14M5 17h9"/>',
+    sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    warn: '<path d="M12 4l9 16H3zM12 10v4M12 17v.5"/>',
+    send: '<path d="M4 12l16-7-6 16-2.5-6.5z"/>',
+    filter: '<path d="M4 6h16l-6 7v5l-4 2v-7z"/>',
+    star: '<path d="M12 4.5l2.3 4.7 5.2.8-3.8 3.6.9 5.1L12 16.3l-4.6 2.4.9-5.1L4.5 10l5.2-.8z"/>',
+    split: '<rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M12 5v14"/>'
+  };
+  const MARK = {
+    xiox: '<path d="M7 7l10 10M17 7L7 17"/>',
+    shinatama: '<circle cx="12" cy="12" r="4.6"/>',
+    mukade: '<path d="M4.5 14.5l3-4 3 4 3-4 3 4 3-4"/>',
+    muro: '<path d="M5 8h14M5 12h14M5 16h14M10 8v4M14 12v4"/>',
+    daodan: '<path d="M6 18L18 6M11 6h7v7"/>'
+  };
+  const i = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
+  const kb = (k) => `<kbd class="k">${k}</kbd>`;
+  const ct = (n) => (n === undefined || n === null || n === '') ? '' : `<span class="cnt">${n}</span>`;
+  const ch = (t, tone) => `<span class="chip"${tone ? ` data-tone="${tone}"` : ''}>${t}</span>`;
+  const bt = (t, o = {}) => `<button type="button" class="btn${o.pri ? ' btn--pri' : ''}${o.ghost ? ' btn--ghost' : ''}${o.danger ? ' btn--danger' : ''}${o.sm ? ' btn--sm' : ''}"${!t && o.label ? ` aria-label="${o.label}"` : ''}>${o.i ? i(o.i) : ''}${t ? `<span>${t}</span>` : ''}${o.k ? kb(o.k) : ''}</button>`;
+  const ib = (n, label) => `<button type="button" class="ib" aria-label="${label}">${i(n)}</button>`;
+  const sg = (items, on = 0) => `<div class="seg" role="tablist">${items.map((it, ix) => { const [t, k, ico] = Array.isArray(it) ? it : [it]; return `<button type="button" role="tab" aria-selected="${ix === on}">${ico ? i(ico) : ''}<span>${t}</span>${k ? kb(k) : ''}</button>`; }).join('')}</div>`;
+  const ck = (s) => `<span class="ck" data-state="${s}"></span>`;
+  const rw = (r) => `<div class="row" role="option" aria-selected="${!!r.sel}">${r.ck ? ck(r.ck) : ''}${r.av ? `<span class="av">${r.av}</span>` : ''}${r.dot ? `<span class="dot" data-tone="${r.dot}"></span>` : ''}<span class="row-tx"><span class="row-t">${r.t}</span>${r.s ? `<span class="row-s">${r.s}</span>` : ''}</span>${r.m ? `<span class="row-m">${r.m}</span>` : ''}${r.chip ? ch(r.chip[0], r.chip[1]) : ''}</div>`;
+  const ph = (t, o = {}) => `<header class="pn-h"><h4 class="pn-t">${t}</h4>${o.n !== undefined ? ct(o.n) : ''}${o.sub ? `<span class="pn-sub">${o.sub}</span>` : ''}<span class="sp"></span>${o.right || ''}</header>`;
+  const fx = (rows) => `<dl class="facts">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  const okv = (v) => `<span class="okv">${i('check')}${v}</span>`;
+  const no = '<span class="none">—</span>';
+
+  const APPS = {
+    xiox: {
+      name: 'Xiox', ver: '0.1.0', ctx: 'Cleanup', search: 'Search all categories',
+      tabs: [{ t: 'Cleanup', k: '1', on: 1, i: 'trash' }, { t: 'Registry', k: '2', i: 'db' }, { t: 'Services & RAM', k: '3', i: 'chip' }, { t: 'Developers', k: '4', i: 'code' }],
+      actions: [{ t: 'Analyze', k: 'a', i: 'reload' }, { t: 'Clean 8 items', k: '↵', pri: 1 }],
+      stat: { chip: ['Analysis done', 'ok'], text: '13.48 GB to delete · 46,999 files', right: 'administrator · RAM 32 GB', foot: 'Winapp2 260915 loaded · 70 items', keys: [['↑↓', 'move'], ['space', 'toggle'], ['a', 'analyze'], ['↵', 'clean']] },
+      side: { title: 'Categories', count: 7, rows: [
+        { ck: 'part', t: 'System', s: '6 items · 4 selected', m: '11.29 GB' },
+        { ck: 'off', t: 'Explorer', s: '1 item · 0 selected', m: '180.0 MB' },
+        { ck: 'off', t: 'Advanced', s: '2 items · 0 selected', m: '85.0 MB' },
+        { ck: 'off', t: 'Windows', s: '8 items · 0 selected', m: '21.21 GB', sel: 1 },
+        { ck: 'part', t: 'Browser', s: '5 items · 2 selected', m: '1.54 GB' },
+        { ck: 'off', t: 'Development & AI', s: '4 items · 0 selected', m: '19.85 GB' },
+        { ck: 'part', t: 'Applications', s: '44 items · 2 selected', m: '4.16 GB' }
+      ], foot: 'Only delete Temp files older than 24 hours' },
+      main: 'clean', insp: 'xfacts'
+    },
+    mukade: {
+      name: 'Mukade', ver: '0.1.0 · preview', ctx: 'Harness sessions', search: 'Search',
+      tabs: [{ t: 'Sessions', k: 's', i: 'grid' }, { t: 'Chat', k: 'c', on: 1, i: 'chat' }, { t: 'Harnesses', k: 'm', i: 'cube' }],
+      actions: [{ t: 'Scan folder', k: 'o', i: 'folder' }, { t: 'Launch agent', k: 'l', pri: 1, i: 'term' }],
+      stat: { chip: ['Service running', 'ok'], text: 'http://127.0.0.1:47631/mcp', right: 'checked every 3 s', foot: 'hop done → Codex · 6 installations · 16 sessions', keys: [['↑↓', 'move'], ['←→', 'column'], ['1 2 3', 'view'], ['n', 'new room'], ['l', 'launch']] },
+      side: { title: 'Rooms', count: 3, act: { i: 'plus', k: 'n', t: 'New' }, filter: 'Filter rooms', rows: [
+        { t: 'hop-review', s: '4 members · 11 events · 12:02', chip: ['open', 'ok'], sel: 1 },
+        { t: 'desktop-spec', s: '2 members · 4 events · 11:03', chip: ['open', 'ok'] },
+        { t: 'codex-code-mode', s: '1 member · 3 events · Nov 17', chip: ['closed'] }
+      ] },
+      main: 'feed', insp: 'members'
+    },
+    shinatama: {
+      name: 'Shinatama', ver: '0.1', ctx: 'Multi-harness terminal', search: 'Find in sessions',
+      tabs: [{ t: 'Workspace', on: 1, i: 'term' }, { t: 'Sessions', i: 'grid' }, { t: 'Overview', i: 'graph' }, { t: 'Files', i: 'folder' }, { t: 'Leftovers', i: 'trash' }],
+      actions: [{ t: 'Projects', i: 'folder' }, { t: 'New session', k: 'Ctrl ⇧ T', pri: 1, i: 'plus' }],
+      stat: { chip: ['Local runtime', 'ok'], text: 'experimental · resources available', right: '4 terminals', foot: 'Local runtime · 4 terminals · 268 MiB', keys: [['Ctrl ⇧ T', 'new session'], ['Ctrl ⇧ ←→', 'focus pane'], ['Alt Space', 'window menu']] },
+      side: { title: 'Threads', count: 9, act: { i: 'plus', label: 'New thread' }, group: 'billing-service', rows: [
+        { dot: 'ok', t: 'PowerShell', s: '4 sessions · 4 running', m: 'now', sel: 1 },
+        { dot: 'warn', t: 'Webhook signature check', s: '1 session · needs you', m: '2m' },
+        { dot: 'ok', t: 'Tax rounding bug', s: '1 session · running', m: 'now' },
+        { t: 'Dunning emails', s: '1 session', m: '6m' },
+        { t: 'Migrate to Postgres 16', s: '1 session', m: '8m' },
+        { t: 'Invoice PDF layout', s: '1 session', m: '1h' },
+        { t: 'Fix flaky checkout test', s: '1 session', m: '1h' }
+      ], foot: 'Show archived threads' },
+      main: 'term', insp: 'projects'
+    },
+    muro: {
+      name: 'Muro', ver: '0.3', ctx: 'Plugin sync', search: 'Search plugins',
+      tabs: [{ t: 'Sync', n: 3, on: 1, i: 'reload' }, { t: 'Activity', n: 1, i: 'feed' }, { t: 'Settings', i: 'sliders' }],
+      actions: [{ t: 'Check now', k: 'r', i: 'reload' }, { t: 'Apply 3 changes', k: '↵', pri: 1 }],
+      stat: { chip: ['3 changes ready', 'warn'], text: 'Last check today 08:07 · next check today 09:07', right: '4 harnesses', foot: 'Last sync yesterday 07:07 · 5 plugins in your list', keys: [['↵', 'apply'], ['r', 'check now'], ['Esc', 'close panel']] },
+      side: null, main: 'matrix', insp: 'form'
+    },
+    daodan: {
+      name: 'Daodan', ver: 'prototipo', ctx: 'Progetti / daodan / Analisi', search: 'Cerca simboli',
+      tabs: [{ t: 'Analisi', on: 1, i: 'graph' }, { t: 'Grafo', n: 18, i: 'graph' }, { t: 'Code review', n: 1, i: 'code' }],
+      actions: [{ t: 'Nuova demo', k: 'n', i: 'plus' }, { t: 'Riprendi demo', k: 'space', pri: 1, i: 'play' }],
+      stat: { chip: ['Demo in pausa', 'warn'], text: 'Avanzamento dimostrativo 64% · nessuna chiamata a modelli', right: 'acaprino/daodan · main', foot: 'Prototipo locale · il codice resta sul tuo disco', keys: [['space', 'pausa'], ['n', 'nuova demo'], ['g', 'grafo']] },
+      side: { title: 'Progetti', count: 4, rows: [
+        { av: 'DA', t: 'daodan', s: 'main · pubblica', m: '64%', sel: 1 },
+        { av: 'SH', t: 'shinatama', s: 'develop · privata', m: '100%' },
+        { av: 'MU', t: 'mukade', s: 'develop · privata', m: '—' },
+        { av: 'XI', t: 'xiox', s: 'main · privata', m: '—' }
+      ], foot: 'Interazioni simulate · nessun modello collegato' },
+      main: 'pipeline', insp: 'graph'
+    }
+  };
+
+  const SIDE = (s) => `${ph(s.title, { n: s.count, right: s.act ? bt(s.act.t || '', { ghost: 1, sm: 1, i: s.act.i, k: s.act.k, label: s.act.label }) : '' })}
+    ${s.filter ? `<div class="pn-tool"><label class="in">${i('filter')}<input type="text" placeholder="${s.filter}" aria-label="${s.filter}"></label></div>` : ''}
+    ${s.group ? `<div class="grp-h">${s.group}</div>` : ''}
+    <div class="pn-b list" role="listbox" aria-label="${s.title}">${s.rows.map(rw).join('')}</div>
+    ${s.foot ? `<div class="pn-foot">${s.foot}</div>` : ''}`;
+
+  const tr = (s, t, sub, lvl, files, size, o = {}) => `<tr${o.sel ? ' aria-selected="true"' : ''}><td class="c0">${ck(s)}</td><td><span class="ct">${t}</span><span class="cs${o.bad ? ' bad' : ''}">${sub}</span></td><td>${ch(lvl[0], lvl[1])}</td><td class="num">${files}</td><td class="num">${size}</td></tr>`;
+  const grp = (t, s, files, size, st) => `<tr class="grp"><td class="c0">${ck(st)}</td><td><span class="ct">${t}</span><span class="cs">${s}</span></td><td></td><td class="num">${files}</td><td class="num">${size}</td></tr>`;
+
+  const MAIN = {
+    clean: () => `${ph('Cleanup', { sub: '70 items · 8 selected', right: sg(['All', 'Selected', 'Caution'], 0) })}
+      <div class="pn-tool"><label class="in">${i('search')}<input type="text" placeholder="Search all categories" aria-label="Search all categories"></label>${bt('Fold all', { ghost: 1, sm: 1 })}</div>
+      <div class="pn-b"><table class="tbl"><thead><tr><th class="c0"></th><th>Item</th><th>Level</th><th class="num">Files</th><th class="num">Size</th></tr></thead><tbody>
+      ${grp('Windows', '8 items · 0 selected', '189,845', '21.21 GB', 'off')}
+      ${tr('off', 'Clipboard', 'Text and pictures you copied', ['Recommended', 'ok'], '—', '0 B')}
+      ${tr('off', 'DNS cache', 'Addresses of websites Windows remembers', ['Optional'], '—', '0 B')}
+      ${tr('off', 'Wipe free space', 'Overwrites the unused part of the disk', ['Caution', 'warn'], '—', '—')}
+      ${grp('Browser', '5 items · 2 selected', '11,710', '1.54 GB', 'part')}
+      ${tr('on', 'Mozilla Firefox – Cache', 'Pages and images Firefox saved to load faster', ['Recommended', 'ok'], '5,300', '1.50 GB')}
+      ${tr('on', 'Cookies', 'Sites in your keep list stay signed in', ['Caution', 'warn'], '6,410', '40.0 MB')}
+      ${tr('off', 'Google Chrome – Cache', 'Close Google Chrome to clean', ['Recommended', 'ok'], '—', '—', { sel: 1, bad: 1 })}
+      ${grp('Development & AI', '4 items · 0 selected', '29,734', '19.85 GB', 'off')}
+      ${tr('off', 'Hugging Face – Model cache', 'Models downloaded for local AI tools', ['Caution', 'warn'], '64', '14.00 GB')}
+      ${tr('off', 'Cargo – Registry cache', 'Crates Cargo downloaded', ['Optional'], '9,120', '3.25 GB')}
+      ${tr('off', 'npm – Cache', 'Packages npm downloaded', ['Recommended', 'ok'], '18,340', '2.10 GB')}
+      </tbody></table></div>`,
+    feed: () => `${ph('hop-review', { sub: '11 events', right: sg([['Graph', '1', 'graph'], ['Lanes', '2', 'lanes'], ['Feed', '3', 'feed']], 2) })}
+      <div class="pn-tool">${sg(['Messages', 'Signals', 'System'], 0)}<span class="sp"></span>${ch('4 members')}</div>
+      <div class="pn-b feed">
+        <article class="msg"><span class="av">CB</span><div class="msg-h"><b>codex-b</b><span class="role">worker</span><time>11:41 · #4</time></div><p>The hop wrote three Codex threads for the review.</p><div class="msg-f">${ch('done', 'ok')}to claude-a</div></article>
+        <article class="msg"><span class="av">CA</span><div class="msg-h"><b>claude-a</b><span class="role">lead</span><time>11:53 · #8</time></div><p>Keep the review on the hop branch. Codex lists the Plan threads, OpenCode checks the child sessions.</p><div class="msg-f">to everyone</div></article>
+        <article class="msg"><span class="av">CA</span><div class="msg-h"><b>claude-a</b><span class="role">lead</span><time>11:55 · #10</time></div><p>@codex-b list the Plan threads that still have no title.</p><div class="msg-f">${ch('waiting', 'warn')}to codex-b</div></article>
+        <article class="msg" aria-selected="true"><span class="av">OC</span><div class="msg-h"><b>opencode-c</b><span class="role">peer</span><time>12:02 · #11</time></div><p>No. OpenCode keeps the title of a child session, so nothing to list there.</p><div class="msg-f">to everyone</div></article>
+      </div>
+      <div class="pn-f"><label class="in" style="flex:1">${i('chat')}<input type="text" placeholder="Write to everyone" aria-label="Message"></label>${bt('Send', { pri: 1, k: 'Ctrl ↵', i: 'send' })}</div>`,
+    term: () => `<div class="ptabs"><span class="ptab" aria-selected="true">${i('term')}Pane 4 · billing-service</span><span class="ptab">${i('term')}Pane 1 · Codex</span><span class="ptab">${i('term')}Pane 2 · pi</span><span class="sp"></span>${ib('split', 'Split pane')}${ib('plus', 'New tab')}</div>
+<pre class="term"><span class="t-a">✱ Claude Code</span>  <span class="t-m">Fable 5.2 · billing-service</span>
+
+<span class="t-a">&gt;</span> run docs/plans/billing-retries.md
+
+I will hand the tasks to implementer, and keep reviewer for the diff:
+  1. exponential backoff in retry.ts
+  2. jitter and a cap of 5 attempts
+  3. idempotency key on the charge
+
+<span class="t-m">[implementer]</span> npm test -- retry          <span class="t-ok">14 passed</span>
+<span class="t-ok">+</span> Task 1  backoff                   <span class="t-ok">green</span>
+<span class="t-ok">+</span> Task 2  jitter and cap            <span class="t-ok">green</span>
+<span class="t-w">*</span> Task 3  idempotency key           <span class="t-w">running</span>
+
+<span class="t-m">[reviewer]</span> 2 findings, 0 blocking.
+<span class="t-a">&gt;</span> <span class="caret"></span></pre>
+      <div class="pstat"><span>Shell running</span><span>Neutral</span><span>67 MiB</span><span>C:\\work\\acme\\billing-service</span><span class="sp"></span><span>120×32</span></div>`,
+    matrix: () => `${ph('Sync', { sub: 'Rows are your plugins, columns are your harnesses.', right: sg(['All', 'Needs action'], 0) })}
+      <div class="pn-tool"><div class="note" data-tone="warn">${i('reload')}<div><b>3 changes ready to apply</b><span>1 install, 1 update, 1 removal. Nothing changes until you apply.</span></div><span class="sp"></span>${bt('Review', { sm: 1 })}</div></div>
+      <div class="pn-b"><table class="tbl"><thead><tr><th>Plugin</th><th>Latest</th><th>Claude Code</th><th>Codex</th><th>OpenCode</th></tr></thead><tbody>
+        <tr><td><span class="ct">Marionette</span><span class="cs">github.com/acaprino/marionette</span></td><td><span class="ct mono">v0.4.0</span><span class="cs">Latest release</span></td><td>${ch('Update 0.3.0 → 0.4.0', 'warn')}</td><td>${okv('0.4.0')}</td><td>${okv('0.4.0')}</td></tr>
+        <tr><td><span class="ct">commit-helper</span><span class="cs">github.com/example/commit-helper</span></td><td><span class="ct mono">v2.1.0</span><span class="cs">Latest release</span></td><td>${okv('2.1.0')}</td><td>${okv('2.1.0')}</td><td>${no}</td></tr>
+        <tr><td><span class="ct">test-runner</span><span class="cs">github.com/example/test-runner</span></td><td><span class="ct mono">v1.0.4</span><span class="cs">Pinned version</span></td><td>${no}</td><td>${no}</td><td>${ch('Install 1.0.4', 'acc')}</td></tr>
+        <tr><td><span class="ct">docs-writer</span><span class="cs">github.com/example/docs-writer</span></td><td><span class="ct mono">v1.2.0</span><span class="cs">Latest release</span></td><td>${okv('1.2.0')}</td><td>${no}</td><td>${okv('1.2.0')}</td></tr>
+        <tr aria-selected="true"><td><span class="ct">old-snippets</span><span class="cs">Installed, not in your list</span></td><td><span class="ct mono">0.2.0</span><span class="cs">on Claude Code</span></td><td>${ch('Remove', 'err')}</td><td>${no}</td><td>${no}</td></tr>
+      </tbody></table></div>`,
+    pipeline: () => `${ph('Pipeline di analisi', { sub: 'acaprino/daodan · main', right: ch('Demo', 'acc') })}
+      <div class="pn-b"><div class="pipe">
+        <ol class="steps"><li data-s="done"><b>01</b><span>Repository<small>GitHub e branch</small></span></li><li data-s="done"><b>02</b><span>Pre-mappa<small>Inventario e tecnologie</small></span></li><li data-s="now"><b>03</b><span>Analisi<small>Pipeline e costruzione</small></span></li><li data-s="todo"><b>04</b><span>Sintesi e grafo<small>Risultati e lacune</small></span></li></ol>
+        <div class="metric"><div><span class="lbl">Esecuzione dimostrativa</span><b>Analyze · tecnologie e collegamenti</b></div><span class="big">64<small>%</small></span></div>
+        <span class="prog"><i style="width:64%"></i></span>
+        <div class="stage-l">${rw({ dot: 'ok', t: 'Scan · inventario e pre-mappa', s: 'Completata', m: '1/4' })}${rw({ dot: 'warn', t: 'Analyze · analyzer per tecnologia', s: 'In pausa', m: '2/4', sel: 1 })}${rw({ t: 'Dynamic · osservazione dei test', s: 'Prevista · esclusa dalla demo', m: '3/4' })}${rw({ t: 'Union · collegamento dei grafi', s: 'In attesa', m: '4/4' })}</div>
+        <h5 class="sec-t">Eventi</h5>
+        <div class="stage-l">${rw({ dot: 'ok', t: 'Demo messa in pausa', s: 'Avanzamento dimostrativo: 64%', m: '12:04' })}${rw({ dot: 'err', t: 'Errore dimostrativo: indice non disponibile', s: 'Progresso conservato al 64%. Riprova per riprendere.', m: '12:01' })}</div>
+      </div></div>`
+  };
+
+  const INSP = {
+    xfacts: () => `${ph('Item', { right: ch('Blocked', 'warn') })}
+      <div class="pn-b">${fx([['Name', 'Google Chrome – Cache'], ['Level', 'Recommended'], ['Mode', 'Permanently'], ['Blocked', 'Close Google Chrome to clean'], ['Why', 'Pages and images Chrome saved to load faster'], ['Path', '%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache']])}</div>
+      <div class="pn-f">${bt('Skip', { ghost: 1 })}<span class="sp"></span>${bt('Close and clean', { pri: 1 })}</div>`,
+    members: () => `${ph('Members', { n: 4 })}
+      <div class="pn-b">
+        <div class="mbr"><span class="av">CA</span><span><b>claude-a</b><br><small>lead · 11:53</small></span>${ch('lead', 'acc')}</div>
+        <div class="mbr"><span class="av">CB</span><span><b>codex-b</b><br><small>worker · 11:55</small></span>${ch('worker')}</div>
+        <div class="mbr"><span class="av">OC</span><span><b>opencode-c</b><br><small>peer · 12:02</small></span>${ch('peer')}</div>
+        <div class="mbr"><span class="av">PD</span><span><b>pi-d</b><br><small>observer · 12:02</small></span>${ch('observer')}</div>
+        ${ph('Instructions', { n: 2 })}
+        <div class="list">${rw({ t: 'codex-b · list the Plan threads', s: '#10 · from claude-a', chip: ['waiting', 'warn'] })}${rw({ t: 'codex-b · three Codex threads', s: '#4 · from claude-a', chip: ['done', 'ok'] })}</div>
+      </div>`,
+    projects: () => `${ph('Projects', { n: 8, right: ib('x', 'Close') })}
+      <div class="pn-b">
+        <div class="proj">${i('star')}<b>checkout-web</b><small>fix/flaky-cart-test · 3 changed</small><span class="acts">${bt('Resume last', { sm: 1 })}${bt('New session', { sm: 1, ghost: 1 })}</span></div>
+        <div class="proj">${i('star')}<b>ledger-core</b><small>develop · 12 changed</small><span class="acts">${bt('Resume last', { sm: 1 })}${bt('New session', { sm: 1, ghost: 1 })}</span></div>
+        <div class="proj">${i('star')}<b>billing-service</b><small>feature/retry-backoff · 7 changed</small><span class="acts">${bt('Resume last', { sm: 1 })}${bt('New session', { sm: 1, ghost: 1 })}</span></div>
+        <div class="proj"><svg class="ic off" viewBox="0 0 24 24" aria-hidden="true">${IC.star}</svg><b>infra-terraform</b><small>main · 2 changed · no thread yet</small></div>
+      </div>`,
+    form: () => `${ph('Claude Code', { right: ib('x', 'Close') })}
+      <div class="pn-b"><div class="form">
+        <span class="fld-h">Checked today 08:07 · last sync yesterday 07:07</span>
+        <label class="fld"><span class="fld-l">Name</span><span class="in"><input type="text" value="Claude Code" aria-label="Name"></span></label>
+        <div class="fld"><span class="fld-l">Harness</span><span class="in in--sel">Claude Code${i('chev')}</span></div>
+        <label class="fld"><span class="fld-l">Configuration folder</span><span class="in in--mono"><input type="text" value="C:/Users/you/.claude" aria-label="Configuration folder"></span><span class="fld-h">Where the harness keeps its settings.</span></label>
+        <div class="fld"><span class="opt"><span class="sw" data-on="true"></span>Keep this harness in sync</span><span class="fld-h">Switch off to pause: Muro leaves it alone.</span></div>
+        <div class="fld"><span class="opt">${ck('on')}Always uninstall plugins not in my list</span></div>
+      </div></div>
+      <div class="pn-f">${bt('Stop managing', { danger: 1 })}<span class="sp"></span>${bt('Cancel', { ghost: 1 })}${bt('Save', { pri: 1, k: 'Ctrl S' })}</div>`,
+    graph: () => `${ph('Grafo', { n: 18 })}
+      <div class="mini-graph"><svg viewBox="0 0 260 150" role="img" aria-label="Costruzione del grafo: 10 nodi su 18">
+        <path class="hot" d="M58 34 C 100 34, 110 75, 130 75"/><path d="M58 34 C 120 20, 160 30, 202 34"/><path class="hot" d="M130 75 C 160 75, 170 112, 202 116"/><path d="M58 116 C 90 116, 100 75, 130 75"/><path d="M202 34 C 210 70, 210 90, 202 116"/>
+        <g class="n on"><rect x="14" y="22" width="88" height="24" rx="4"/><text x="24" y="38">Servizio MCP</text></g>
+        <g class="n"><rect x="166" y="22" width="80" height="24" rx="4"/><text x="176" y="38">Ricerca</text></g>
+        <g class="n on"><rect x="86" y="63" width="92" height="24" rx="4"/><text x="96" y="79">Snapshot</text></g>
+        <g class="n"><rect x="14" y="104" width="88" height="24" rx="4"/><text x="24" y="120">Indice</text></g>
+        <g class="n"><rect x="166" y="104" width="80" height="24" rx="4"/><text x="176" y="120">Git</text></g>
+      </svg></div>
+      <div class="pn-b">${fx([['Nodi', '10 / 18'], ['Relazioni', '23 / 43'], ['Inventario', '<span class="mono">5e49ee96e</span>'], ['Snapshot', '<span class="mono">42a63a9ac071</span>']])}</div>
+      <div class="pn-f">${bt('Apri il grafo', { k: 'g' })}</div>`
+  };
+
+  function winHTML(key) {
+    const a = APPS[key];
+    return `<div class="w-sheet" aria-hidden="true"></div>
+      <header class="w-top">
+        <div class="w-brand"><span class="w-mark"><svg viewBox="0 0 24 24" aria-hidden="true">${MARK[key]}</svg></span><span class="w-word">${a.name}</span><span class="w-ver">${a.ver}</span></div>
+        <span class="w-ctx">${a.ctx}</span>
+        <nav class="w-tabs" role="tablist" aria-label="Viste">${a.tabs.map((t) => `<button type="button" role="tab" class="w-tab" aria-selected="${!!t.on}">${t.i ? i(t.i) : ''}<span>${t.t}</span>${ct(t.n)}${t.k ? kb(t.k) : ''}</button>`).join('')}</nav>
+        <div class="w-tools"><button type="button" class="w-search">${i('search')}<span>${a.search}</span>${kb('Ctrl K')}</button>${a.actions.map((x) => bt(x.t, x)).join('')}</div>
+        <div class="w-caps" aria-hidden="true"><span>${i('min')}</span><span>${i('max')}</span><span class="x">${i('x')}</span></div>
+      </header>
+      <div class="w-status">${ch(a.stat.chip[0], a.stat.chip[1])}<span class="w-stx">${a.stat.text}</span><span class="sp"></span><span>${a.stat.right}</span></div>
+      <div class="w-body">
+        ${a.side ? `<section class="pn w-side" aria-label="${a.side.title}">${SIDE(a.side)}</section>` : ''}
+        <section class="pn w-main" aria-label="Contenuto">${MAIN[a.main]()}</section>
+        <section class="pn w-insp" aria-label="Ispettore">${INSP[a.insp]()}</section>
+      </div>
+      <div class="w-actbar">${a.actions.map((x) => bt(x.t, x)).join('')}</div>
+      <footer class="w-foot"><span class="fdot"></span><span class="w-ftx">${a.stat.foot}</span><span class="sp"></span><span class="keys">${a.stat.keys.map(([k, l]) => `<span>${kb(k)}${l}</span>`).join('')}</span></footer>`;
+  }
+
+  const GAL = [
+    ['Pulsanti', 'Primario, secondario, ghost, pericolo, icona. Il tasto rapido sta nel pulsante.', () => `${bt('Apply', { pri: 1, k: '↵' })}${bt('Check now', { i: 'reload', k: 'r' })}${bt('Cancel', { ghost: 1 })}${bt('Remove', { danger: 1 })}${ib('sliders', 'Settings')}`],
+    ['Campi', 'Testo, ricerca con Ctrl K, scelta da elenco.', () => `<label class="fld"><span class="fld-l">Name</span><span class="in"><input type="text" value="Claude Code" aria-label="Name"></span></label><label class="in" style="flex:1 1 180px">${i('search')}<input type="text" placeholder="Search" aria-label="Search">${kb('Ctrl K')}</label><span class="in in--sel">Claude Code${i('chev')}</span>`],
+    ['Scelte', 'Casella (sì, in parte, no), scelta singola, interruttore.', () => `<span class="opt">${ck('on')}Recommended</span><span class="opt">${ck('part')}Browser</span><span class="opt">${ck('off')}Optional</span><span class="opt"><span class="rd" data-state="on"></span>Trash</span><span class="opt"><span class="sw" data-on="true"></span>Keep in sync</span>`],
+    ['Navigazione', 'Schede con conteggio e tasto, selettore di vista.', () => `<nav class="w-tabs" role="tablist" aria-label="Viste"><button type="button" role="tab" class="w-tab" aria-selected="true"><span>Sync</span>${ct(3)}</button><button type="button" role="tab" class="w-tab" aria-selected="false"><span>Activity</span>${ct(1)}</button><button type="button" role="tab" class="w-tab" aria-selected="false"><span>Settings</span></button></nav>${sg([['Graph', '1'], ['Lanes', '2'], ['Feed', '3']], 2)}`],
+    ['Stato', 'Etichette con testo, conteggio, tasto.', () => `${ch('open', 'ok')}${ch('waiting', 'warn')}${ch('blocked', 'err')}${ch('demo', 'acc')}${ch('closed')}${ct(18)}${kb('Ctrl ⇧ T')}`],
+    ['Avanzamento', 'Barra con percentuale; passi numerati solo per sequenze vere.', () => `<div class="prog-row"><span class="prog"><i style="width:64%"></i></span><b class="prog-v">64%</b></div><ol class="steps"><li data-s="done"><b>02</b><span>Pre-mappa<small>Completata</small></span></li><li data-s="now"><b>03</b><span>Analisi<small>In corso</small></span></li></ol>`],
+    ['Liste e dettagli', 'Riga con titolo, sottotitolo e misura; dettaglio chiave/valore.', () => `<div class="list">${rw({ ck: 'on', t: 'Mozilla Firefox – Cache', s: 'Pages and images Firefox saved', m: '1.50 GB' })}${rw({ ck: 'off', t: 'Google Chrome – Cache', s: 'Close Google Chrome to clean', m: '—', sel: 1 })}</div>${fx([['Level', 'Recommended'], ['Mode', 'Permanently']])}`],
+    ['Avvisi e menu', 'Avviso in linea; menu sul vetro sfocato.', () => `<div class="note" data-tone="warn">${i('warn')}<div><b>3 changes ready to apply</b><span>Nothing changes until you apply.</span></div></div><div class="menu" role="menu" aria-label="Azioni"><div class="mi" role="menuitem">${i('reload')}Check now${kb('r')}</div><div class="mi" role="menuitem" aria-selected="true">${i('down')}Import${kb('i')}</div><hr><div class="mi" role="menuitem">${i('x')}Stop managing</div></div>`]
+  ];
+  const DIRS = [['smooth', 'A · Smooth'], ['oni', 'B · ONI'], ['mod', 'C · Moduli']];
+
+  function buildGallery() {
+    const gal = document.getElementById('gal');
+    gal.insertAdjacentHTML('beforeend', GAL.map(([t, d, f]) => `<div class="gal-row"><div class="gal-lbl"><b>${t}</b><small>${d}</small></div>${DIRS.map(([dir, l]) => `<div class="stage stage--mini" data-wall="night" data-l="${l}"><div class="win bare" data-dir="${dir}">${f()}</div></div>`).join('')}</div>`).join(''));
+  }
+
+  // state, kept per viewer
+  const S = { app: 'xiox', tone: 'dark', wall: 'night', wf: 1280 };
+  try { Object.assign(S, JSON.parse(localStorage.getItem('waku-proposte') || '{}')); } catch (e) { /* storage blocked: defaults */ }
+  if (!APPS[S.app]) S.app = 'xiox';
+  const save = () => { try { localStorage.setItem('waku-proposte', JSON.stringify(S)); } catch (e) { /* ignore */ } };
+
+  function fit(stage) {
+    const w = stage.querySelector('.win[data-role="demo"]');
+    if (!w) return;
+    const pad = parseFloat(getComputedStyle(stage).paddingLeft) * 2;
+    w.style.zoom = Math.min(1, (stage.clientWidth - pad) / 1160).toFixed(4);
+  }
+
+  function apply() {
+    document.querySelectorAll('.win').forEach((w) => { w.dataset.app = S.app; w.dataset.tone = S.tone; });
+    document.querySelectorAll('.stage').forEach((s) => { s.dataset.wall = S.wall; });
+    document.querySelectorAll('.win[data-role="demo"]').forEach((w) => { w.dataset.side = APPS[S.app].side ? 'on' : 'off'; w.innerHTML = winHTML(S.app); });
+    [['pick-app', S.app], ['pick-tone', S.tone], ['pick-wall', S.wall]].forEach(([id, v]) => {
+      document.querySelectorAll(`#${id} button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    });
+    document.querySelectorAll('.stage--demo').forEach(fit);
+  }
+
+  [['pick-app', 'app'], ['pick-tone', 'tone'], ['pick-wall', 'wall']].forEach(([id, key]) => {
+    document.getElementById(id).addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]');
+      if (!b) return;
+      S[key] = b.dataset.v; save(); apply();
+    });
+  });
+
+  // demo interactions: tabs, views, rows, boxes, switches
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.win .w-tab, .win .seg button, .win .row, .win .msg, .win .tbl tbody tr:not(.grp), .win .ptab, .win .ck, .win .sw');
+    if (!t) return;
+    if (t.classList.contains('ck')) { t.dataset.state = t.dataset.state === 'on' ? 'off' : 'on'; e.stopPropagation(); return; }
+    if (t.classList.contains('sw')) { t.dataset.on = t.dataset.on === 'true' ? 'false' : 'true'; return; }
+    const scope = t.parentElement;
+    const sel = t.matches('.w-tab, .seg button, .ptab') ? ':scope > .w-tab, :scope > button, :scope > .ptab' : ':scope > .row, :scope > .msg, :scope > tr';
+    scope.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+  });
+
+  // wireframe width
+  const wf = document.getElementById('wf'), wfIn = document.getElementById('wf-w'), wfOut = document.getElementById('wf-out'), wfRules = document.getElementById('wf-rules');
+  function wfApply() {
+    const w = S.wf;
+    wfIn.value = w; wf.style.width = w + 'px'; wfOut.textContent = w + ' px';
+    const r = [
+      w >= 1000 ? 'Ispettore agganciato a destra' : 'Ispettore sopra il contenuto, come drawer',
+      w >= 850 ? 'Colonna laterale intera, 220 px' : (w >= 620 ? 'Colonna ridotta a 56 px di icone' : 'Colonna laterale in un foglio, a richiesta'),
+      w >= 620 ? 'Schede nella barra del titolo' : 'Schede in un menu «Viste»'
+    ];
+    wfRules.innerHTML = r.map((x) => `<li>${x}</li>`).join('');
+  }
+  wfIn.addEventListener('input', () => { S.wf = +wfIn.value; wfApply(); save(); });
+
+  buildGallery();
+  apply();
+  wfApply();
+  const ro = new ResizeObserver((es) => es.forEach((en) => fit(en.target)));
+  document.querySelectorAll('.stage--demo').forEach((s) => ro.observe(s));
+})();
+</script>

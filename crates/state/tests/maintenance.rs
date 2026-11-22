@@ -26,7 +26,9 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
-        let serial = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let serial = SERIAL
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let root = shinatama_state::test_scratch::root()
             .join("shinatama-maintenance-tests")
             .join(uuid::Uuid::new_v4().to_string());

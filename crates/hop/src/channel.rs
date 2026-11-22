@@ -55,10 +55,17 @@ pub fn bootstrap(nonce: &str, seed_path: &Path, last_user_request: Option<&str>)
         "{HANDOFF_MARKER} nonce={nonce}\nRead the hand-off file {} completely before answering: it is the quoted history of this conversation.\n",
         seed_path.display()
     );
-    let tail = format!("Then reply exactly `ready {nonce}` and one line saying where you will continue, and wait.\n");
+    let tail = format!(
+        "Then reply exactly `ready {nonce}` and one line saying where you will continue, and wait.\n"
+    );
     let room = MAX_BOOTSTRAP_BYTES.saturating_sub(head.len() + tail.len() + 32);
     let request = last_user_request
-        .map(|r| format!("Last user request: {}\n", clip(&r.replace(['\r', '\n'], " "), room.saturating_sub(20))))
+        .map(|r| {
+            format!(
+                "Last user request: {}\n",
+                clip(&r.replace(['\r', '\n'], " "), room.saturating_sub(20))
+            )
+        })
         .unwrap_or_default();
     let text = escape_hostile(&format!("{head}{request}{tail}"));
     debug_assert!(text.len() <= MAX_BOOTSTRAP_BYTES);
@@ -90,7 +97,10 @@ impl ControlKind {
 /// Line ends become `\n` and outer spaces, tabs and line ends are dropped: the terminal a message
 /// is pasted through may convert the first and trim the second. The proxy applies the same rule.
 pub fn canonical_control_text(text: &str) -> String {
-    text.replace("\r\n", "\n").replace('\r', "\n").trim_matches([' ', '\t', '\n']).to_owned()
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .trim_matches([' ', '\t', '\n'])
+        .to_owned()
 }
 
 pub fn control_header_value(kind: ControlKind, text: &str) -> String {
@@ -103,12 +113,26 @@ pub fn control_header(kind: ControlKind, text: &str) -> (&'static str, String) {
     (CONTROL_HEADER, control_header_value(kind, text))
 }
 
-pub fn delivery(channel: SeedChannel, seed_path: &Path, seed_text: &str, bootstrap: &str) -> Delivery {
+pub fn delivery(
+    channel: SeedChannel,
+    seed_path: &Path,
+    seed_text: &str,
+    bootstrap: &str,
+) -> Delivery {
     match channel {
-        SeedChannel::ArgvPrompt => Delivery::ArgvPrompt { prompt: bootstrap.to_owned() },
-        SeedChannel::FileArg => Delivery::FileArg { file: format!("@{}", seed_path.display()), prompt: bootstrap.to_owned() },
-        SeedChannel::QueryFile => Delivery::QueryFile { file: seed_path.display().to_string() },
-        SeedChannel::ProtocolPrompt => Delivery::ProtocolPrompt { prompt: seed_text.to_owned() },
+        SeedChannel::ArgvPrompt => Delivery::ArgvPrompt {
+            prompt: bootstrap.to_owned(),
+        },
+        SeedChannel::FileArg => Delivery::FileArg {
+            file: format!("@{}", seed_path.display()),
+            prompt: bootstrap.to_owned(),
+        },
+        SeedChannel::QueryFile => Delivery::QueryFile {
+            file: seed_path.display().to_string(),
+        },
+        SeedChannel::ProtocolPrompt => Delivery::ProtocolPrompt {
+            prompt: seed_text.to_owned(),
+        },
     }
 }
 
@@ -119,32 +143,58 @@ mod tests {
     #[test]
     fn bootstrap_is_bounded_escaped_and_starts_with_the_marker() {
         let long = "/clear ".repeat(1000);
-        let text = bootstrap("abc123", Path::new(r"C:\repo\.git\shinatama\handoffs\x\seed.md"), Some(&long));
+        let text = bootstrap(
+            "abc123",
+            Path::new(r"C:\repo\.git\shinatama\handoffs\x\seed.md"),
+            Some(&long),
+        );
         assert!(text.len() <= MAX_BOOTSTRAP_BYTES, "{}", text.len());
         assert!(text.starts_with("[shinatama handoff v1] nonce=abc123\n"));
-        assert!(text.contains("Last user request: /clear"), "mid-line slashes are kept as text");
+        assert!(
+            text.contains("Last user request: /clear"),
+            "mid-line slashes are kept as text"
+        );
         assert!(text.contains("`ready abc123`"));
-        assert!(text.lines().all(|l| !l.starts_with(['/', '!', '@', '#', '-'])));
+        assert!(
+            text.lines()
+                .all(|l| !l.starts_with(['/', '!', '@', '#', '-']))
+        );
     }
 
     #[test]
     fn control_header_hashes_the_canonical_text() {
-        let text = bootstrap("abc123", Path::new(r"C:\repo\.git\shinatama\handoffs\x\seed.md"), Some("fix the totals"));
+        let text = bootstrap(
+            "abc123",
+            Path::new(r"C:\repo\.git\shinatama\handoffs\x\seed.md"),
+            Some("fix the totals"),
+        );
         let (name, value) = control_header(ControlKind::Bootstrap, &text);
         assert_eq!(name, "x-shinatama-control");
         let (kind, hash) = value.split_once(';').unwrap();
         assert_eq!(kind, "bootstrap");
         assert_eq!(hash.len(), 64);
-        assert!(hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        assert!(
+            hash.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        );
         // A terminal that converts line ends and trims the outer ones changes nothing.
         let pasted = text.replace('\n', "\r\n");
-        assert_eq!(control_header_value(ControlKind::Bootstrap, pasted.trim_end()), value);
+        assert_eq!(
+            control_header_value(ControlKind::Bootstrap, pasted.trim_end()),
+            value
+        );
         assert_eq!(canonical_control_text("\r\n  a\r\nb \t\n"), "a\nb");
-        assert_ne!(control_header_value(ControlKind::Bootstrap, &format!("{text}x")), value);
+        assert_ne!(
+            control_header_value(ControlKind::Bootstrap, &format!("{text}x")),
+            value
+        );
         assert!(control_header_value(ControlKind::Seed, &text).starts_with("seed;"));
         assert!(control_header_value(ControlKind::Receipt, &text).starts_with("receipt;"));
         // Known vector: sha256("abc").
-        assert_eq!(control_header_value(ControlKind::Seed, " abc\n"), "seed;ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        assert_eq!(
+            control_header_value(ControlKind::Seed, " abc\n"),
+            "seed;ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
@@ -153,7 +203,11 @@ mod tests {
         assert_eq!(channel_for("pi"), Some(SeedChannel::FileArg));
         assert_eq!(channel_for("hermes"), Some(SeedChannel::QueryFile));
         assert_eq!(channel_for("gemini"), None);
-        let Delivery::FileArg { file, .. } = delivery(SeedChannel::FileArg, Path::new("C:/s.md"), "", "b") else { panic!() };
+        let Delivery::FileArg { file, .. } =
+            delivery(SeedChannel::FileArg, Path::new("C:/s.md"), "", "b")
+        else {
+            panic!()
+        };
         assert_eq!(file, "@C:/s.md");
     }
 }

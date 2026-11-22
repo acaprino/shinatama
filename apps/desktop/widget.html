@@ -8,24 +8,7 @@
   <title>Shinatama — avviso</title>
 </head>
 <body>
-  <main id="attention" class="attention" data-kind="update" aria-label="Avviso di Shinatama" hidden>
-    <div class="portrait" aria-hidden="true">
-      <img id="shinatama-portrait" class="portrait-image" alt="Shinatama in Oni" width="108" height="128" draggable="false">
-      <span class="portrait-name">Shinatama</span>
-    </div>
-    <section class="bubble" aria-live="polite" aria-atomic="true">
-      <header class="bubble-header">
-        <span id="attention-kind" class="kind">Aggiornamento</span>
-        <button id="attention-dismiss" class="dismiss" type="button" aria-label="Chiudi avviso" title="Chiudi avviso">×</button>
-      </header>
-      <h1 id="attention-title"></h1>
-      <p id="attention-body"></p>
-      <footer class="bubble-footer">
-        <span id="attention-error" role="status" hidden></span>
-        <button id="attention-open" class="open-session" type="button">Apri sessione <span aria-hidden="true">↗</span></button>
-      </footer>
-    </section>
-  </main>
+  <div id="widget"></div>
   <script type="module" src="/src/attention-widget.ts"></script>
 </body>
 </html>

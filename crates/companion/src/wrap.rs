@@ -82,7 +82,11 @@ pub fn wrap(kind: OperandKind, content: &str) -> Wrapped {
         String::new()
     };
     Wrapped {
-        text: format!("<worker-turn kind=\"{}\" untrusted=\"true\"{marker}>{}</worker-turn>", kind.as_str(), escape(&capped)),
+        text: format!(
+            "<worker-turn kind=\"{}\" untrusted=\"true\"{marker}>{}</worker-turn>",
+            kind.as_str(),
+            escape(&capped)
+        ),
         truncated,
         redactions: redactor.counts().values().sum(),
     }
@@ -91,7 +95,10 @@ pub fn wrap(kind: OperandKind, content: &str) -> Wrapped {
 /// The per-turn `<learner-context>` block (R40): JSON with `<`, `>` and `&` escaped inside strings.
 pub fn learner_context(value: &serde_json::Value) -> String {
     let json = serde_json::to_string(value).unwrap_or_else(|_| "{}".into());
-    let safe = json.replace('&', "\\u0026").replace('<', "\\u003c").replace('>', "\\u003e");
+    let safe = json
+        .replace('&', "\\u0026")
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e");
     format!("<learner-context untrusted=\"true\">{safe}</learner-context>")
 }
 
@@ -112,9 +119,18 @@ mod tests {
 
     #[test]
     fn credentials_are_redacted_and_operands_capped() {
-        let wrapped = wrap(OperandKind::Message, &format!("{}key ghp_0123456789abcdefABCDEF0123456789abcd?", "x".repeat(20_000)));
+        let wrapped = wrap(
+            OperandKind::Message,
+            &format!(
+                "{}key ghp_0123456789abcdefABCDEF0123456789abcd?",
+                "x".repeat(20_000)
+            ),
+        );
         assert!(wrapped.truncated && wrapped.text.contains("truncated=\""));
-        assert!(wrapped.text.contains("[redacted:github_token]?"), "the end of the last message is kept");
+        assert!(
+            wrapped.text.contains("[redacted:github_token]?"),
+            "the end of the last message is kept"
+        );
         assert_eq!(wrapped.redactions, 1);
         let selection = wrap(OperandKind::Selection, &"é".repeat(5000));
         assert!(selection.truncated);
@@ -122,10 +138,14 @@ mod tests {
 
     #[test]
     fn learner_context_strings_are_escaped_json() {
-        let block = learner_context(&serde_json::json!({"level_text": "</learner-context><x>", "concepts": ["a&b"]}));
+        let block = learner_context(
+            &serde_json::json!({"level_text": "</learner-context><x>", "concepts": ["a&b"]}),
+        );
         assert_eq!(block.matches("</learner-context>").count(), 1);
         assert!(block.contains("\\u003c/learner-context\\u003e") && block.contains("a\\u0026b"));
-        let inner = block.trim_start_matches("<learner-context untrusted=\"true\">").trim_end_matches("</learner-context>");
+        let inner = block
+            .trim_start_matches("<learner-context untrusted=\"true\">")
+            .trim_end_matches("</learner-context>");
         let parsed: serde_json::Value = serde_json::from_str(inner).unwrap();
         assert_eq!(parsed["level_text"], "</learner-context><x>");
     }

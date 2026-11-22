@@ -38,6 +38,7 @@ const WAIT: Duration = Duration::from_secs(2);
 const POLL: Duration = Duration::from_millis(10);
 
 /// Rust-only inputs from the sealed launch recipe, never UI or hook selectors.
+#[allow(clippy::large_enum_variant)]
 pub(super) enum PendingThread {
     Start {
         thread: ThreadRecord,
@@ -208,11 +209,11 @@ impl ThreadLifecycle {
         state.owner_bound = true;
         // Reserve an explicitly sealed UUID before ResumeShell. A fresh Codex
         // launch has no native ID yet: only its exact owner is recorded now.
-        if let Some(requested) = &core.requested {
-            if apply(core, &mut state, requested).is_err() {
-                core.failed.store(true, Ordering::Release);
-                return Err(TRACKING);
-            }
+        if let Some(requested) = &core.requested
+            && apply(core, &mut state, requested).is_err()
+        {
+            core.failed.store(true, Ordering::Release);
+            return Err(TRACKING);
         }
         drop(state);
         let receiver = self
@@ -296,12 +297,11 @@ impl ThreadLifecycle {
             .database
             .native_session_cleanup(instance)
             .map_err(|_| TRACKING)?;
-        if let Some(receipt) = &receipt {
-            if receipt.owner.activation != owner
-                || core.reservation.get() != Some(&receipt.owner.reservation)
-            {
-                return Err(BINDING);
-            }
+        if let Some(receipt) = &receipt
+            && (receipt.owner.activation != owner
+                || core.reservation.get() != Some(&receipt.owner.reservation))
+        {
+            return Err(BINDING);
         }
         let Some(active) = state.activation.clone() else {
             if state.attempted

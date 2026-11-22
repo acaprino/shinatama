@@ -6,11 +6,11 @@
 #[cfg(test)]
 mod native_hook_test;
 use crate::{
-    marionette::{Host, Marionette, is_marionette_set},
     codex_probe::{CodexProbeOutcome, ProbeCleanup},
     harness_session_events::{HarnessKind, SessionEventReceiver},
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
     launch_policy::LaunchPolicy,
+    marionette::{Host, Marionette, is_marionette_set},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -750,7 +750,10 @@ fn prepare(
         session.require_mukade,
     )?;
     // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
-    let chat = session.chat.as_ref().filter(|chat| mukade.is_some() && chat.codex_hooks().is_some());
+    let chat = session
+        .chat
+        .as_ref()
+        .filter(|chat| mukade.is_some() && chat.codex_hooks().is_some());
     let session_events = if let Some(helper_path) = trusted_hook_exe {
         let mut helper = crate::harness_hooks::pin_session_hook(helper_path, deadline)
             .map_err(|_| CodexLaunchError::Configuration)?;
@@ -760,11 +763,18 @@ fn prepare(
                 .map_err(|_| CodexLaunchError::Configuration)?;
         hook_arguments = match chat.and_then(|chat| chat.codex_hooks().map(|hooks| (chat, hooks))) {
             Some((chat, hooks)) => {
-                let arguments = session_and_chat_hook_arguments(&helper.path, &hook_shell.path, receiver.port(), &hooks)?;
+                let arguments = session_and_chat_hook_arguments(
+                    &helper.path,
+                    &hook_shell.path,
+                    receiver.port(),
+                    &hooks,
+                )?;
                 crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
                 arguments
             }
-            None => session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?,
+            None => {
+                session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?
+            }
         };
         pinned.ancestors.append(&mut helper.ancestors);
         pinned.ancestors.append(&mut hook_shell.ancestors);
@@ -1137,7 +1147,8 @@ fn session_and_chat_hook_arguments(
     port: u16,
     chat: &[crate::mukade_chat::CodexHook],
 ) -> Result<Vec<OsString>, CodexLaunchError> {
-    let quote = |text: &str| serde_json::to_string(text).map_err(|_| CodexLaunchError::Configuration);
+    let quote =
+        |text: &str| serde_json::to_string(text).map_err(|_| CodexLaunchError::Configuration);
     let command = session_hook_command(helper, shell, port)?;
     let matcher = "^(startup|resume|clear|compact|fork)$";
     let hash = hook_hash("session_start", Some(matcher), &command, 5)?;
@@ -1170,7 +1181,12 @@ fn session_and_chat_hook_arguments(
 }
 /// Codex's identity of one command handler (see `session_hook_arguments`): the
 /// recursively sorted JSON of event, optional matcher and handler, hashed.
-fn hook_hash(event: &str, matcher: Option<&str>, command: &str, timeout: u64) -> Result<String, CodexLaunchError> {
+fn hook_hash(
+    event: &str,
+    matcher: Option<&str>,
+    command: &str,
+    timeout: u64,
+) -> Result<String, CodexLaunchError> {
     let mut identity = serde_json::json!({
         "event_name": event,
         "hooks": [{"type":"command", "command":command, "timeout":timeout, "async":false}]
@@ -1456,15 +1472,21 @@ mod tests {
     #[test]
     fn required_mukade_refuses_absence_and_discovery_failure_after_preflight() {
         for missing in [Ok(None), Err("service disappeared after preflight")] {
-            assert_eq!(resolve_optional_mukade::<u8, _>(missing, true),
-                Err(CodexLaunchError::MukadeUnavailable));
+            assert_eq!(
+                resolve_optional_mukade::<u8, _>(missing, true),
+                Err(CodexLaunchError::MukadeUnavailable)
+            );
             assert_eq!(resolve_optional_mukade::<u8, _>(missing, false), Ok(None));
         }
         for required in [false, true] {
-            assert_eq!(resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required), Ok(Some(7)));
+            assert_eq!(
+                resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required),
+                Ok(Some(7))
+            );
         }
         let new = CodexSessionOperation::start_new();
-        let resume = CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600").unwrap();
+        let resume =
+            CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600").unwrap();
         assert!(!new.require_mukade && !resume.require_mukade);
         let required = new.clone().with_mukade_required();
         assert!(required.require_mukade);
@@ -1518,11 +1540,18 @@ mod tests {
     #[test]
     fn full_access_replaces_the_sandbox_and_approvals_and_nothing_else() {
         let protected = CodexSessionOperation::start_new().arguments();
-        let open = CodexSessionOperation::start_new().with_full_access().arguments();
+        let open = CodexSessionOperation::start_new()
+            .with_full_access()
+            .arguments();
         let bypass = OsString::from("--dangerously-bypass-approvals-and-sandbox");
         assert!(open.contains(&bypass));
         assert!(!protected.contains(&bypass));
-        for gone in ["--sandbox", "workspace-write", "--ask-for-approval", "on-request"] {
+        for gone in [
+            "--sandbox",
+            "workspace-write",
+            "--ask-for-approval",
+            "on-request",
+        ] {
             assert!(!open.contains(&OsString::from(gone)), "{gone}");
             assert!(protected.contains(&OsString::from(gone)), "{gone}");
         }
@@ -1558,7 +1587,10 @@ mod tests {
             .arguments();
         assert_eq!(&followed[..fixed_arguments().len()], fixed_arguments());
         let theme = OsString::from("--config=tui.theme=\"ansi\"");
-        assert_eq!(&followed[fixed_arguments().len()..], [theme.clone()]);
+        assert_eq!(
+            &followed[fixed_arguments().len()..],
+            std::slice::from_ref(&theme)
+        );
         let open = CodexSessionOperation::start_new()
             .with_full_access()
             .with_palette(palette)
@@ -1626,8 +1658,16 @@ mod tests {
         // it, with the chat hooks in place of the session hook alone.
         let version = Version::parse("0.169.0").unwrap();
         let chat = [
-            crate::mukade_chat::CodexHook { table_key: "UserPromptSubmit", command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(), timeout: 30 },
-            crate::mukade_chat::CodexHook { table_key: "Stop", command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(), timeout: 3630 },
+            crate::mukade_chat::CodexHook {
+                table_key: "UserPromptSubmit",
+                command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(),
+                timeout: 30,
+            },
+            crate::mukade_chat::CodexHook {
+                table_key: "Stop",
+                command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(),
+                timeout: 3630,
+            },
         ];
         let mut additions = session_and_chat_hook_arguments(
             Path::new(r"C:\App\shinatama-hook.exe"),
@@ -1637,17 +1677,40 @@ mod tests {
         )
         .unwrap();
         additions.extend(mcp_arguments("http://127.0.0.1:32123/session-opaque"));
-        let marionette = ["-c", "mcp_servers.mukade={}", "-c", "marketplaces.m={}", "-c", "plugins={}"].map(OsString::from);
+        let marionette = [
+            "-c",
+            "mcp_servers.mukade={}",
+            "-c",
+            "marketplaces.m={}",
+            "-c",
+            "plugins={}",
+        ]
+        .map(OsString::from);
         additions.extend(marionette.clone());
-        assert!(additions.ends_with(&marionette), "Marionette's overrides are untouched");
-        let operation = CodexSessionOperation::start_new().with_initial_prompt("Review").unwrap();
+        assert!(
+            additions.ends_with(&marionette),
+            "Marionette's overrides are untouched"
+        );
+        let operation = CodexSessionOperation::start_new()
+            .with_initial_prompt("Review")
+            .unwrap();
         let kind = operation.operation();
         let descriptor = descriptor(&version, kind, TRACKED_RECIPE).unwrap();
         let recipe = operation
             .with_palette(HarnessPalette::Terminal { light: false })
-            .qualify_arguments_with_hooks(&descriptor, PathBuf::from(r"C:\App\codex.exe"), &additions)
+            .qualify_arguments_with_hooks(
+                &descriptor,
+                PathBuf::from(r"C:\App\codex.exe"),
+                &additions,
+            )
             .unwrap();
-        let command = shinatama_adapter::launch::arguments::plan_arguments(&descriptor, kind, Path::new(r"C:\Project"), Some(&recipe)).unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(
+            &descriptor,
+            kind,
+            Path::new(r"C:\Project"),
+            Some(&recipe),
+        )
+        .unwrap();
         assert!(command.argv().len() <= 32);
     }
     #[test]
@@ -1657,8 +1720,16 @@ mod tests {
         let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
         let verified = session_hook_arguments(&version, helper, shell, 43210).unwrap();
         let chat = [
-            crate::mukade_chat::CodexHook { table_key: "UserPromptSubmit", command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(), timeout: 30 },
-            crate::mukade_chat::CodexHook { table_key: "Stop", command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(), timeout: 3630 },
+            crate::mukade_chat::CodexHook {
+                table_key: "UserPromptSubmit",
+                command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(),
+                timeout: 30,
+            },
+            crate::mukade_chat::CodexHook {
+                table_key: "Stop",
+                command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(),
+                timeout: 3630,
+            },
         ];
         let combined = session_and_chat_hook_arguments(helper, shell, 43210, &chat).unwrap();
         // Two arguments fewer than the state and definition pairs it replaces.
@@ -1667,14 +1738,26 @@ mod tests {
         let table = combined[3].to_str().unwrap();
         // The session-start trust and definition are the verified ones, byte for byte.
         let verified_state = verified[3].to_str().unwrap();
-        let state = verified_state.strip_prefix("hooks={").unwrap().strip_suffix("}").unwrap();
+        let state = verified_state
+            .strip_prefix("hooks={")
+            .unwrap()
+            .strip_suffix("}")
+            .unwrap();
         assert!(table.starts_with(&format!("hooks={{{state},")), "{table}");
-        let definition = verified[5].to_str().unwrap().strip_prefix("hooks.").unwrap();
+        let definition = verified[5]
+            .to_str()
+            .unwrap()
+            .strip_prefix("hooks.")
+            .unwrap();
         assert!(table.contains(&format!(",{definition},UserPromptSubmit=[{{hooks=[{{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex prompt\",timeout=30}}]}}]")));
         assert!(table.ends_with(",Stop=[{hooks=[{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex stop\",timeout=3630}]}]}"));
         // Only Shinatama's own hook is trusted here; Mukade's come from the recorded approval.
         assert_eq!(table.matches("trusted_hash").count(), 1);
-        let bad = [crate::mukade_chat::CodexHook { table_key: "Stop", command: "a\nb".into(), timeout: 1 }];
+        let bad = [crate::mukade_chat::CodexHook {
+            table_key: "Stop",
+            command: "a\nb".into(),
+            timeout: 1,
+        }];
         assert!(session_and_chat_hook_arguments(helper, shell, 43210, &bad).is_err());
     }
     #[test]
@@ -1743,7 +1826,11 @@ mod tests {
             session_hook_arguments(&Version::parse(version).unwrap(), helper, shell, 43210)
         };
         for version in ["0.167.0", "0.167.1", "0.169.0", "0.170.0", "1.0.0"] {
-            assert_eq!(hook(version).unwrap(), hook("0.167.1").unwrap(), "{version}");
+            assert_eq!(
+                hook(version).unwrap(),
+                hook("0.167.1").unwrap(),
+                "{version}"
+            );
         }
     }
     #[test]
