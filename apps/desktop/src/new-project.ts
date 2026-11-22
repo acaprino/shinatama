@@ -1,6 +1,6 @@
-import { checkboxOptionHtml, componentElement, formHeaderHtml, uiButton, uiInput, uiOption, uiPart, uiSelect } from '@acaprino/imago/ui';
+import { checkboxOptionHtml, componentElement, hasModal, uiButton, uiInput, uiOption, uiPart, uiSelect } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
-import { openModal } from './modal.ts';
+import { sideSurface } from './side-panel.ts';
 import { beginMutation, cancelMutation, createRequestId, type Project } from './project-catalog.ts';
 import { labelledBy } from './field-label.ts';
 
@@ -41,12 +41,10 @@ function nameProblem(name: string) {
 
 /** Project creation changes selection only after the backend returns its committed project. */
 export function createNewProjectDialog(options: Options) {
-  const dialog = uiPart('dialog');
-  dialog.id = 'new-project-dialog';
-  dialog.setAttribute('aria-labelledby', 'new-project-title');
+  const view = sideSurface('new-project-dialog', 'New project', 'Close new project dialog', 'new-project-title');
   const form = uiPart('form');
-  const heading = componentElement(formHeaderHtml('New project', 'Create a project folder inside one of your configured roots.', false, 'new-project-title'));
-  const close = heading.querySelector<HTMLButtonElement>('button')!;
+  const intro = uiPart('hint', 'Create a project folder inside one of your configured roots.');
+  const close = view.closeButton;
   const rootLabel = uiPart('field');
   const rootCaption = uiPart('text', 'Project root');
   rootLabel.append(rootCaption);
@@ -84,15 +82,17 @@ export function createNewProjectDialog(options: Options) {
   const submit = uiButton('Create project', { primary: true });
   submit.type = 'submit';
   actions.append(reload, cancel, submit);
-  form.append(heading, rootLabel, rootHelp, nameLabel, destination, gitLabel, status, error, actions);
-  dialog.append(form);
-  document.querySelector('#app')!.append(dialog);
+  form.append(intro, rootLabel, rootHelp, nameLabel, destination, gitLabel, status, error, actions);
+  view.body.append(form);
 
   let configuration: CreationOptions | null = null;
   let optionsRead: Promise<CreationOptions> | null = null;
   let loading = false;
   let generation = 0;
   let operation: Creation | null = null;
+  let leaving = false;
+  /** Closes the view for good: the guard that holds it while an operation runs lets this one through. */
+  function leave() { leaving = true; try { view.close(); } finally { leaving = false; } }
   function showError(failure: CreationFailure) { error.textContent = failureText(failure); error.hidden = false; }
   function render() {
     const busy = operation !== null;
@@ -123,7 +123,7 @@ export function createNewProjectDialog(options: Options) {
         optionsRead = pending;
       }
       const received = await optionsRead;
-      if (!dialog.open || generation !== currentGeneration) return;
+      if (!view.isOpen() || generation !== currentGeneration) return;
       configuration = received;
       const placeholder = uiOption('', ''); placeholder.value = ''; placeholder.disabled = true; placeholder.textContent = 'Choose a project root';
       const entries = received.roots.slice(0, 16).map(entry => {
@@ -134,12 +134,12 @@ export function createNewProjectDialog(options: Options) {
       rootHelp.textContent = received.roots.length ? 'The configured default is selected. Choose a different root explicitly if needed.'
         : 'Configure a project root in the project picker before creating a project.';
     } catch (failure) {
-      if (dialog.open && generation === currentGeneration) { configuration = null; showError(failureDetails(failure)); }
+      if (view.isOpen() && generation === currentGeneration) { configuration = null; showError(failureDetails(failure)); }
     } finally { if (generation === currentGeneration) { loading = false; render(); } }
   }
   function complete(project: Project) {
-    const wasOpen = dialog.open;
-    if (wasOpen) dialog.close();
+    const wasOpen = view.isOpen();
+    if (wasOpen) leave();
     try { options.onCreated(project); }
     catch {
       // The folder is already committed. A display callback cannot turn it into a failed create.
@@ -169,7 +169,7 @@ export function createNewProjectDialog(options: Options) {
       if (current.reserved && !current.cancelRequested) void cancelMutation(current.id).catch(() => {});
       if (current.failure.recoveryPath) options.notify(failureText(current.failure));
       if (operation === current && current.phase !== 'cancelled' && current.phase !== 'cancelling') {
-        if (dialog.open) showError(current.failure);
+        if (view.isOpen()) showError(current.failure);
         else if (!current.failure.recoveryPath) options.notify(failureText(current.failure));
       }
     } finally {
@@ -180,8 +180,8 @@ export function createNewProjectDialog(options: Options) {
   }
   async function cancelOrClose() {
     const current = operation;
-    if (!current || current.phase === 'cancelled') { dialog.close(); return; }
-    if (current.phase === 'committing') { dialog.close(); options.notify('Project creation continues. Its result will be reported here.', 'info'); return; }
+    if (!current || current.phase === 'cancelled') { leave(); return; }
+    if (current.phase === 'committing') { leave(); options.notify('Project creation continues. Its result will be reported here.', 'info'); return; }
     if (current.phase === 'cancelling') return;
     current.cancelRequested = true; current.phase = 'cancelling'; render();
     current.cancellation = (async () => {
@@ -192,16 +192,16 @@ export function createNewProjectDialog(options: Options) {
         const acknowledgement = await cancelMutation(current.id);
         if (operation !== current) return;
         if (acknowledgement.status === 'cancelled' || !current.dispatched) {
-          current.phase = 'cancelled'; dialog.close();
+          current.phase = 'cancelled'; leave();
           if (current.settled) operation = null;
         } else if (current.settled) {
-          operation = null; dialog.close();
+          operation = null; leave();
           options.notify(current.failure ? failureText(current.failure) : 'Project creation finished before cancellation. The completed project has been kept.', current.failure ? 'error' : 'info');
         } else current.phase = 'committing';
         render();
       } catch (failure) {
         if (operation !== current) return;
-        if (!current.reserved) { current.phase = 'cancelled'; dialog.close(); if (current.settled) operation = null; }
+        if (!current.reserved) { current.phase = 'cancelled'; leave(); if (current.settled) operation = null; }
         else if (current.settled && current.dispatched) operation = null;
         else current.phase = 'pending';
         if (current.reserved) showError(current.failure ?? failureDetails(failure));
@@ -211,26 +211,32 @@ export function createNewProjectDialog(options: Options) {
     await current.cancellation;
   }
   function open() {
-    if (dialog.open) return false;
+    if (view.isOpen()) return false;
     if (!options.desktop) { options.notify('Open the desktop app to create a project.', 'info'); return false; }
     if (operation) { options.notify('The previous project creation is still returning. Existing terminals remain available.'); return false; }
     if (options.prepareOpen && !options.prepareOpen()) return false;
-    if (document.querySelector('dialog[open][aria-modal="true"]')) return false;
+    if (hasModal()) return false;
     generation++; configuration = null; loading = false;
     name.value = ''; name.setCustomValidity(''); git.checked = false; error.hidden = true;
-    root.replaceChildren(); rootHelp.textContent = ''; render(); openModal(dialog); name.focus(); void loadOptions(); return true;
+    root.replaceChildren(); rootHelp.textContent = ''; render(); view.open(); view.guard(() => operation !== null && !leaving, askToLeave); name.focus(); void loadOptions(); return true;
   }
   form.onsubmit = event => { event.preventDefault(); void create(); };
   name.oninput = () => { name.setCustomValidity(''); error.hidden = true; render(); };
   root.onchange = () => { error.hidden = true; render(); };
   reload.onclick = () => { void loadOptions(); };
   close.onclick = cancel.onclick = () => { void cancelOrClose(); };
-  dialog.addEventListener('cancel', event => { if (operation) { event.preventDefault(); void cancelOrClose(); } });
-  // The browser fires close after the dialog has closed; under load it can come after the next opening, which must
-  // keep its read: a close event that finds the dialog open again belongs to a closing already superseded.
-  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; loading = false; });
+  // Escape and another view replacing this one ask the guard while an operation runs: it cancels (or lets a final
+  // save go on) instead of leaving, and `leave` is how this module closes itself once that is decided.
+  async function askToLeave() {
+    const current = operation;
+    if (!current || current.phase === 'cancelled') return true;
+    if (current.phase === 'committing') { options.notify('Project creation continues. Its result will be reported here.', 'info'); return true; }
+    void cancelOrClose(); return false;
+  }
+  view.onClose(() => { generation++; loading = false; });
   return {
     open,
+    onClose: (listener: () => void) => view.onClose(listener),
     handleKey(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== 'n' || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return false;
       // A character key acts only while its control has focus, never on stray focus.

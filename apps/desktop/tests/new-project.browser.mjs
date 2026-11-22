@@ -27,7 +27,7 @@ async function withDialogPage(run) {
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.route('https://fixture.invalid/', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
-      <html data-im-look="oni" data-im-theme="dark"><body><main class="im-shell" id="app"></main></body></html>` }));
+      <html data-im-look="oni" data-im-theme="dark"><body><main class="im-shell" id="app"><section class="im-panel im-inspector" aria-label="Side panel" hidden></section></main></body></html>` }));
     await page.goto('https://fixture.invalid/');
     await page.evaluate(() => {
       window.reads = 0;
@@ -60,9 +60,9 @@ test('a close event that arrives after the dialog opened again does not drop its
   await root.waitFor();
   await page.waitForFunction(() => !document.querySelector('#new-project-root').disabled);
   assert.equal(await root.inputValue(), 'r1');
-  // Closed and opened again before the browser fires the close's event, as a loaded WebView2 does when the next key
-  // press is handled first: the event then arrives while the dialog is open again, with its read in flight.
-  await page.evaluate(() => { document.querySelector('#new-project-dialog').close(); window.creator.open(); });
+  // Closed and opened again at once (the next key press handled before the close is settled): the new opening keeps
+  // its own read, and the closing of the old one does not drop it.
+  await page.evaluate(() => { document.querySelector('#new-project-dialog [aria-label^="Close"]').click(); window.creator.open(); });
   await page.waitForFunction(() => !document.querySelector('#new-project-root').disabled, null, { timeout: 2000 })
     .catch(async () => { throw Error('The roots were not read: ' + await page.locator('#new-project-status').textContent()); });
   assert.equal(await root.inputValue(), 'r1');

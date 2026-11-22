@@ -25,7 +25,9 @@ export function sideView(id: string, title: string, closeLabel: string, titleId 
   const close = closeControl(closeLabel);
   header.append(heading, uiPart('spacer'), close);
   const body = uiPart('scroll', undefined, 'im-panel-body');
-  const foot = uiPart('row', undefined, 'im-panel-foot');
+  const foot = uiPart('row', undefined, 'im-panel-foot'); foot.hidden = true;
+  // The foot is an empty bordered strip until a view puts its actions there.
+  new MutationObserver(() => { foot.hidden = !foot.hasChildNodes(); }).observe(foot, { childList: true });
   root.append(header, body, foot);
   return { root, header, heading, body, foot, close };
 }
@@ -125,6 +127,8 @@ export type SideSurface = Omit<SideView, 'close'> & {
   /** Nothing covers the surface: it is the view the person sees. */
   onTop(): boolean;
   onClose(listener: () => void): void;
+  /** While `isDirty()` holds, closing or replacing the view asks `ask()` once and keeps it on false. Set after `open()`. */
+  guard(isDirty: () => boolean, ask: () => Promise<boolean>): void;
 };
 
 export function sideSurface(id: string, title: string, closeLabel: string, titleId?: string): SideSurface {
@@ -138,6 +142,7 @@ export function sideSurface(id: string, title: string, closeLabel: string, title
     isOpen: () => sidePanelShows(view.root),
     onTop: () => sidePanelTop(view.root),
     onClose: listener => { listeners.push(listener); },
+    guard: (isDirty, ask) => { if (sidePanelTop(view.root)) inspector(shell()).guard(isDirty, ask); },
   };
   closeButton.onclick = () => surface.close();
   return surface;

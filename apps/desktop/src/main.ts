@@ -1673,9 +1673,8 @@ function settlePendingStart() {
   const request = pendingStart; pendingStart = null;
   if (request?.projectChosen) void startTerminal(request.group);
 }
-for (const dialog of ['#project-dialog', '#new-project-dialog']) {
-  $(dialog).addEventListener('close', settlePendingStart);
-}
+$('#project-dialog').addEventListener('close', settlePendingStart);
+newProject.onClose(settlePendingStart);
 confirmDialog.addEventListener('close', () => {
   // A selection may finish under this overlay. Cancel resumes the original
   // request once; confirming shutdown must never create another terminal.

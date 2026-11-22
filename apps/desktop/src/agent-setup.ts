@@ -1,6 +1,5 @@
-import { uiPart, uiButton, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal } from './modal.ts';
+import { hasModal, uiPart, uiButton, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 
 export type AgentId = 'claude_code' | 'codex' | 'opencode' | 'pi' | 'hermes_agent' | 'deepseek_harness';
 export type AgentStepState = 'unknown' | 'ready' | 'missing' | 'unavailable' | 'unsupported';
@@ -54,11 +53,8 @@ export function createAgentSetup(options: Options) {
     && typeof item.checkable === 'boolean' && all.findIndex(other => other.agentId === item.agentId) === index);
   const button = uiButton('Agents'); button.id = 'agents';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiPart('dialog'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
-  const heading = uiPart('row', undefined, 'dialog-heading');
-  const title = uiPart('title', 'Agents'); title.id = 'agent-setup-title';
-  const dismiss = closeControl('Close agents');
-  heading.append(title, dismiss);
+  const view = sideSurface('agent-setup-dialog', 'Agents', 'Close agents', 'agent-setup-title');
+  const dismiss = view.closeButton;
   const description = uiPart('paragraph', 'Check an agent before opening it. Sign-in takes place in its original terminal interface.');
   const label = uiPart('label', 'Agent'); label.htmlFor = 'agent-provider';
   const provider = uiSelect(); provider.id = 'agent-provider';
@@ -76,8 +72,7 @@ export function createAgentSetup(options: Options) {
   const login = uiButton('Sign in in terminal');
   const launch = uiButton('Open agent', { primary: true });
   actions.append(check, login, launch);
-  dialog.append(heading, description, label, provider, facts, issues, status, hint, actions);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(description, label, provider, facts, issues, status, hint, actions);
   let snapshot: AgentCheckup | null = null;
   let busy: 'check' | 'open' | 'login' | null = null;
   let generation = 0; let destroyed = false; let failure = '';
@@ -95,7 +90,7 @@ export function createAgentSetup(options: Options) {
     // Authorization comes only from the backend, never inferred from these facts.
     launch.disabled = busy !== null || !snapshot?.canOpen;
     login.disabled = busy !== null || !snapshot?.canLogin;
-    dialog.setAttribute('aria-busy', String(busy !== null));
+    view.root.setAttribute('aria-busy', String(busy !== null));
     facts.replaceChildren();
     const program = snapshot?.program;
     row('Program', program?.state === 'found' ? `Found${program.version ? ` · ${program.version}` : ''}`
@@ -111,7 +106,7 @@ export function createAgentSetup(options: Options) {
       : busy === 'login' ? 'Opening sign-in in the agent terminal…' : snapshot ? 'Check complete. Available actions are confirmed by the backend.'
         : 'Not checked. Opening and sign-in remain unavailable.');
   }
-  function close() { generation++; if (dialog.open) dialog.close(); }
+  function close() { generation++; if (view.isOpen()) view.close(); }
   async function act(kind: 'check' | 'open' | 'login') {
     const chosen = selected();
     if (busy || !chosen || (kind === 'open' && !snapshot?.canOpen) || (kind === 'login' && !snapshot?.canLogin)) return;
@@ -120,7 +115,7 @@ export function createAgentSetup(options: Options) {
       if (kind === 'check') {
         const received = await options.check(chosen.agentId);
         if (!validCheckup(received, chosen.agentId)) throw new Error('Invalid checkup');
-        if (at === generation && dialog.open && !destroyed) snapshot = {
+        if (at === generation && view.isOpen() && !destroyed) snapshot = {
           agentId: received.agentId, displayName: received.displayName,
           program: { state: received.program.state, ...(received.program.version ? { version: received.program.version } : {}) },
           home: { state: received.home.state }, sidecar: { state: received.sidecar.state }, sets: { state: received.sets.state },
@@ -128,23 +123,23 @@ export function createAgentSetup(options: Options) {
         };
       } else {
         await options[kind](chosen.agentId);
-        if (at === generation && dialog.open && !destroyed) close();
+        if (at === generation && view.isOpen() && !destroyed) close();
       }
     } catch {
       const message = kind === 'check' ? 'Agent check did not complete. Retry explicitly.' : 'The agent action did not complete. Check its status before retrying.';
-      if (!destroyed && at === generation && dialog.open) failure = message;
+      if (!destroyed && at === generation && view.isOpen()) failure = message;
       else if (!destroyed) options.reportError(message);
       snapshot = null;
     } finally { busy = null; render(); }
   }
   function show() {
-    if (destroyed || dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
-    generation++; snapshot = null; failure = ''; render(); openModal(dialog); (selected() ? check : dismiss).focus();
+    if (destroyed || view.isOpen() || hasModal()) return;
+    generation++; snapshot = null; failure = ''; render(); view.open(); (selected() ? check : dismiss).focus();
   }
   button.onclick = show; dismiss.onclick = close;
   check.onclick = () => { void act('check'); }; launch.onclick = () => { void act('open'); }; login.onclick = () => { void act('login'); };
   provider.onchange = () => { generation++; snapshot = null; failure = ''; render(); };
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  view.onClose(() => { generation++; if (!sidePanelOpen()) options.restoreFocus?.(); });
   render();
-  return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };
+  return { show, close, destroy: () => { destroyed = true; close(); button.remove(); view.root.remove(); } };
 }

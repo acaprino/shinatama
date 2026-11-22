@@ -1,6 +1,6 @@
 {
   "agent-setup.ts": {
-    "parts": 19
+    "parts": 16
   },
   "attention-control.ts": {
     "parts": 9
@@ -33,7 +33,7 @@
     "parts": 50
   },
   "new-project.ts": {
-    "parts": 20
+    "parts": 19
   },
   "new-session.ts": {
     "parts": 23
