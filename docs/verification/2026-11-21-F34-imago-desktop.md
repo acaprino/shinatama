@@ -85,10 +85,15 @@ Branch `feat/imago-canon`, merged into `develop` as `77c1b48`.
   checked by `specialist-layout.browser.mjs` only.
 - The Claude Code part of `desktop-smoke` is skipped on the runner, where Claude Code is not installed.
 - `native-picker-smoke` (the Windows folder picker) does not run on the runner.
-- The canon's remaining parts are not done: the panel states of the other panels, the toolbar's panels and the session
-  views on the side panel, Files as a tab of the tiling workspace, Settings as the last view tab of the title bar. The
-  design file has the app pick the look and the theme with the palette's commands only, where the plan's amendment
-  allowed controls in Settings too: Settings has none. The session helper (a bin of `shinatama-engine`) has no icon.
+- The canon's remaining parts are written on branch `imago-rest` (2026-11-22) and wait for Verify Windows: the panel
+  states of the other panels (Overview, Leftovers, Sessions' saved list, the conversation's first read, a session's
+  first read; the archive browser and the search index are forms with status lines and keep theirs), the toolbar's
+  panels and the session views on the side panel (a stack: a view opened from inside covers its opener), Files as a tab
+  of the tiling workspace, Settings as the last view tab of the title bar. Nothing of it was run on the machine that
+  wrote it (the owner's rule); `imago-check` was. Settings keeps its Save button for the sections that wait for it
+  (the design file's "Settings save themselves" is not done). The design file has the app pick the look and the theme
+  with the palette's commands only, where the plan's amendment allowed controls in Settings too: Settings has none. The
+  session helper (a bin of `shinatama-engine`) has no icon.
 - `launch-preflight-smoke` raced the window's diagnostic log (`shinatama.log`, written when the start ends); since
   `d4285d3` the folder is compared without it. `rust-tests` (the contained terminal's synthetic memory fault ended in a
   stack overflow before its marker), `new-project-smoke` (CDP port occupied at start) and `maintenance-smoke` (no idle

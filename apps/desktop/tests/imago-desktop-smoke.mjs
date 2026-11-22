@@ -195,6 +195,33 @@ try {
   await page.getByRole('button', { name: 'Close settings' }).click();
   await expect(dialog).toBeHidden();
   await expect(workspaceTab).toHaveAttribute('aria-selected', 'true');
+  // Sessions is a view of the side panel (the inspector), not a drawer. Its saved list could not be read here (the
+  // fixture has no archive reader): the list says what failed, inside the view, with Retry, and Retry reads again.
+  await page.locator('#open-sessions').click();
+  const sessions = page.locator('#sessions-dialog');
+  await expect(sessions).toBeVisible();
+  assert.ok(await sessions.evaluate(node => node.closest('.im-inspector') !== null && !(node instanceof HTMLDialogElement)));
+  const failure = sessions.locator('[data-im-state-layer="error"]');
+  await expect(failure).toBeVisible();
+  const retry = failure.getByRole('button', { name: 'Retry' });
+  const reads = () => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'session_roots').length);
+  const before = await reads();
+  await retry.click();
+  await expect.poll(reads).toBeGreaterThan(before);
+  // A view opened from inside the panel covers the one that opened it and gives it back when it closes.
+  await sessions.locator('summary').first().click();
+  await sessions.getByRole('button', { name: 'Archive browser…' }).click();
+  const library = page.locator('#session-library-dialog');
+  await expect(library).toBeVisible();
+  await expect(sessions).toHaveAttribute('data-im-covered', '');
+  await library.locator('.im-panel-header button').click();
+  await expect(library).toBeHidden();
+  await expect(sessions).toBeVisible();
+  await expect(sessions).not.toHaveAttribute('data-im-covered', /.*/);
+  // Escape closes the panel, and focus goes back to the focused pane.
+  await sessions.locator('input[type=search]').focus();
+  await page.keyboard.press('Escape');
+  await expect(sessions).toBeHidden();
   await page.evaluate(() => { window.smoke.failure = 'plugin:window|minimize'; });
   await page.locator('#window-minimize').click();
   // Imago's error notice: it says "Error" in words and stays until it is dismissed.
