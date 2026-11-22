@@ -160,9 +160,9 @@ try {
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
   // The look and the theme are the window's Appearance commands (Ctrl+K); ONI dark's skin and the terminal appearance
-  // live in the Appearance section of Settings (the last entry of the toolbar's "⋯" menu). Every change applies at once
-  // and the drawer stays open.
-  await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
+  // live in the Appearance section of Settings (the title bar's last tab). Every change applies at once
+  // and the view stays open.
+  await page.getByRole('tab', { name: 'Settings' }).click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#toolbar-more-menu')).toBeHidden();
   await page.locator('#project').focus(); await page.keyboard.press('Control+k');

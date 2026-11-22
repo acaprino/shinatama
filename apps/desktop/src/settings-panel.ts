@@ -1,6 +1,5 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { claimKey, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 import { closeControl, iconControl } from './controls.ts';
-import { openModal } from './modal.ts';
 import { parseMuroStatus, pluginsButtons, pluginsLine, type MuroStatus } from './muro-status.ts';
 import { createModelSettingsPanel } from './model-settings-panel.ts';
 import type { Save as ModelSave } from './model-settings-model.ts';
@@ -22,6 +21,9 @@ type Options = {
   invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
   notify(message: unknown, tone?: 'info' | 'error'): void;
   restoreFocus?: () => void;
+  /** Shows Settings, the title bar's last view tab; `close` goes back to the workspace tab. */
+  select: () => void;
+  close: () => void;
   /** The theme and the terminal controls (presentation.ts). They apply and save as they change. */
   appearance: { theme: HTMLElement; terminal: HTMLElement; reset(): void; reload(): void };
   /** The desktop alert controls (attention-control.ts). They apply and save as they change. */
@@ -33,13 +35,15 @@ type Options = {
 const message = (error: unknown) => typeof error === 'string' ? error : (error as { message?: string } | null)?.message ?? 'The settings could not be saved.';
 const percent = (level: number) => `${Math.round(level * 100)}%`;
 
-/** Settings: one drawer for every preference of the app. Each section keeps saving the way its owner
+/** Settings: the view of the title bar's last tab, one page for every preference of the app (look and theme are the
+ * palette's Appearance commands, not here). Each section keeps saving the way its owner
  * always has: Appearance, Alerts and Sessions apply as they change; Agents, Models, Memory, GitHub and the
  * variables wait for Save. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
+  // The view fills the content region (shell-content.css); main.ts hides it until the Settings tab is selected.
+  const dialog = uiPart('stack', undefined, 'settings-view'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title'); dialog.hidden = true;
   const top = uiPart('stack');
-  const heading = uiPart('row', undefined, 'dialog-heading'); const title = uiPart('title', 'Settings'); title.id = 'settings-title';
+  const heading = uiPart('row'); const title = uiPart('minorHeading', 'Settings'); title.id = 'settings-title';
   const closeButton = closeControl('Close settings');
   heading.append(title, closeButton);
   const index = uiTraits(uiPart('nav'), 'row'); index.setAttribute('aria-label', 'Settings sections');
@@ -135,9 +139,8 @@ export function createSettingsPanel(options: Options) {
   const close = uiButton('Close');
   actions.append(status, reload, save, close);
   // The title and index above, the actions below, and only the sections between them scroll.
-  const body = uiPart('scroll'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
+  const body = uiTraits(uiPart('scroll'), 'grow'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
   dialog.append(top, body, actions);
-  (document.querySelector('#app') ?? document.body).append(dialog);
 
   // The index follows the scroll; a section picked from it stays marked until the user scrolls.
   let picked: SettingsSection | null = null; let spyFrame = 0;
@@ -172,6 +175,7 @@ export function createSettingsPanel(options: Options) {
 
   let form: Form = { fullAccess: true, githubUsername: '', tokenInput: '', removeToken: false, hasToken: false, rows: [] };
   let memory: MemorySafety = { ...DEFAULT_MEMORY };
+  const shown = () => !dialog.hidden;
   let loaded = false; let busy = false;
   const statusLine = () => `${summary(form)} · ${memorySummary(memory)}`;
   function paintMemory() { memoryCheck.checked = memory.enabled; margin.value = String(memory.marginMib); margin.disabled = !memory.enabled; }
@@ -304,7 +308,7 @@ export function createSettingsPanel(options: Options) {
     else { const line = pluginsLine(status, clock); sayPlugins(line.text, line.tone === 'error'); }
     // A Muro that is still starting is asked again while Settings is open.
     clearTimeout(pluginsTimer);
-    if (status?.state === 'starting' && dialog.open) pluginsTimer = setTimeout(() => { void loadPlugins(); }, 2000);
+    if (status?.state === 'starting' && shown()) pluginsTimer = setTimeout(() => { void loadPlugins(); }, 2000);
   }
   async function loadPlugins() {
     if (!options.desktop) { paintPlugins(null); return; }
@@ -343,21 +347,35 @@ export function createSettingsPanel(options: Options) {
   };
   save.onclick = () => { void submit(); };
   reload.onclick = () => { options.appearance.reload(); void loadSessions(); void loadPlugins(); if (!busy) void load(); };
-  closeButton.onclick = close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { if (dialog.open) return; clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  closeButton.onclick = close.onclick = () => options.close();
   dialog.addEventListener('submit', event => event.preventDefault());
+  // Escape is the way back to the workspace, unless a list of choices is open: that one's Escape closes it.
+  dialog.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.target instanceof HTMLSelectElement) return;
+    event.preventDefault(); claimKey(event); options.close(); options.restoreFocus?.();
+  });
+  closeButton.addEventListener('click', () => options.restoreFocus?.());
+  close.addEventListener('click', () => options.restoreFocus?.());
 
   return {
-    /** Opens Settings, at one section when given. */
-    show(section?: SettingsSection) {
-      const opening = !dialog.open;
-      if (opening) { openModal(dialog); body.scrollTop = 0; picked = null; mark('appearance'); }
+    element: dialog,
+    /** Settings became the shown view (its tab was selected): read every setting again, at one section when given. */
+    enter(section?: SettingsSection) {
+      body.scrollTop = 0; picked = null; mark('appearance');
       options.appearance.reset(); options.alerts.reset(); paintZoom();
       if (!loaded || !busy) void load();
       void loadSessions();
       void loadPlugins();
       if (section) go(section);
-      else if (opening) index.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+      else index.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    },
+    /** Settings is no longer the shown view: what was typed in a secret field goes, and the Muro poll stops. */
+    leave() { clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); },
+    /** Shows Settings (the title bar's last tab), at one section when given. */
+    show(section?: SettingsSection) {
+      if (shown()) { if (section) go(section); return; }
+      options.select();
+      if (section) go(section);
     },
   };
 }

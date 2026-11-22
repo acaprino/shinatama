@@ -42,6 +42,7 @@ import { createProjectsOverview } from './projects-overview.ts';
 import { createLeftoversPanel } from './leftovers-panel.ts';
 import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
+import { createViews } from './views.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -377,6 +378,7 @@ const isTeamView = (id: string) => workspaceLayout.views.find(panel => panel.id 
 /** Opens the thread's team map: one per thread. The first one of the layout gets a column beside the focused pane; later ones join that pane. */
 function openTeamTab(thread: { id: string; projectId?: string }) {
   try {
+    leaveSettings();
     const opened = teamMap.open(thread);
     bindings.set(opened.viewId, opened.element);
     const present = workspaceLayout.views.find(panel => panel.id === opened.viewId);
@@ -401,6 +403,7 @@ function closeTeamTab(viewId: string) { bindings.delete(viewId); teamMap.close(v
  *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
 async function openBrowserTab(target: BrowserTarget, viewId?: string) {
   try {
+    leaveSettings();
     const opened = await browserTabs.open(target, viewId);
     bindings.set(opened.viewId, opened.element);
     if (workspaceLayout.views.some(panel => panel.id === opened.viewId)) { render(); return; }
@@ -455,9 +458,12 @@ function changeLayout(action: LayoutAction, save = true) {
   if (save) persistence?.update(workspaceLayout);
   render();
 }
+/** Back to the Workspace tab when Settings is the view: a pane that is asked for must be on screen (set once the views exist). */
+let leaveSettings = () => {};
 function setFocus(groupId: string, terminal = true) {
   const group = tabGroups(workspaceLayout.root).find(group => group.id === groupId);
   if (!group) return;
+  if (terminal) leaveSettings();
   if (group.activeTabId && workspaceLayout.focusedGroupId !== groupId) changeLayout({ type: 'focus', groupId });
   if (terminal && !modalOpen()) {
     const view = group.activeTabId ? views.get(group.activeTabId) : null;
@@ -1592,19 +1598,25 @@ const sessionsPanel = createSessionsPanel({
   button.onclick = () => { void sessionsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
-// Every preference in one drawer. Each section keeps its owner's saving: presentation.ts for the
-// theme and terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom.
+// Every preference in one view: Settings, the last tab of the title bar. Each section keeps its owner's saving:
+// presentation.ts for the terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom. The look and the
+// theme are the palette's Appearance commands, not a control here.
 const settingsPanel = createSettingsPanel({
   desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()),
+  select: () => viewTabs.select('settings'), close: () => viewTabs.select('workspace'),
   appearance: presentation, alerts: attentionControl,
   zoom: { levels: ZOOM_STEPS, current: interfaceZoom, available: canZoom, set: changeZoom, subscribe: onInterfaceZoom },
 });
-{
-  const button = uiButton('Settings', { attrs: { id: 'open-settings' } });
-  button.title = 'Appearance, agents, memory, alerts, GitHub, environment variables, sessions and plugins';
-  button.onclick = () => { settingsPanel.show(); };
-  document.querySelector('#open-projects')?.before(button);
-}
+// The views fill the content region: the workspace and its toolbar, or Settings. The one that is not shown is hidden,
+// never removed, so the terminals keep running.
+const content = $('#desktop-content');
+content.querySelector('.im-panel-body')!.append(settingsPanel.element);
+const viewTabs = createViews($('#app'), content, { workspace: [workspace, content.querySelector<HTMLElement>('.im-panel-tools')!], settings: [settingsPanel.element] });
+leaveSettings = () => viewTabs.select('workspace');
+viewTabs.listen((shown, left) => {
+  if (shown === 'settings') settingsPanel.enter();
+  if (left === 'settings') { settingsPanel.leave(); document.dispatchEvent(new CustomEvent('shinatama-settings-left')); }
+});
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   send: desktop ? runHop : undefined,

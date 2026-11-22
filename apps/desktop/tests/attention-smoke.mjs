@@ -48,7 +48,7 @@ try {
   await ipc('attention_dismiss',{id:unmuted.id});
   evidence.checks.unmutedSystemSoundPathExercised=true;
   // The alert switches live in the Alerts section of Settings, the last entry of the toolbar's "⋯" menu.
-  const openAlerts=async()=>{await main.locator('#toolbar-more').click();await main.locator('#open-settings').click();
+  const openAlerts=async()=>{await main.getByRole('tab',{name:'Settings'}).click();
     await main.locator('#settings-dialog .settings-index-link',{hasText:'Alerts'}).click();
     await expect(main.locator('#settings-section-alerts-title')).toBeFocused();};
   await openAlerts();

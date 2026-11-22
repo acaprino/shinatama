@@ -1,5 +1,6 @@
-import { componentElement, iconButtonHtml, renderShellFrame, shellFrameHtml, titlebarHtml, uiButton, uiPart, uiTraits } from '@acaprino/imago/ui';
+import { componentElement, iconButtonHtml, renderShellFrame, shellFrameHtml, tabNavigationHtml, titlebarHtml, uiButton, uiPart, uiTraits } from '@acaprino/imago/ui';
 import { projectControls, stopControls } from './project-controls.ts';
+import { VIEW_TABS } from './views.ts';
 import './shell-content.css';
 
 // The canon's window (Imago v0.2.0): the title bar with its sidebar toggle, the thread sidebar (main.ts puts it in the
@@ -7,7 +8,11 @@ import './shell-content.css';
 // (the inspector, written empty and hidden) and the footer. The frame is written once and filled in place.
 const shell = document.querySelector<HTMLElement>('#app')!;
 renderShellFrame(shell, shellFrameHtml({
-  titlebarHtml: titlebarHtml({ brand: { name: 'Shinatama' }, sidebarToggle: { label: 'Threads', controls: 'thread-sidebar' }, windowControls: true }),
+  // The views are the tabs of the title bar, Settings the last (main.ts createViews); under 620 the Views button stands for them.
+  titlebarHtml: titlebarHtml({
+    brand: { name: 'Shinatama' }, sidebarToggle: { label: 'Threads', controls: 'thread-sidebar' }, windowControls: true,
+    navigationHtml: tabNavigationHtml(VIEW_TABS, 'workspace', { label: 'Views', action: 'view' }), views: { label: 'Views', action: 'views-menu' },
+  }),
   contentId: 'desktop-content', contentLabel: 'Terminal workspace', skipLabel: 'Skip to terminal workspace',
   inspectorLabel: 'Side panel', contentToolsHtml: '', contentHtml: '', footerHtml: '',
 }));

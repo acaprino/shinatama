@@ -116,10 +116,19 @@ try {
   }
   await more('Layout');
   await expect.poll(async () => (await paneBoxes())[1].y).toBeGreaterThan(left.y + 100);
-  await more('Settings');
+  // Settings is the title bar's last view tab, not a button of the toolbar: it takes the content region.
+  const settingsTab = page.getByRole('tab', { name: 'Settings' });
+  const workspaceTab = page.getByRole('tab', { name: 'Workspace' });
+  assert.equal(await page.locator('.im-titlebar .im-tab').last().innerText(), 'Settings');
+  await expect(page.locator('#open-settings')).toHaveCount(0);
+  await settingsTab.click();
   const dialog = page.locator('#settings-dialog');
   await expect(dialog).toBeVisible();
-  assert.ok(await dialog.evaluate(node => node instanceof HTMLDialogElement && node.open));
+  await expect(settingsTab).toHaveAttribute('aria-selected', 'true');
+  assert.ok(await dialog.evaluate(node => node.closest('.im-content') !== null && !(node instanceof HTMLDialogElement)));
+  // The terminals are hidden, not gone: the panes stay in the page and run on.
+  await expect(panes).toHaveCount(2);
+  await expect(page.locator('[data-group-id="pane-fixture-live"] .xterm')).toBeHidden();
   await expect(page.locator('#settings-status')).toContainText('Reload before saving');
   const zoom = page.locator('#settings-zoom');
   await zoom.selectOption('1.2');
@@ -168,33 +177,24 @@ try {
   assert.equal(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-accent').trim()), '#78e2dc');
   await command('Smooth look');
   await expect(page.locator('html')).toHaveAttribute('data-im-look', 'smooth');
-  // Settings is a drawer of Imago's one layer stack, beside live panels: Escape in the terminal belongs to the
-  // agent, anywhere else it closes the drawer, and focus goes back to the focused pane (settings-panel.ts).
-  assert.equal(await dialog.getAttribute('data-im-layer'), 'drawer');
-  // Beside the panes, not over them: the work area gives the drawer its width.
-  const drawerBox = await dialog.boundingBox();
-  await expect.poll(async () => Math.max(...(await paneBoxes()).map(box => box.x + box.width))).toBeLessThanOrEqual(drawerBox.x + 1);
-  assert.equal(await page.locator('.im-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
-  await page.locator('[data-group-id="pane-fixture-live"] .xterm-helper-textarea').focus();
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeVisible();
-  await zoom.focus();
+  // Escape in Settings goes back to the workspace tab, and focus goes to the focused pane (settings-panel.ts).
+  await page.locator('#settings-dialog .settings-index-link').first().focus();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  // settings-panel.ts gives focus back when the close event comes, after the dialog has closed.
+  await expect(workspaceTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('[data-group-id="pane-fixture-live"] .xterm')).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-group-id="pane-fixture-live"]'))), { message: 'Focus is back in the focused pane' }).toBe(true);
-  // One press, one action: the control that opened the drawer closes it, and opens nothing else. The drawer
-  // covers it, so it is pressed from the keyboard.
-  await more('Settings');
-  await expect(dialog).toBeVisible();
-  await page.getByRole('button', { name: 'More options' }).focus();
+  // The tabs are one tab stop with the arrows (roving); the Workspace tab leaves Settings too, and so does its Close button.
+  await settingsTab.focus();
   await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await workspaceTab.click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('menu')).toHaveCount(0);
-  await more('Settings');
+  await settingsTab.click();
   await expect(dialog).toBeVisible();
   await page.getByRole('button', { name: 'Close settings' }).click();
   await expect(dialog).toBeHidden();
+  await expect(workspaceTab).toHaveAttribute('aria-selected', 'true');
   await page.evaluate(() => { window.smoke.failure = 'plugin:window|minimize'; });
   await page.locator('#window-minimize').click();
   // Imago's error notice: it says "Error" in words and stays until it is dismissed.

@@ -8,7 +8,7 @@ export function organizeToolbar(): void {
   const toolbar = document.querySelector<HTMLElement>('.toolbar')!;
   const more = uiButton('More', { attrs: { id: 'toolbar-more', 'aria-haspopup': 'menu', 'aria-label': 'More options' } });
   toolbar.append(more);
-  const secondary = ['find-terminal', 'layout-toggle', 'restore', 'sessions', 'session-search', 'open-settings'];
+  const secondary = ['find-terminal', 'layout-toggle', 'restore', 'sessions', 'session-search'];
   const folding = ['open-sessions', 'open-projects', 'open-files'];
   // The shell's width, not the screen's (the canon's breakpoint of 850): a narrow shell folds the toolbar into More.
   const shell = toolbar.closest<HTMLElement>('.im-shell') ?? document.documentElement;

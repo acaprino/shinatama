@@ -115,8 +115,8 @@ const terminalSelectors = new Set([
 const fileSelectors = new Set([
   '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image',
 ]);
-// The frame's one rule: the tiling workspace fills the content panel's body.
-const shellSelectors = new Set(['.workspace-host']);
+// The frame's one rule: the tiling workspace and the Settings view fill the content panel's body.
+const shellSelectors = new Set(['.workspace-host', '.settings-view']);
 function inspectCss(file: string, source: string): string[] {
   const scope = file === 'src/terminal-content.css' ? terminalSelectors : file === 'src/files-panel.css' ? fileSelectors : file === 'src/shell-content.css' ? shellSelectors : null;
   if (!scope) return [file + ' is not a specialist content stylesheet'];
