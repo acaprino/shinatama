@@ -1,8 +1,13 @@
 name: Verify Windows
 
+# Every push to develop, every pull request into develop, and by hand. The release pull request (develop into main) is
+# not run: it is the commit the push to develop has just verified, and the release workflow builds and publishes
+# without running the tests again. Nothing waits for it: main has no required check.
 on:
   push:
+    branches: [develop]
   pull_request:
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -16,13 +21,16 @@ jobs:
   windows:
     name: Build and verify Windows x64
     runs-on: windows-2025
-    # Every check runs even after one fails (scripts/verify.ps1), and the workspace compiles from nothing.
+    # Every check runs even after one fails (scripts/verify.ps1), and a run with no cargo cache compiles the workspace
+    # from nothing.
     timeout-minutes: 150
     defaults:
       run:
         shell: pwsh
     env:
       CARGO_TERM_COLOR: always
+      # No incremental state: the cached target stays smaller, and the same for the same inputs.
+      CARGO_INCREMENTAL: '0'
 
     steps:
       # Full history is required to validate real commit SHAs in progress.json.
@@ -47,6 +55,54 @@ jobs:
       # rustup resolves and installs the channel/components in rust-toolchain.toml.
       - name: Set up pinned Rust toolchain
         run: rustup show active-toolchain
+
+      # Cargo's dependency build is kept between runs. The key has two parts. The compiler: another Rust makes every
+      # artifact of the old one useless, and a key without it would still hit and never be saved again. The dependencies:
+      # the source and checksum lines of Cargo.lock, not the whole file, which also holds the version of every crate of
+      # this workspace and which the release rewrites each time.
+      - name: Cargo cache key
+        id: cargo-key
+        run: |
+          $info = rustc -vV
+          if ($LASTEXITCODE) { exit 1 }
+          $release = ($info | Select-String '^release: (\S+)').Matches[0].Groups[1].Value
+          $commit = ($info | Select-String '^commit-hash: (\w{9})').Matches[0].Groups[1].Value
+          $pins = Select-String -Path Cargo.lock -Pattern '^(source|checksum) = ' | ForEach-Object Line
+          $lock = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($pins -join "`n"))).Substring(0, 20).ToLower()
+          "toolchain=$release-$commit" >> $env:GITHUB_OUTPUT
+          "lock=$lock" >> $env:GITHUB_OUTPUT
+
+      # scripts/verify.ps1 builds the debug profile (clippy, the tests, the desktop) and, in the same run, the release
+      # profile of the session helper: each has a cache of its own, so that neither carries the other. The registry and
+      # the git database go with the debug one. A cache is saved by a run that succeeds, and only when none of the exact
+      # key exists; the crates of this workspace are compiled at every run (their sources are new at every checkout),
+      # what the cache gives back is the dependencies. When the lock moves, the restore key starts from the last build.
+      - name: Restore the compiled Rust dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+          key: ${{ runner.os }}-cargo-verify-${{ steps.cargo-key.outputs.toolchain }}-${{ steps.cargo-key.outputs.lock }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-verify-${{ steps.cargo-key.outputs.toolchain }}-
+
+      - name: Restore the compiled Rust release build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target/release
+          key: ${{ runner.os }}-cargo-verify-release-${{ steps.cargo-key.outputs.toolchain }}-${{ steps.cargo-key.outputs.lock }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-verify-release-${{ steps.cargo-key.outputs.toolchain }}-
+
+      # target is restored from the cache: a build that fails would leave the previous commit's program there, and the upload
+      # below (it runs whatever happened) would publish it under this commit's SHA. Only the files that are uploaded.
+      - name: Remove the previous build's files
+        run: |
+          Remove-Item target/debug/shinatama-desktop.exe, target/debug/shinatama.exe, target/debug/shinatama-session-helper.exe, target/release/shinatama-session-helper.exe -Force -ErrorAction SilentlyContinue
 
       - name: Run the shared local and CI verification entrypoint
         run: ./scripts/verify.ps1 -TimeoutMinutes 140
