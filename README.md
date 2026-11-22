@@ -163,6 +163,8 @@ The Windows verification runner builds the app and exercises real PTYs, desktop
 controls, project restart, and storage. See the [verification guide](docs/implementation/windows-verification.md)
 for prerequisites, individual checks, and CI artifacts.
 
+A release is the pull request develop → main, merged only when the Verify run on develop's tip is green: the release workflow builds and publishes, it does not run the tests again.
+
 - [Implementation plan](docs/implementation/PLAN.md) and [progress commands](docs/implementation/README.md)
 - [Functional design](docs/functional-design.md) and [technical design](docs/technical-design.md)
 - [Requirements](docs/frd/README.md) and [architecture decisions](docs/adr/README.md)
