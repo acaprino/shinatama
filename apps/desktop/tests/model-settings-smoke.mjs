@@ -33,7 +33,7 @@ try {
   page.setDefaultTimeout(15000);
   await ipc('storage_location').catch(error => { throw new Error(`Scratch storage: ${String(error)}`); });
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-status')).toContainText('New sessions start with');
   await page.getByRole('button', { name: 'Models', exact: true }).click();
   await expect(page.locator('#settings-section-models-title')).toBeInViewport();
@@ -67,7 +67,7 @@ try {
   console.log('ok shared connection, three assignments, encrypted key and redacted IPC');
 
   await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-status')).toContainText('New sessions start with');
   await page.getByRole('button', { name: 'Models', exact: true }).click();
   await expect(page.getByLabel('Pi model', { exact: true })).toHaveValue(choice);

@@ -13,6 +13,8 @@ const region = () => shell().querySelector<HTMLElement>('.im-inspector');
 type Shown = { view: HTMLElement; leave: () => void };
 /** The views the panel shows or has covered, the outermost first. */
 const stack: Shown[] = [];
+/** A view the inspector has not shown yet (a guard is asking whether to leave the current one): tracked once it appears. */
+let pending: Shown | null = null;
 let watching = false;
 
 export type SideView = { root: HTMLElement; header: HTMLElement; heading: HTMLElement; body: HTMLElement; foot: HTMLElement; close: HTMLButtonElement };
@@ -37,6 +39,7 @@ const covered = (view: HTMLElement) => view.hasAttribute('data-im-covered');
 /** Ends what left the panel: a view that is no longer in it, or the whole stack when the panel is hidden. */
 function sync(): void {
   const home = region();
+  if (pending && home && !home.hidden && home.contains(pending.view) && pending.view.isConnected) { stack.push(pending); pending = null; }
   for (const entry of [...stack]) {
     if (home && !home.hidden && home.contains(entry.view)) continue;
     stack.splice(stack.indexOf(entry), 1);
@@ -75,8 +78,9 @@ export function openSidePanel(view: HTMLElement, options: { opener?: HTMLElement
   const known = stack.findIndex(other => other.view === view);
   if (known >= 0) stack.splice(known, 1);
   if (inside) panel.push(view, options.opener); else panel.open(view, options.opener);
-  // A refused replacement (a dirty guard answering later) has not shown the view: nothing to track yet.
-  if (view.isConnected && !home.hidden && home.contains(view)) stack.push(entry);
+  // A replacement a dirty guard has not answered yet shows the view later: it is tracked when it appears (sync).
+  pending = null;
+  if (view.isConnected && !home.hidden && home.contains(view)) stack.push(entry); else pending = entry;
   sync();
   watch();
 }

@@ -55,7 +55,7 @@ const instanceSettings = async () => {
 };
 async function openSettings() {
   await page.locator('#toolbar-more').click();
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#settings-status')).toContainText('New sessions start with');
 }

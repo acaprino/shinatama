@@ -283,6 +283,7 @@ function modalOpen() { return hasModal() || !!document.querySelector('dialog[ope
 function focusAttentionSession(id: string) {
   if (modalOpen()) { pendingAttentionFocus = id; return; }
   pendingAttentionFocus = null;
+  leaveSettings();
   const view = views.get(id);
   if (view?.workset && !isOn(view.workset.id)) {
     void showWorkset(view.workset).then(opened => { if (opened) focusAttentionSession(id); });
@@ -440,7 +441,6 @@ async function closeFilesTab(viewId: string) {
  *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
 async function openBrowserTab(target: BrowserTarget, viewId?: string) {
   try {
-    leaveSettings();
     const opened = await browserTabs.open(target, viewId);
     bindings.set(opened.viewId, opened.element);
     if (workspaceLayout.views.some(panel => panel.id === opened.viewId)) { render(); return; }
@@ -497,12 +497,15 @@ function changeLayout(action: LayoutAction, save = true) {
   if (save) persistence?.update(workspaceLayout);
   render();
 }
-/** Back to the Workspace tab when Settings is the view: a pane that is asked for must be on screen (set once the views exist). */
+/** Back to the Workspace tab when Settings is the view: a pane the person asks for must be on screen (set once the views
+ * exist). Only what the person does calls it; an agent's page, an exit or a restart never takes them out of Settings. */
 let leaveSettings = () => {};
+/** The focus a closed view gives back to the focused pane: nothing moves while Settings is the view (the person is still there). */
+let settingsShown = () => false;
+function restoreFocus() { if (!settingsShown()) setFocus(focusedGroup()); }
 function setFocus(groupId: string, terminal = true) {
   const group = tabGroups(workspaceLayout.root).find(group => group.id === groupId);
   if (!group) return;
-  if (terminal) leaveSettings();
   if (group.activeTabId && workspaceLayout.focusedGroupId !== groupId) changeLayout({ type: 'focus', groupId });
   if (terminal && !modalOpen()) {
     const view = group.activeTabId ? views.get(group.activeTabId) : null;
@@ -1285,7 +1288,7 @@ const newSession = createNewSession({
     return selected.kind === 'project' ? selected.project.path : null;
   } : undefined,
   open: startSession,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
   anchor: () => paneBody(newSessionGroup),
 });
 /** The body of a pane: where a sheet that belongs to that pane is docked. */
@@ -1310,6 +1313,7 @@ async function launchSession(path: string, harnessId: string, group: string, wor
  * known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project', workset: WorksetScope | null = null) {
   if (openingSessionDialog) return;
+  leaveSettings();
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.im-add,.im-tile-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
@@ -1405,7 +1409,7 @@ $('#app .im-body').prepend(threadSidebar.element);
   const sidebar = threadSidebar;
   void sidebar.ready.then(() => {
     const unmountApp = mountApp($('#app'), registry, {
-      search: () => terminalFind.open(),
+      search: () => { leaveSettings(); terminalFind.open(); },
       // The look and the theme: the five Appearance commands of every app (presentation.ts keeps the choice).
       appearance: presentation.appearance,
       sidebar: { collapsed: sidebar.collapsed(), onChange: collapsed => sidebar.setCollapsed(collapsed) },
@@ -1426,7 +1430,7 @@ threadChat = createThreadChat({
   harnessLabel: id => harnessLabel(id),
   focusSession: id => { void focusThreadSession(id); },
   seen: (id, eventId, timestamp) => { markChatSeen(id, eventId, timestamp); threadSidebar?.repaint(); },
-  restoreFocus: () => { setFocus(focusedGroup()); },
+  restoreFocus,
 });
 /** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. It starts
  *  nothing itself; a "not running" tab shown this way reopens only if the saved layout restored it as running. */
@@ -1481,7 +1485,7 @@ async function loadHarnessCatalog(): Promise<boolean> {
 const sessionRaw = createSessionRaw({
   read: request => desktop ? invoke('session_raw', {request}) : Promise.reject({issue:'read_unavailable'}),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 // Progress of a long search or export (the worker reports at most four times a second) and its cancel.
 const sessionProgress: ProgressBackend = {
@@ -1499,13 +1503,13 @@ const sessionFind = createSessionFind({
   read: (request, requestId) => desktop ? invoke('session_find', {request, requestId}) : Promise.reject({issue:'read_unavailable'}),
   onSelectHit: hit => { sessionDetail.show(hit.root, hit.nativeId, {offset:hit.eventOrdinal,fingerprint:hit.fingerprint}); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionExport = createSessionExport({
   progress: sessionProgress,
   save: (request, requestId) => desktop ? invoke('session_export', { request, requestId }) : Promise.reject({ issue: 'read_unavailable' }),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 function screenText(view: View): string {
   const buffer = view.terminal.buffer.active; const lines: string[] = [];
@@ -1594,7 +1598,7 @@ const projectsOverview = createProjectsOverview({
   decide: (title, message, accept) => decide(title, message, accept),
   chooseProjects: () => openProjectDialog(),
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 {
   // "Projects" is the menu on the left; this one is the overview of pinned projects.
@@ -1610,7 +1614,7 @@ const sessionsPanel = createSessionsPanel({
   invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to see sessions.'),
   focus: id => {
     const view = views.get(id); if (!view || view.disposed) return false;
-    changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
+    leaveSettings(); changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
   },
   threadOf: id => { const panel = workspaceLayout.views.find(p => p.id === id); return panel?.resource.kind === 'terminal' ? panel.resource.threadId ?? null : null; },
   roots: () => desktop ? invoke('session_roots') : unavailable(),
@@ -1621,7 +1625,7 @@ const sessionsPanel = createSessionsPanel({
   openIndex: () => { sessionSearch.show(); },
   openSettings: () => { settingsPanel.show('sessions'); },
   project: () => projectPath || null,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 {
   const button = uiButton('Sessions', { attrs: { id: 'open-sessions' } });
@@ -1633,7 +1637,7 @@ const sessionsPanel = createSessionsPanel({
 // presentation.ts for the terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom. The look and the
 // theme are the palette's Appearance commands, not a control here.
 const settingsPanel = createSettingsPanel({
-  desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()),
+  desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus,
   select: () => viewTabs.select('settings'), close: () => viewTabs.select('workspace'),
   appearance: presentation, alerts: attentionControl,
   zoom: { levels: ZOOM_STEPS, current: interfaceZoom, available: canZoom, set: changeZoom, subscribe: onInterfaceZoom },
@@ -1644,6 +1648,7 @@ const content = $('#desktop-content');
 content.querySelector('.im-panel-body')!.append(settingsPanel.element);
 const viewTabs = createViews($('#app'), content, { workspace: [workspace, content.querySelector<HTMLElement>('.im-panel-tools')!], settings: [settingsPanel.element] });
 leaveSettings = () => viewTabs.select('workspace');
+settingsShown = () => viewTabs.current() === 'settings';
 viewTabs.listen((shown, left) => {
   if (shown === 'settings') settingsPanel.enter();
   if (left === 'settings') { settingsPanel.leave(); document.dispatchEvent(new CustomEvent('shinatama-settings-left')); }
@@ -1652,7 +1657,7 @@ const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   send: desktop ? runHop : undefined,
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
@@ -1663,7 +1668,7 @@ const sessionDetail = createSessionDetail({
   openHop: selection => { hopPreview.show(selection); },
   back: { label: 'Sessions', open: () => { void sessionsPanel.show(); } },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionLibrary = createSessionLibrary({
   roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
@@ -1671,7 +1676,7 @@ const sessionLibrary = createSessionLibrary({
   addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 const sessionSearch = createSessionSearch({
   search: request => desktop ? invoke('session_search', { request }) : unavailable(),
@@ -1682,7 +1687,7 @@ const sessionSearch = createSessionSearch({
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   openSettings: () => { settingsPanel.show('sessions'); },
   reportError: notify,
-  restoreFocus: () => setFocus(focusedGroup()),
+  restoreFocus,
 });
 function openProjectDialog() { projectPicker.open(); }
 async function chooseProject(path: string) {
@@ -1737,9 +1742,10 @@ $('#layout-toggle').onclick = () => {
 // The window's commands, in the registry mountApp attaches (the palette, Ctrl+K, lists them). None runs under a modal.
 const fieldFocused = () => !!document.activeElement?.closest('input,textarea,select,[contenteditable="true"],.xterm');
 registry.register({ id: 'shinatama.new-session', title: 'New session', keys: 'Ctrl+Shift+T', when: () => !modalOpen(), run: () => { void openNewSession(); } });
-registry.register({ id: 'shinatama.find-in-terminal', title: 'Find in the terminal', keys: 'Ctrl+Shift+F', when: () => !modalOpen(), run: () => terminalFind.open() });
+registry.register({ id: 'shinatama.find-in-terminal', title: 'Find in the terminal', keys: 'Ctrl+Shift+F', when: () => !modalOpen(), run: () => { leaveSettings(); terminalFind.open(); } });
 for (const [side, key] of [['left', 'ArrowLeft'], ['right', 'ArrowRight']] as const) {
   registry.register({ id: `shinatama.pane-${side}`, title: `Focus the pane on the ${side}`, keys: `Ctrl+Shift+${key}`, when: () => !modalOpen(), run: () => {
+    leaveSettings();
     const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), side, { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
   } });
 }

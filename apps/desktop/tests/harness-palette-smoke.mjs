@@ -68,7 +68,7 @@ async function sessionOf(harness) {
 // The option and the theme are in the Appearance section of Settings; each applies and saves at once.
 async function setFollow(on) {
   await page.locator('#toolbar-more').click();
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   const follow = page.locator('#presentation-follow');
   if (on) await follow.check(); else await follow.uncheck();

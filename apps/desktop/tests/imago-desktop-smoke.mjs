@@ -117,8 +117,8 @@ try {
   await more('Layout');
   await expect.poll(async () => (await paneBoxes())[1].y).toBeGreaterThan(left.y + 100);
   // Settings is the title bar's last view tab, not a button of the toolbar: it takes the content region.
-  const settingsTab = page.getByRole('tab', { name: 'Settings' });
-  const workspaceTab = page.getByRole('tab', { name: 'Workspace' });
+  const settingsTab = page.locator('.im-titlebar').getByRole('tab', { name: 'Settings', exact: true });
+  const workspaceTab = page.locator('.im-titlebar').getByRole('tab', { name: 'Workspace', exact: true });
   assert.equal(await page.locator('.im-titlebar .im-tab').last().innerText(), 'Settings');
   await expect(page.locator('#open-settings')).toHaveCount(0);
   await settingsTab.click();
