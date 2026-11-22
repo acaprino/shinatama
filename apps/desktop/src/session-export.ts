@@ -1,6 +1,5 @@
 import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal } from './modal.ts';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import { createProgressLine, type ProgressBackend } from './session-progress.ts';
 
@@ -33,10 +32,7 @@ const ISSUES: Record<string, string> = {
 };
 
 export function createSessionExport(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'session-export-dialog'; dialog.setAttribute('aria-labelledby', 'session-export-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'session-export-title'; title.textContent = 'Export session';
-  const closeButton = closeControl('Close export'); heading.append(title, closeButton);
+  const view = sideSurface('session-export-dialog', 'Export session', 'Close export', 'session-export-title');
   const source = uiPart('hint');
   const formatSet = uiPart('fieldset'); const formatLegend = uiPart('legend', 'Format'); formatSet.append(formatLegend);
   const radios = new Map<ExportFormat, HTMLInputElement>();
@@ -68,8 +64,7 @@ export function createSessionExport(options: Options) {
   const status = uiPart('status');
   const progress = createProgressLine('export', options.progress);
   const report = uiPart('descriptionList');
-  dialog.append(heading, source, formatSet, modeSet, attachRow, always, actions, status, progress.element, report);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(source, formatSet, modeSet, attachRow, always, actions, status, progress.element, report);
   let selection: ExportSelection | null = null; let busy = false; let generation = 0;
   const chosenFormat = (): ExportFormat => [...radios].find(([, input]) => input.checked)?.[0] ?? 'stx';
   const chosenMode = (): ExportMode => [...modes].find(([, input]) => input.checked)?.[0] ?? 'full';
@@ -78,7 +73,7 @@ export function createSessionExport(options: Options) {
     if (chosenFormat() === 'mukade') attach.checked = false;
     for (const input of [...radios.values(), ...modes.values()]) input.disabled = busy;
     source.textContent = selection ? `${selection.harness} · session ${selection.nativeId}` : '';
-    dialog.setAttribute('aria-busy', String(busy));
+    view.root.setAttribute('aria-busy', String(busy));
   }
   function fact(label: string, value: string) {
     const key = uiPart('term', label); const item = uiPart('definition', value); report.append(key, item);
@@ -89,7 +84,7 @@ export function createSessionExport(options: Options) {
     try {
       const outcome = await options.save({ root: { ...selection.root }, nativeId: selection.nativeId, fingerprint: selection.fingerprint,
         format: chosenFormat(), mode: chosenMode(), withAttachments: attach.checked }, requestId);
-      if (at !== generation || !dialog.open) return;
+      if (at !== generation || !view.isOpen()) return;
       if (outcome.state === 'cancelled') { status.textContent = progress.cancelled() ? 'Export cancelled. Nothing was written.' : 'Nothing was written.'; return; }
       if (outcome.state === 'refused') {
         const code = outcome.issue.startsWith('write_failed:') ? outcome.issue.slice(13) : ISSUES[outcome.issue] ?? ISSUES.read_unavailable;
@@ -102,19 +97,18 @@ export function createSessionExport(options: Options) {
       fact('Attachments', `${r.attachmentsReferenced} referenced, ${outcome.attachments} copied`);
       fact('Losses', r.declaration.losses.join(' ')); fact('SHA-256', outcome.sha256);
     } catch (error) {
-      if (at !== generation || !dialog.open) return;
+      if (at !== generation || !view.isOpen()) return;
       const code = typeof error === 'string' ? error : (error as { issue?: string })?.issue ?? '';
       status.dataset.state = 'error'; status.textContent = ISSUES[code] ?? ISSUES.read_unavailable; options.reportError(status.textContent);
     } finally { progress.end(requestId); if (at === generation) { busy = false; render(); } }
   };
-  closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { if (dialog.open) return; progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  view.onClose(() => { progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!sidePanelOpen()) options.restoreFocus?.(); });
   function show(value: ExportSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint) || !/^[a-z0-9_-]{1,256}$/i.test(value.nativeId)) { options.reportError('This session cannot be exported safely.'); return; }
     selection = { root: { ...value.root }, nativeId: value.nativeId, fingerprint: value.fingerprint, harness: value.harness };
     report.replaceChildren(); status.textContent = 'Choose a format, then Save as…'; status.dataset.state = 'ready'; render();
-    if (!dialog.open) openModal(dialog); save.focus();
+    if (!view.isOpen()) view.open(); save.focus();
   }
   render();
-  return { show, close: () => dialog.close() };
+  return { show, close: () => view.close() };
 }

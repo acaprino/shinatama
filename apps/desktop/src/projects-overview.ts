@@ -1,7 +1,6 @@
-import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
+import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import { listen } from '@tauri-apps/api/event';
-import { openModal } from './modal.ts';
 import { confirmsField } from './desktop-shell-model.ts';
 import { itemText, leftoversFor, summaryText, type LeftoverStatus } from './leftovers-model.ts';
 
@@ -31,15 +30,10 @@ function gitText(git: Git): string {
  * what agent sessions left in each project as Xiox sees it (read-only: the clean command is
  * only copied, never run). */
 export function createProjectsOverview(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'projects-overview-dialog'; dialog.setAttribute('aria-labelledby', 'projects-overview-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'projects-overview-title'; title.textContent = 'Projects';
-  const closeButton = closeControl('Close projects');
-  heading.append(title, closeButton);
+  const view = sideSurface('projects-overview-dialog', 'Projects', 'Close projects', 'projects-overview-title');
   const status = uiPart('status');
-  const list = uiTraits(uiPart('list'), 'scroll', 'bounded');
-  dialog.append(heading, status, list);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  const list = uiPart('list');
+  view.body.append(status, list);
   let generation = 0;
   let leftovers: LeftoverStatus = { available: false, reason: null, projects: [] };
   const slots = new Map<string, { row: ProjectRow; slot: HTMLElement }>();
@@ -105,7 +99,7 @@ export function createProjectsOverview(options: Options) {
     await readLeftovers();
     for (const { row, slot } of slots.values()) renderLeftovers(row, slot);
   }
-  void listen('project-leftovers', () => { if (dialog.open) void refreshLeftovers(); }).catch(() => {});
+  void listen('project-leftovers', () => { if (view.isOpen()) void refreshLeftovers(); }).catch(() => {});
 
   async function worktree(row: ProjectRow, name: string) {
     if (!name) { status.textContent = 'Enter a worktree name.'; return; }
@@ -113,7 +107,7 @@ export function createProjectsOverview(options: Options) {
       const plan = await options.invoke<Plan>('project_worktree_plan', { project: row.path, name });
       if (!await options.decide('Create a worktree?', `Git will create ${plan.path} on a new branch ${plan.branch}, then a new session opens there. Nothing existing is changed or deleted.`, 'Create')) return;
       const path = await options.invoke<string>('project_worktree_create', { project: row.path, name, confirmedPath: plan.path });
-      dialog.close(); options.newSession(path);
+      view.close(); options.newSession(path);
     } catch (error) { status.dataset.state = 'error'; status.textContent = text(error); }
   }
   function rowElement(row: ProjectRow) {
@@ -133,9 +127,9 @@ export function createProjectsOverview(options: Options) {
     const actions = uiPart('actions');
     const resume = uiButton('Resume last');
     resume.disabled = !row.available || !row.lastThread?.harness;
-    resume.onclick = async () => { if (!row.lastThread) return; try { dialog.close(); await options.resume(row, row.lastThread); } catch (error) { options.reportError(text(error)); } };
+    resume.onclick = async () => { if (!row.lastThread) return; try { view.close(); await options.resume(row, row.lastThread); } catch (error) { options.reportError(text(error)); } };
     const open = uiButton('New session'); open.disabled = !row.available;
-    open.onclick = () => { dialog.close(); options.newSession(row.path); };
+    open.onclick = () => { view.close(); options.newSession(row.path); };
     const tree = uiButton('New in worktree…');
     tree.disabled = !row.available || row.git.state !== 'known';
     const form = uiPart('stack'); form.hidden = true;
@@ -160,8 +154,7 @@ export function createProjectsOverview(options: Options) {
       status.textContent = (rows.length ? `${rows.length} project${rows.length === 1 ? '' : 's'}. Pinned first.` : 'No projects yet. Open a folder first.') + xiox;
     } catch (error) { if (at === generation) { status.dataset.state = 'error'; status.textContent = text(error); } }
   }
-  closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
-  async function show() { if (!dialog.open) openModal(dialog); await load(); }
+  view.onClose(() => { generation++; if (!sidePanelOpen()) options.restoreFocus?.(); });
+  async function show() { if (!view.isOpen()) view.open(); await load(); }
   return { show };
 }

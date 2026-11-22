@@ -1,6 +1,5 @@
-import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal, topModal } from './modal.ts';
+import { hasModal, uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
 import { nextCapabilityLines, parseCapabilities, type CapabilityState } from './sidecar-status.ts';
@@ -112,13 +111,11 @@ function decode(value: unknown, request: DetailRequest): DetailPage {
 
 /** No startup read, HTML, images, URL navigation, transcript cache or launch action. */
 export function createSessionDetail(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'session-detail-dialog'; dialog.setAttribute('aria-labelledby', 'session-detail-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'session-detail-title'; title.textContent = 'Session detail';
-  const closeButton = closeControl('Close session detail'); heading.append(title, closeButton);
+  const view = sideSurface('session-detail-dialog', 'Session detail', 'Close session detail', 'session-detail-title');
+  const closeButton = view.closeButton;
   if (options.back) {
     const back = uiButton(`‹ ${options.back.label}`);
-    back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { dialog.close(); options.back!.open(); }; heading.prepend(back);
+    back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { view.close(); options.back!.open(); }; view.header.prepend(back);
   }
   const source = uiPart('hint');
   const status = uiPart('status'); status.id = 'session-detail-status'; status.setAttribute('role', 'status');
@@ -144,7 +141,7 @@ export function createSessionDetail(options: Options) {
   const position = uiPart('text'); const next = uiButton('Next'); pager.append(previous, position, next);
   const notices = uiPart('list');
   const unavailable = uiPart('hint', 'RAW requires an explicit privacy confirmation. Export redacts secrets and never includes reasoning. Attachment files stay closed.');
-  dialog.append(heading, source, status, tools, ...panels.values(), pager, notices, unavailable); (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(source, status, tools, ...panels.values(), pager, notices, unavailable);
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
   let busy = false; let generation = 0; let destroyed = false; let failed = false; let message = 'Choose a session explicitly.';
@@ -167,7 +164,7 @@ export function createSessionDetail(options: Options) {
     document.removeEventListener('visibilitychange', onVisible); paintProxy();
   }
   async function readProxy() {
-    if (destroyed || !options.capabilities || !current || !dialog.open || document.hidden || proxyInFlight === proxyGeneration) return;
+    if (destroyed || !options.capabilities || !current || !view.isOpen() || document.hidden || proxyInFlight === proxyGeneration) return;
     const at = proxyGeneration; const id = current.nativeId; proxyInFlight = at;
     let read: CapabilityState; let timer = 0;
     try {
@@ -175,7 +172,7 @@ export function createSessionDetail(options: Options) {
       read = parseCapabilities(await Promise.race([options.capabilities(id), expired]));
     } catch { read = { state: 'unavailable' }; } finally { window.clearTimeout(timer); }
     if (proxyInFlight === at) proxyInFlight = -1;
-    if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !dialog.open) return;
+    if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !view.isOpen()) return;
     const lines = nextCapabilityLines(proxyLines, read);
     if (lines) { proxyLines = lines; paintProxy(); }
   }
@@ -188,7 +185,7 @@ export function createSessionDetail(options: Options) {
     const key = uiPart('term', label); const item = uiPart('definition', value === null || value === '' ? 'Unknown' : String(value)); overview.append(key, item);
   }
   function render() {
-    if (destroyed) return; dialog.setAttribute('aria-busy', String(busy));
+    if (destroyed) return; view.root.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
     find.disabled = busy || !page; exportButton.disabled = busy || !page; hopButton.disabled = busy || !page;
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
@@ -257,24 +254,23 @@ export function createSessionDetail(options: Options) {
     busy = true; failed = false; render();
     try {
       const received = await options.read(request);
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !view.isOpen()) return;
       const value = decode(received, request);
       if (direction === 'reload') history = []; else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); } else history.pop();
       page = value; cursor = requested; message = page.totalEvents ? 'Read-only projection. Raw and omitted payloads are not requested.' : 'No canonical events were returned.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) { page = null; cursor = null; history = []; failed = true;
+      if (!destroyed && at === generation && view.isOpen()) { page = null; cursor = null; history = []; failed = true;
         const code = error instanceof Error ? error.message : typeof error === 'string' ? error : record(error) ? error.issue ?? error.code : null;
         message = typeof code === 'string' && Object.hasOwn(ERRORS, code) ? ERRORS[code] : 'Session detail could not be loaded. Retry explicitly.'; options.reportError(message); }
-    } finally { busy = false; if (!destroyed && at !== generation && dialog.open) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
+    } finally { busy = false; if (!destroyed && at !== generation && view.isOpen()) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
   }
-  function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (dialog.open) dialog.close(); }
+  function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (view.isOpen()) view.close(); }
   function show(root: SessionRootSelector, id: string, jump: DetailCursor | null = null) {
     if (destroyed || !rootValue(root) || !nativeId(id) || (jump && (!integer(jump.offset) || !digest(jump.fingerprint)))) { if (!destroyed) options.reportError('This session selector cannot be read safely.'); return false; }
-    const other = topModal();
-    if (!dialog.open && other && other.id !== 'session-library-dialog') return false;
+    if (!view.isOpen() && hasModal()) return false;
     generation++; current = { root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, nativeId: id };
     page = null; cursor = null; history = []; failed = false; activeTab = 'transcript'; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Reading the selected session…';
-    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); startProxyReads(); if (!busy) void load(jump, 'reload'); return true;
+    render(); if (!view.isOpen()) view.open(); closeButton.focus(); startProxyReads(); if (!busy) void load(jump, 'reload'); return true;
   }
   find.onclick = () => {
     if (!busy && page) options.openFind?.({ root: { ...page.root }, nativeId: page.nativeId,
@@ -288,6 +284,6 @@ export function createSessionDetail(options: Options) {
   };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
-  render(); return { show, close, destroy: () => { destroyed = true; close(); dialog.remove(); } };
+  view.onClose(() => { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (!sidePanelOpen()) options.restoreFocus?.(); });
+  render(); return { show, close, destroy: () => { destroyed = true; close(); view.root.remove(); } };
 }

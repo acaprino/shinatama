@@ -1,6 +1,5 @@
 import { confirm, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal } from './modal.ts';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
 export type SearchHit = {
@@ -58,10 +57,8 @@ export function renderSnippet(target: HTMLElement, snippet: string) {
 export function createSessionSearch(options: Options) {
   const button = uiButton(''); button.id = 'session-search'; button.type = 'button'; button.textContent = 'Search index'; button.title = 'Index your sessions and search them by agent, folder or date';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiPart('dialog'); dialog.id = 'session-search-dialog'; dialog.setAttribute('aria-labelledby', 'session-search-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'session-search-title'; title.textContent = 'Search all sessions';
-  const closeButton = closeControl('Close search'); heading.append(title, closeButton);
+  const view = sideSurface('session-search-dialog', 'Search all sessions', 'Close search', 'session-search-title');
+  const closeButton = view.closeButton;
   const description = uiPart('hint');
   description.textContent = 'Searches the text you and the agents wrote in indexed sessions. Indexing only reads your session archives; it never starts or resumes an agent.';
 
@@ -96,8 +93,7 @@ export function createSessionSearch(options: Options) {
   indexHelp.textContent = 'Only changed sessions are read again. Forgetting removes the indexed text only; your sessions and threads are not touched.';
   indexTools.append(start, stop, forget, allow); indexing.append(indexSummary, indexInfo, indexTools, indexHelp);
 
-  dialog.append(heading, description, form, status, results, indexing);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(description, form, status, results, indexing);
 
   let state: IndexState | null = null; let timer: number | undefined; let busy = false; let destroyed = false; let generation = 0;
   const stopPolling = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
@@ -117,7 +113,7 @@ export function createSessionSearch(options: Options) {
     indexInfo.textContent = parts.join('. ') || 'Index not loaded yet.';
     start.disabled = busy || running || !idx?.enabled; stop.disabled = !running; forget.disabled = busy || running || !idx || idx.documents === 0;
     allow.hidden = !idx || idx.enabled;
-    submit.disabled = busy; dialog.setAttribute('aria-busy', String(busy));
+    submit.disabled = busy; view.root.setAttribute('aria-busy', String(busy));
   }
   async function refresh() {
     const mine = generation;
@@ -176,19 +172,22 @@ export function createSessionSearch(options: Options) {
       error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });
   };
   allow.onclick = () => options.openSettings();
-  // Settings covers this drawer while it is open; what was switched there shows when it comes back.
-  new MutationObserver(() => {
-    if (!dialog.open || dialog.hasAttribute('data-im-covered')) return;
+  // Settings is the title bar's last view tab; what was switched there shows when the person comes back to the
+  // workspace (main.ts says so), and a view that covered this one gave it back.
+  const returned = () => {
+    if (!view.isOpen() || !view.onTop()) return;
     // Focus came back to the button that opened Settings; once indexing is on it hides, and Index sessions takes its place.
     void refresh().then(() => { if (allow.hidden && (document.activeElement === document.body || document.activeElement === allow)) start.focus(); });
-  }).observe(dialog, { attributes: true, attributeFilter: ['data-im-covered'] });
+  };
+  document.addEventListener('shinatama-settings-left', returned);
+  new MutationObserver(returned).observe(view.root, { attributes: true, attributeFilter: ['data-im-covered'] });
   function show() {
     if (destroyed) return; generation++; busy = false; status.textContent = 'Type a word and press Search.'; renderIndex();
-    openModal(dialog); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });
+    view.open(); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });
   }
-  function close() { generation++; stopPolling(); if (dialog.open) dialog.close(); }
+  function close() { generation++; stopPolling(); if (view.isOpen()) view.close(); }
   button.onclick = show; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; stopPolling(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  view.onClose(() => { generation++; stopPolling(); if (!sidePanelOpen()) options.restoreFocus?.(); });
   renderIndex();
-  return { show, close, destroy: () => { destroyed = true; close(); dialog.remove(); button.remove(); } };
+  return { show, close, destroy: () => { destroyed = true; close(); view.root.remove(); document.removeEventListener('shinatama-settings-left', returned); button.remove(); } };
 }

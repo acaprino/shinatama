@@ -1,6 +1,5 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal } from './modal.ts';
+import { hasModal, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 
 export type SessionRootSelector = { storeRootId: string; configurationRevision: number };
 export type SessionCursor = { offset: number; fingerprint: string };
@@ -104,10 +103,8 @@ export function failureText(value: unknown) {
 export function createSessionLibrary(options: Options) {
   const button = uiButton(''); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Archive browser'; button.title = 'Page through one session archive, or add a read-only archive';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiPart('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'session-library-title'; title.textContent = 'Archive browser';
-  const closeButton = closeControl('Close sessions'); heading.append(title, closeButton);
+  const side = sideSurface('session-library-dialog', 'Archive browser', 'Close sessions', 'session-library-title');
+  const closeButton = side.closeButton;
   const description = uiPart('paragraph', 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.');
   const tools = uiPart('toolbar');
   const loadRoots = uiButton('Load archives');
@@ -151,8 +148,7 @@ export function createSessionLibrary(options: Options) {
   const actions = uiPart('actions');
   const detail = uiButton(options.openDetail ? 'Open detail' : 'Detail unavailable'); detail.disabled = true; actions.append(detail);
   for (const label of ['Resume unavailable', 'Hop unavailable']) { const action = uiButton(''); action.disabled = true; action.textContent = label; actions.append(action); }
-  dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, views, viewScope, scroll, pagination, metadata, unavailable, actions);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  side.body.append(description, tools, archive, source, status, filterLabel, filter, views, viewScope, scroll, pagination, metadata, unavailable, actions);
   let roots: SessionLibraryRoot[] = []; let page: SessionListPage | null = null; let cursor: SessionCursor | null = null;
   let history: (SessionCursor | null)[] = []; let selected: SessionMetadataRow | null = null;
   let view: 'list' | 'projects' = 'list'; const expandedProjects = new Set<string | null>();
@@ -173,7 +169,7 @@ export function createSessionLibrary(options: Options) {
     choose.setAttribute('aria-pressed', String(selected === row));
     choose.onclick = () => {
       const root = currentRoot();
-      if (busy || !dialog.open || page !== owner || !root || !same(root, owner.root) || !owner.rows.includes(row)) return;
+      if (busy || !side.isOpen() || page !== owner || !root || !same(root, owner.root) || !owner.rows.includes(row)) return;
       selected = row; render();
     };
     return choose;
@@ -184,7 +180,7 @@ export function createSessionLibrary(options: Options) {
     detail.disabled = busy !== null || !selected || !root?.available || !options.openDetail;
     harness.disabled = busy !== null; archivePath.disabled = busy !== null; addArchive.disabled = busy !== null || !options.addArchive;
     reload.disabled = busy !== null || !root?.available; previous.disabled = busy !== null || history.length === 0; next.disabled = busy !== null || !page?.next;
-    filter.disabled = page === null; dialog.setAttribute('aria-busy', String(busy !== null));
+    filter.disabled = page === null; side.root.setAttribute('aria-busy', String(busy !== null));
     source.textContent = root ? `Archive: ${root.storeRootId} · revision ${root.configurationRevision} · ${root.kind} · ${root.access === 'read_only' ? 'read only' : 'metadata reads only'}` : 'No archive selected.';
     status.textContent = busy ? busy === 'roots' ? 'Loading archives…' : busy === 'archive' ? 'Registering read-only archive…' : 'Reading bounded session metadata…' : message;
     status.dataset.state = failed ? 'error' : 'ready';
@@ -261,10 +257,10 @@ export function createSessionLibrary(options: Options) {
     if (busy) return; const at = generation; const before = currentRoot(); busy = 'roots'; failed = false; render();
     try {
       const received = rootsValue(await options.roots()); if (!received) throw new Error('Invalid archive projection');
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !side.isOpen()) return;
       replaceRoots(received, before); message = roots.length ? 'Choose an archive to read its metadata.' : 'No registered archives. No ambient home was searched.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) { reset(); failed = true; message = failureText(error); options.reportError(message); }
+      if (!destroyed && at === generation && side.isOpen()) { reset(); failed = true; message = failureText(error); options.reportError(message); }
     } finally { busy = null; render(); }
   }
   async function registerArchive() {
@@ -278,14 +274,14 @@ export function createSessionLibrary(options: Options) {
       const added = rootsValue([await options.addArchive({ harness: agent as SessionArchiveAddRequest['harness'], path })]);
       if (!added || added[0].harness !== agent) throw new Error('Invalid archive projection');
       registered = true;
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !side.isOpen()) return;
       const received = rootsValue(await options.roots()); if (!received) throw new Error('Invalid archive projection');
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !side.isOpen()) return;
       replaceRoots(received, added[0]); archivePath.value = ''; archive.open = false;
       message = added[0].available ? 'Archive registered. Use Reload sessions to browse metadata; the archive files remain unchanged.'
         : 'This archive is already registered but unavailable. Reconnect it explicitly; its history was preserved.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) {
+      if (!destroyed && at === generation && side.isOpen()) {
         failed = true; message = registered ? 'The archive was registered, but its list could not be refreshed. Load archives explicitly.' : failureText(error);
         options.reportError(message);
       }
@@ -296,20 +292,20 @@ export function createSessionLibrary(options: Options) {
     try {
       const received = pageValue(await options.list({ root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, cursor: requested, limit: 50, includeChildren: true }), root, requested);
       if (!received) throw new Error('Invalid metadata projection');
-      if (destroyed || at !== generation || !dialog.open || !currentRoot() || !same(root, currentRoot()!)) return;
+      if (destroyed || at !== generation || !side.isOpen() || !currentRoot() || !same(root, currentRoot()!)) return;
       if (direction === 'reload') history = [];
       else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); }
       else history.pop();
       page = received; cursor = requested; selected = null; expandedProjects.clear();
       message = page.total ? 'Metadata only. Select a session ID to inspect the listed fields.' : 'This archive contains no listed sessions.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) { reset(); failed = true; message = failureText(error); options.reportError(message); }
+      if (!destroyed && at === generation && side.isOpen()) { reset(); failed = true; message = failureText(error); options.reportError(message); }
     } finally { busy = null; render(); }
   }
-  function close() { generation++; if (dialog.open) dialog.close(); }
+  function close() { generation++; if (side.isOpen()) side.close(); }
   function show() {
-    if (destroyed || dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
-    generation++; reset(); rootSelect.value = ''; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Load archives to choose an explicit store.'; render(); openModal(dialog); closeButton.focus();
+    if (destroyed || side.isOpen() || hasModal()) return;
+    generation++; reset(); rootSelect.value = ''; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Load archives to choose an explicit store.'; render(); side.open(); closeButton.focus();
   }
   rootSelect.onchange = () => { generation++; reset(); const root = currentRoot(); message = root ? root.available ? 'Ready to read this explicit archive.' : 'This archive is unavailable. No other archive was used.' : 'Choose an archive explicitly.'; render(); if (!busy && root?.available) void readPage(null, 'reload'); };
   loadRoots.onclick = () => { void readRoots(); }; reload.onclick = () => { void readPage(null, 'reload'); };
@@ -319,7 +315,7 @@ export function createSessionLibrary(options: Options) {
   listView.onclick = () => { view = 'list'; render(); }; projectView.onclick = () => { view = 'projects'; render(); };
   button.onclick = show; closeButton.onclick = close;
   detail.onclick = () => { const root = currentRoot(); if (!busy && root?.available && selected) options.openDetail?.({storeRootId:root.storeRootId,configurationRevision:root.configurationRevision},selected.nativeId); };
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  side.onClose(() => { generation++; if (!sidePanelOpen()) options.restoreFocus?.(); });
   render();
-  return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };
+  return { show, close, destroy: () => { destroyed = true; close(); button.remove(); side.root.remove(); } };
 }

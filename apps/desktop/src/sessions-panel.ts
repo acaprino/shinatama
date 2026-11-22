@@ -1,11 +1,11 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
 /** Sessions: one panel for every session of an agent, whatever its state. Running sessions come
  * first, with what they are doing now; saved ones follow, read from the agents' own archives.
  * The search field filters both as you type and, on Enter, searches the text of the indexed
  * conversations. A session that ends moves from the first list to the second: "running" and
- * "saved" are states of one thing, not two panels. Reading never starts or resumes an agent. */
-import { openModal } from './modal.ts';
+ * "saved" are states of one thing, not two panels. Reading never starts or resumes an agent.
+ * The panel is a view of the window's side panel. */
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import { agentName, createInstancesSection, summaryLine } from './instances-overview.ts';
 import { failureText, pageValue, rootsValue, when, type SessionCursor, type SessionLibraryRoot, type SessionListPage,
   type SessionListRequest, type SessionMetadataRow, type SessionRootSelector } from './session-library.ts';
@@ -36,11 +36,7 @@ const REFRESH_MS = 2000;
 const size = (bytes: number | null) => bytes === null ? 'Unknown' : bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 export function createSessionsPanel(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'sessions-dialog'; dialog.setAttribute('aria-labelledby', 'sessions-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title', 'Sessions'); title.id = 'sessions-title';
-  const closeButton = closeControl('Close sessions');
-  heading.append(title, closeButton);
+  const view = sideSurface('sessions-dialog', 'Sessions', 'Close sessions', 'sessions-title');
 
   const tools = uiPart('toolbar');
   const search = uiInput('search'); search.maxLength = 128; search.autocomplete = 'off'; search.spellcheck = false;
@@ -54,7 +50,7 @@ export function createSessionsPanel(options: Options) {
   const runningEmpty = uiPart('paragraph', 'No session is running.');
   const instances = createInstancesSection({
     invoke: options.invoke, focus: options.focus, threadOf: options.threadOf,
-    focused: () => dialog.close(), notice: text => say(text, 'info'),
+    focused: () => view.close(), notice: text => say(text, 'info'),
   });
 
   const savedHead = uiPart('heading'); const savedCount = uiPart('text'); const savedNote = uiPart('text');
@@ -74,8 +70,7 @@ export function createSessionsPanel(options: Options) {
   advancedTools.append(archivesButton, indexButton, settingsButton);
   advanced.append(advancedSummary, advancedTools, instances.legend);
 
-  dialog.append(heading, tools, status, runningHead, runningEmpty, instances.element, savedHead, savedList, savedEmpty, more, advanced);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(tools, status, runningHead, runningEmpty, instances.element, savedHead, savedList, savedEmpty, more, advanced);
 
   let timer = 0; let notice = 0; let generation = 0;
   let archives: Archive[] = []; let savedState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle'; let savedFailure = '';
@@ -236,7 +231,7 @@ export function createSessionsPanel(options: Options) {
   search.addEventListener('keydown', event => {
     if (confirmsField(event)) { event.preventDefault(); void runSearch(); }
     else if (event.key === 'Escape' && search.value) { event.preventDefault(); event.stopPropagation(); search.value = ''; hits = null; paint(); }
-    else if (event.key === 'ArrowDown') { event.preventDefault(); dialog.querySelector<HTMLElement>('.instances-item:not([hidden]) button, .sessions-row-head')?.focus(); }
+    else if (event.key === 'ArrowDown') { event.preventDefault(); view.root.querySelector<HTMLElement>('.instances-item:not([hidden]) button, .sessions-row-head')?.focus(); }
   });
   scope.onchange = () => { chosenScope = scope.value; expanded = null; if (hits) { hits = null; void runSearch(); } paint(); };
 
@@ -247,13 +242,12 @@ export function createSessionsPanel(options: Options) {
   archivesButton.onclick = () => options.openArchives();
   indexButton.onclick = () => options.openIndex();
   settingsButton.onclick = () => options.openSettings();
-  closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { if (dialog.open) return; clearInterval(timer); clearTimeout(notice); instances.reset(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  view.onClose(() => { clearInterval(timer); clearTimeout(notice); instances.reset(); if (!sidePanelOpen()) options.restoreFocus?.(); });
 
   /** Opens the panel as it was left: the saved list is read once and kept until Reload. */
   async function show() {
-    if (!dialog.open) { status.hidden = true; delete status.dataset.source; paintScope(); paint(); openModal(dialog); search.focus(); }
-    clearInterval(timer); timer = window.setInterval(() => { if (dialog.open) void refreshRunning(); }, REFRESH_MS);
+    if (!view.isOpen()) { status.hidden = true; delete status.dataset.source; paintScope(); paint(); view.open(); search.focus(); }
+    clearInterval(timer); timer = window.setInterval(() => { if (view.isOpen()) void refreshRunning(); }, REFRESH_MS);
     const running = refreshRunning(true);
     if (savedState === 'idle' || savedState === 'failed') void loadSaved();
     await running;

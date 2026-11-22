@@ -1,6 +1,5 @@
-import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal, topModal } from './modal.ts';
+import { hasModal, uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
+import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import { createProgressLine, type ProgressBackend } from './session-progress.ts';
@@ -72,10 +71,8 @@ function decode(value: unknown, request: FindRequest): FindPage {
 
 /** No opening-time reads, live keystroke search, persistent index or resume. */
 export function createSessionFind(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'session-find-dialog'; dialog.setAttribute('aria-labelledby', 'session-find-title');
-  const heading = uiPart('header'); heading.classList.add('dialog-heading');
-  const title = uiPart('title'); title.id = 'session-find-title'; title.textContent = 'Find in this session';
-  const closeButton = closeControl('Close session search'); heading.append(title, closeButton);
+  const view = sideSurface('session-find-dialog', 'Find in this session', 'Close session search', 'session-find-title');
+  const closeButton = view.closeButton;
   const source = uiPart('hint');
   const form = uiPart('form');
   const label = uiPart('label'); label.htmlFor = 'session-find-query'; label.textContent = 'Literal text';
@@ -90,13 +87,13 @@ export function createSessionFind(options: Options) {
   const scope = uiPart('hint'); scope.id = 'session-find-scope';
   scope.textContent = 'Searches canonical user, assistant, plain tool-result text and compaction summaries in this session. Case-insensitive literal matching; RAW, reasoning, tool arguments, structured results and attachment content are excluded. At most 50 matches per page. Choosing a match opens its saved transcript; it starts no agent.';
   const progress = createProgressLine('search', options.progress);
-  dialog.append(heading, source, form, status, progress.element, results, pager, scope); (document.querySelector('#app') ?? document.body).append(dialog);
+  view.body.append(source, form, status, progress.element, results, pager, scope);
   let selected: DetailRequest | null = null; let page: FindPage | null = null; let cursor: FindCursor | null = null;
   let history: (FindCursor | null)[] = []; let generation = 0; let busy = false; let destroyed = false; let failed = false;
   let message = 'Enter text and select Search this session.';
   function render() {
     if (destroyed) return;
-    dialog.setAttribute('aria-busy', String(busy)); query.disabled = busy; search.disabled = busy || !selected || !validQuery(query.value);
+    view.root.setAttribute('aria-busy', String(busy)); query.disabled = busy; search.disabled = busy || !selected || !validQuery(query.value);
     previous.disabled = busy || !page || !history.length; next.disabled = busy || !page?.next;
     source.textContent = selected ? `Session ${selected.nativeId} · Archive ${selected.root.storeRootId}` : '';
     status.textContent = busy ? 'Searching this verified session…' : message; status.dataset.state = failed ? 'error' : 'ready';
@@ -112,7 +109,7 @@ export function createSessionFind(options: Options) {
         if (hit.truncated) { const marker = uiPart('text', 'Excerpt limited to 512 bytes'); button.append(marker); }
         const owner = page;
         button.onclick = () => {
-          if (busy || !dialog.open || page !== owner || !selected || query.value !== owner.query) return;
+          if (busy || !view.isOpen() || page !== owner || !selected || query.value !== owner.query) return;
           const selection: FindSelection = { root: { ...owner.root }, nativeId: owner.nativeId, entryOrdinal: hit.entryOrdinal,
             eventOrdinal: hit.eventOrdinal, fingerprint: owner.sourceFingerprint };
           close(); options.onSelectHit(selection);
@@ -125,7 +122,7 @@ export function createSessionFind(options: Options) {
     generation++; selected = null; page = null; cursor = null; history = []; query.value = ''; failed = false;
     message = 'Enter text and select Search this session.'; render();
   }
-  function close() { progress.cancel(); clear(); if (dialog.open) dialog.close(); }
+  function close() { progress.cancel(); clear(); if (view.isOpen()) view.close(); }
   async function read(target: FindCursor | null, direction: 'new' | 'next' | 'previous') {
     if (destroyed || busy || !selected || !validQuery(query.value)) return;
     const at = generation; const oldCursor = cursor;
@@ -133,14 +130,14 @@ export function createSessionFind(options: Options) {
     const requestId = progress.begin(); busy = true; failed = false; render();
     try {
       const decoded = decode(await options.read(request, requestId), request);
-      if (destroyed || at !== generation || !dialog.open) return;
+      if (destroyed || at !== generation || !view.isOpen()) return;
       if (direction === 'new') history = [];
       else if (direction === 'next') { if (history.length === 64) history.shift(); history.push(oldCursor); }
       else history.pop();
       page = decoded; cursor = target;
       message = decoded.totalHits ? 'Choose a match to open its saved transcript.' : 'No matching canonical text in this session.';
     } catch (error) {
-      if (!destroyed && at === generation && dialog.open) {
+      if (!destroyed && at === generation && view.isOpen()) {
         page = null; cursor = null; history = [];
         if (progress.cancelled()) { failed = false; message = 'Search cancelled. Enter text and select Search this session.'; }
         else {
@@ -151,7 +148,7 @@ export function createSessionFind(options: Options) {
       }
     } finally {
       progress.end(requestId); busy = false;
-      if (!destroyed && at !== generation && dialog.open) message = 'The previous search finished. Search again explicitly.';
+      if (!destroyed && at !== generation && view.isOpen()) message = 'The previous search finished. Search again explicitly.';
       render();
     }
   }
@@ -160,17 +157,16 @@ export function createSessionFind(options: Options) {
       || !record(detail.cursor) || detail.cursor.offset !== 0 || !digest(detail.cursor.fingerprint)) {
       if (!destroyed) options.reportError('Reload the session detail before searching.'); return false;
     }
-    const other = topModal();
-    if (!dialog.open && other && other.id !== 'session-detail-dialog') return false;
+    if (!view.isOpen() && hasModal()) return false;
     clear(); selected = { root: { ...detail.root }, nativeId: detail.nativeId, limit: 50, cursor: { offset: 0, fingerprint: detail.cursor.fingerprint } };
     message = busy ? 'The previous search is still returning; no replacement was started.' : 'Enter text and select Search this session.';
-    render(); if (!dialog.open) openModal(dialog); if (busy) closeButton.focus(); else query.focus(); return true;
+    render(); if (!view.isOpen()) view.open(); if (busy) closeButton.focus(); else query.focus(); return true;
   }
   query.oninput = () => { generation++; page = null; cursor = null; history = []; failed = false; message = validQuery(query.value) ? 'Select Search this session.' : ERRORS.invalid_query; render(); };
   form.onsubmit = event => { event.preventDefault(); void read(null, 'new'); };
   previous.onclick = () => { if (history.length) void read(history.at(-1)!, 'previous'); };
   next.onclick = () => { if (page?.next) void read(page.next, 'next'); };
   closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { progress.cancel(); clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
-  render(); return { show, close, destroy: () => { close(); destroyed = true; progress.destroy(); dialog.remove(); } };
+  view.onClose(() => { progress.cancel(); clear(); if (!sidePanelOpen()) options.restoreFocus?.(); });
+  render(); return { show, close, destroy: () => { close(); destroyed = true; progress.destroy(); view.root.remove(); } };
 }
