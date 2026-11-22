@@ -113,7 +113,7 @@ const terminalSelectors = new Set([
   '.terminal-view.has-minimap > .xterm .xterm-viewport', '.terminal-view > .terminal-minimap', '.terminal-earlier', '.terminal-history-screen',
 ]);
 const fileSelectors = new Set([
-  '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image',
+  '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image', '.files-tab',
 ]);
 // The frame's one rule: the tiling workspace and the Settings view fill the content panel's body.
 const shellSelectors = new Set(['.workspace-host', '.settings-view']);

@@ -31,7 +31,7 @@ async function withSpecialistPage(run) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.route('https://fixture.invalid/', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
       <html data-im-look="oni" data-im-theme="dark"><body><main class="im-shell" id="app">
-      <div id="host" style="width:73vw;height:55vh"></div></main></body></html>` }));
+      <div id="host" style="position:relative;width:calc(100vw - 32px);height:55vh"></div></main></body></html>` }));
     await page.goto('https://fixture.invalid/');
     await page.addStyleTag({ content: output.find(asset => asset.fileName.endsWith('.css')).source });
     await page.addScriptTag({ content: output.find(asset => asset.type === 'chunk').code });
@@ -73,7 +73,8 @@ test('browser frames and file editor occupy their allocated panes', t => withSpe
     });
     assert.ok(Math.abs(sizes[0] - sizes[2]) < 1 && sizes[3] > 100 && Math.abs(sizes[1] - sizes[3] - sizes[4]) < 2, JSON.stringify(sizes));
     t.diagnostic(`Browser host ${sizes[0]} × ${sizes[1]}, canvas ${sizes[2]} × ${sizes[3]}, navigation ${sizes[4]} px`);
-    await page.evaluate(() => window.files.show());
+    // The Files view is a tab of the workspace: the app places the element it opens in the body of a pane (here, the host).
+    await page.evaluate(async () => { const opened = await window.files.open(); document.querySelector('#host').append(opened.element); });
     await page.getByRole('treeitem', { name: /note.md/ }).click({timeout: 3000});
     await page.locator('.files-preview h1').waitFor({ timeout: 5000 }).catch(async error => { throw Error(await page.locator('.files-status').textContent(), { cause: error }); });
     for (const width of [1280, 820, 540]) {
@@ -93,7 +94,9 @@ test('browser frames and file editor occupy their allocated panes', t => withSpe
     await page.locator('label').filter({ has: page.getByRole('radio', { name: 'Source' }) }).click({ timeout: 3000 });
     assert.ok(await editor.evaluate(node => node === document.querySelector('.cm-editor')));
     assert.equal(await page.locator('.files-preview').isVisible(), false);
-    await page.getByRole('button', { name: 'Close files' }).click();
+    // Closing the tab takes the element out of its pane (main.ts closeFilesTab), with nothing unsaved to ask about.
+    assert.equal(await page.evaluate(() => window.files.close()), true);
+    await page.evaluate(() => document.querySelector('#files-dialog').remove());
     await page.evaluate(() => {
       const anchor = document.querySelector('#host');
       anchor.classList.add('im-tile-body');
@@ -137,7 +140,8 @@ test('pending edits, saves and conflict decisions belong to the original file an
         }
       },
     });
-    await panel.show();
+    const opened = await panel.open();
+    document.querySelector('#host').append(opened.element);
   });
   const open = name => page.getByRole('treeitem', { name: new RegExp(name) }).click();
   const mode = name => page.locator('label').filter({ has: page.getByRole('radio', { name }) }).click();

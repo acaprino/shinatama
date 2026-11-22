@@ -399,6 +399,43 @@ function openTeamTab(thread: { id: string; projectId?: string }) {
   } catch (error) { notify(error); }
 }
 function closeTeamTab(viewId: string) { bindings.delete(viewId); teamMap.close(viewId); changeLayout({ type: 'remove-view', viewId }); }
+/** The project files (browse, edit, save), a tab of the workspace like the team map and the browser: one per window. */
+const filesPanel = createFilesPanel({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse files.'),
+  project: () => projectPath || null,
+  reportError: notify,
+  decide: (title, message, accept) => decide(title, message, accept),
+  openInBrowser: desktop ? path => { void openBrowserTab({ file: path }); } : undefined,
+});
+const isFilesView = (id: string) => workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'files';
+/** Opens the Files tab, or brings it forward. The first one gets a column beside the focused pane. */
+async function openFilesTab() {
+  try {
+    leaveSettings();
+    const opened = await filesPanel.open();
+    if (!opened) return;
+    bindings.set(opened.viewId, opened.element);
+    const present = workspaceLayout.views.find(panel => panel.id === opened.viewId);
+    if (present) {
+      const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+      if (present.hidden) changeLayout({ type: 'hide', viewId: opened.viewId, hidden: false });
+      if (group) { changeLayout({ type: 'collapse', groupId: group.id, collapsed: false }); changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); }
+      render(); filesPanel.focus(); return;
+    }
+    const view = { id: opened.viewId, resource: { kind: 'files' as const, resourceId: opened.viewId }, hidden: false };
+    const focused = tabGroups(workspaceLayout.root).find(group => group.id === focusedGroup());
+    if (focused && focused.tabs.length) changeLayout({ type: 'split', groupId: focused.id, view, axis: 'columns', side: 'after', newGroupId: `g-${opened.viewId}`, newSplitId: `s-${opened.viewId}` });
+    else changeLayout({ type: 'add-view', groupId: focusedGroup(), view });
+    const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+    if (group) { changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); }
+    filesPanel.focus();
+  } catch (error) { notify(error); }
+}
+/** The tab's close: with unsaved edits the person decides first (Discard, or Cancel keeps the files open). */
+async function closeFilesTab(viewId: string) {
+  if (!await filesPanel.close()) return;
+  bindings.delete(viewId); changeLayout({ type: 'remove-view', viewId });
+}
 /** Opens a page or a local HTML document in a browser tab of its own (ADR-0056). The first one
  *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
 async function openBrowserTab(target: BrowserTarget, viewId?: string) {
@@ -418,14 +455,14 @@ async function openBrowserTab(target: BrowserTarget, viewId?: string) {
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else if (teamMap.has(id)) teamMap.focus(id); else views.get(id)?.terminal.focus(); },
+  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else if (teamMap.has(id)) teamMap.focus(id); else if (filesPanel.has(id)) filesPanel.focus(); else views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } if (teamMap.has(id)) { teamMap.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
-  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : panel.resource.kind === 'team' ? teamMap.label(panel.id) : tabLabel(panel.id),
+  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : panel.resource.kind === 'team' ? teamMap.label(panel.id) : panel.resource.kind === 'files' ? filesPanel.label(panel.id) : tabLabel(panel.id),
   toneForView: panel => panel.resource.kind === 'terminal' ? tabTone(panel.id) : null,
   tabFilter() {
     const project = tabFilter?.current();
     // Browser tabs belong to the thread, not to a project: the filter never hides them.
-    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team') return true; const folder = panelFolder(panel.id); return !!folder && samePath(folder, project); } } : null;
+    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team' || panel.resource.kind === 'files') return true; const folder = panelFolder(panel.id); return !!folder && samePath(folder, project); } } : null;
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
@@ -435,10 +472,12 @@ const renderer = createWorkspaceRenderer({
       bindings.delete(id); void browserTabs.close(id); changeLayout({ type: 'remove-view', viewId: id }); return;
     }
     if (isTeamView(id)) { closeTeamTab(id); return; }
+    if (isFilesView(id)) { void closeFilesTab(id); return; }
     void closePanel(id);
   },
   placeholderFor: panel => panel.resource.kind === 'browser' ? browserTabs.placeholder(panel.id, target => { void openBrowserTab(target, panel.id); })
-    : panel.resource.kind === 'team' ? teamMap.placeholder(panel.id, thread => openTeamTab(thread)) : savedSessionCard(panel.id),
+    : panel.resource.kind === 'team' ? teamMap.placeholder(panel.id, thread => openTeamTab(thread))
+    : panel.resource.kind === 'files' ? filesPanel.placeholder(panel.id, () => { void openFilesTab(); }) : savedSessionCard(panel.id),
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -1522,18 +1561,10 @@ async function runHop(preview: HopPreview, progress: (message: string) => void, 
   await invoke('hop_finish', { hopId: launched.hopId, outcome: keep ? 'accept_without_receipt' : 'fail' });
   return keep ? 'Hop committed without confirmation.' : 'Hop marked failed; the destination pane stays open.';
 }
-const filesPanel = createFilesPanel({
-  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse files.'),
-  project: () => projectPath || null,
-  reportError: notify,
-  decide: (title, message, accept) => decide(title, message, accept),
-  restoreFocus: () => setFocus(focusedGroup()),
-  openInBrowser: desktop ? path => { void openBrowserTab({ file: path }); } : undefined,
-});
 {
   const button = uiButton('Files', { attrs: { id: 'open-files' } });
-  button.title = 'Browse and edit the project files (nothing is run)';
-  button.onclick = () => { void filesPanel.show(); };
+  button.title = 'Open the project files in a tab of the workspace (nothing is run)';
+  button.onclick = () => { void openFilesTab(); };
   document.querySelector('#new-terminal')?.before(button);
 }
 // What agent sessions create on disk (Xiox), a view of the side panel beside the workspace.

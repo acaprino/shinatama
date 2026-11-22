@@ -3,3 +3,5 @@
 .cm-fold-mark.open { rotate: 45deg; margin-top: var(--im-s-1); }
 /* What the Rust renderer (crates/files/src/markdown.rs) marks in a rendered document: a link or an image it does not follow. */
 .files-preview .md-link, .files-preview .md-image { color: var(--im-muted); }
+/* The Files tab fills the body of its pane (a tile body is positioned and clips what overflows). */
+.files-tab { position: absolute; inset: 0; }

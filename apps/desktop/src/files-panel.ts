@@ -1,6 +1,4 @@
 import { breadcrumbs, documentPane, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone, componentElement, emptyStateHtml } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import { openModal } from './modal.ts';
 import { createFilesTree, type Entry, type Listing } from './files-tree.ts';
 import type { CodeView } from './code-view.ts';
 import './files-panel.css';
@@ -23,12 +21,12 @@ const MODES = [['source', 'Source'], ['split', 'Split'], ['preview', 'Preview'],
 
 /** Read-only browsing plus explicit, version-checked saves. Opening a file never runs it. */
 export function createFilesPanel(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'files-dialog'; uiTraits(dialog, 'fileDialog'); dialog.setAttribute('aria-labelledby', 'files-title');
-  const heading = uiPart('header');
-  const title = uiPart('title', 'Project files'); title.id = 'files-title';
-  const closeButton = closeControl('Close files');
+  // The Files view is a tab of the tiling workspace (a resource of kind files, one per window): this element fills its
+  // pane's body (files-panel.css), and the pane's own tab closes it (close() asks before it discards edits).
+  const root = uiPart('stack', undefined, 'files-tab'); root.id = 'files-dialog'; root.setAttribute('aria-label', 'Project files');
+  const heading = uiPart('toolbar');
   const chooser = uiSelect(); chooser.name = 'files-project'; chooser.setAttribute('aria-label', 'Project'); chooser.classList.add('files-project');
-  heading.append(title, chooser, closeButton);
+  heading.append(chooser);
   const SIDE_KEY = 'shinatama.files.side';
   let initialWidth = 300;
   try { initialWidth = Number(localStorage.getItem(SIDE_KEY)) || initialWidth; } catch { /* optional preference */ }
@@ -70,7 +68,6 @@ export function createFilesPanel(options: Options) {
   inBrowser.onclick = () => {
     const project = projectPath(); if (!current || !project) return;
     options.openInBrowser?.([project.replace(/[\\/]+$/, ''), ...current.path.split('/').filter(Boolean)].join('\\'));
-    dialog.close();
   };
   bar.append(language, modes, inBrowser, save);
   const code = documentPane('source', 'File source'); code.classList.add('files-code');
@@ -81,8 +78,7 @@ export function createFilesPanel(options: Options) {
   const empty = componentElement<HTMLElement>(emptyStateHtml('', 'Choose a file in the tree, or find one by name.'));
   panes.append(code, preview, picture, visual, empty);
   status.classList.add('files-status');
-  dialog.append(heading, workspace.element);
-  (document.querySelector('#app') ?? document.body).append(dialog);
+  root.append(heading, workspace.element);
 
   const buffers = new Map<string, Buffer>();
   const saving = new WeakSet<Buffer>();
@@ -314,7 +310,7 @@ export function createFilesPanel(options: Options) {
   }
   save.onclick = () => { void saveCurrent(); };
   // Ctrl+S saves while the panel has the keyboard.
-  dialog.addEventListener('keydown', event => {
+  root.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') { event.preventDefault(); if (!save.disabled && !save.hidden) save.click(); }
   });
   let searchTimer = 0;
@@ -349,15 +345,16 @@ export function createFilesPanel(options: Options) {
     if (event.key === 'ArrowDown') { event.preventDefault(); tree.focus(); }
     else if (event.key === 'Escape' && search.value) { event.preventDefault(); event.stopPropagation(); search.value = ''; search.dispatchEvent(new Event('input')); }
   });
-  closeButton.onclick = async () => {
+  /** Closes the Files tab's content: false when the person keeps the unsaved changes. */
+  async function close(): Promise<boolean> {
+    if (!opened) return true;
     const unsaved = [...buffers.values()].filter(dirty);
-    if (unsaved.length && !await options.decide('Discard unsaved changes?', `${unsaved.map(b => b.path).join(', ')} ${unsaved.length === 1 ? 'has' : 'have'} unsaved changes. Closing discards them; Cancel keeps the files open.`, 'Discard')) return;
-    dialog.close();
-  };
-  dialog.addEventListener('cancel', event => { event.preventDefault(); closeButton.click(); });
+    if (unsaved.length && !await options.decide('Discard unsaved changes?', `${unsaved.map(b => b.path).join(', ')} ${unsaved.length === 1 ? 'has' : 'have'} unsaved changes. Closing discards them; Cancel keeps the files open.`, 'Discard')) return false;
+    opened = false; resetSearch(); forgetAll(); tree.clear();
+    return true;
+  }
   /** Everything the panel holds goes when it closes: buffers, editor states, the tree. */
   function forgetAll() { opening++; visualGeneration++; renderGeneration++; buffers.clear(); current = null; showingImage = false; codeView?.clear(); preview.replaceChildren(); picture.replaceChildren(); visual.replaceChildren(); language.textContent = ''; render(); }
-  dialog.addEventListener('close', () => { if (dialog.open) return; resetSearch(); forgetAll(); tree.clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   chooser.onchange = async () => {
     const requested = chooser.value;
     chooser.value = activeProject ?? '';
@@ -365,26 +362,50 @@ export function createFilesPanel(options: Options) {
     try {
       if ([...buffers.values()].some(dirty) && !await options.decide('Discard unsaved changes?', 'Switching project discards unsaved changes in this panel.', 'Discard')) return;
     } finally { chooser.disabled = false; }
-    if (!dialog.open) return;
+    if (!opened) return;
     activeProject = requested;
     chooser.value = requested;
     resetSearch(); forgetAll();
     try { await tree.load(); } catch (error) { setStatus(message(error), true); }
   };
-  async function show() {
-    if (dialog.open) { search.focus(); return; }
+  let opened = false; let starting: Promise<{ viewId: string; element: HTMLElement } | null> | null = null;
+  const VIEW_ID = 'files';
+  /** Opens the Files view (its project list and tree are read here) and returns the element the workspace places in a tab. */
+  function open(): Promise<{ viewId: string; element: HTMLElement } | null> {
+    if (opened) return Promise.resolve({ viewId: VIEW_ID, element: root });
+    starting ??= start().finally(() => { starting = null; });
+    return starting;
+  }
+  async function start() {
     const projects = await options.invoke<{ path: string; name: string; available: boolean }[]>('project_recent').catch(() => []);
     const usable = projects.filter(p => p.available);
-    if (!usable.length) { options.reportError('Open a project first; only your projects can be browsed.'); return; }
+    if (!usable.length) { options.reportError('Open a project first; only your projects can be browsed.'); return null; }
     const preferred = options.project()?.replace(/[\\/]+$/, '').toLowerCase();
     chooser.innerHTML = selectOptionsHtml(usable.map(p => [p.path, p.name || p.path]), chooser.value);
     chooser.value = usable.find(p => p.path.replace(/[\\/]+$/, '').toLowerCase() === preferred)?.path ?? usable[0].path;
     activeProject = chooser.value;
-    if (!dialog.open) openModal(dialog);
+    opened = true;
     render(); setStatus('Files open for reading; nothing is run.');
-    try { await tree.load(); } catch (error) { setStatus(message(error), true); }
-    search.focus();
+    void tree.load().catch(error => setStatus(message(error), true));
+    return { viewId: VIEW_ID, element: root };
   }
   render();
-  return { show };
+  return {
+    open, close,
+    has: (viewId: string) => opened && viewId === VIEW_ID,
+    label: (viewId: string) => `Files${opened || viewId !== VIEW_ID ? '' : ' · closed'}`,
+    /** Whether unsaved edits are held. */
+    dirty: () => [...buffers.values()].some(dirty),
+    /** Puts the focus in the search field, unless it is already somewhere in the view (the editor keeps it). */
+    focus: () => { if (!root.contains(document.activeElement)) search.focus({ preventScroll: true }); },
+    /** A saved Files tab that is not open (after a restart): a button to open it again. */
+    placeholder(viewId: string, reopen: () => void): HTMLElement | null {
+      if (opened || viewId !== VIEW_ID) return null;
+      const card = uiTraits(uiPart('body'), 'stack');
+      card.append(uiPart('paragraph', 'The project files are closed.'));
+      const again = uiButton('Open the project files'); again.onclick = () => reopen();
+      card.append(again);
+      return card;
+    },
+  };
 }
