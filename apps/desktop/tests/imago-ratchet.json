@@ -1,4 +1,7 @@
 {
+  "panel-states.ts": {
+    "parts": 3
+  },
   "agent-setup.ts": {
     "parts": 16
   },
@@ -78,7 +81,7 @@
     "parts": 32
   },
   "sessions-panel.ts": {
-    "parts": 41
+    "parts": 42
   },
   "settings-panel.ts": {
     "parts": 54

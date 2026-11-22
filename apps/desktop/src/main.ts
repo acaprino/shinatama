@@ -1555,6 +1555,7 @@ const projectsOverview = createProjectsOverview({
     });
   },
   decide: (title, message, accept) => decide(title, message, accept),
+  chooseProjects: () => openProjectDialog(),
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

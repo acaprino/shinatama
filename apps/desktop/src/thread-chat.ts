@@ -1,4 +1,4 @@
-import { keyedList, uiPart, uiButton, uiSelect, uiTextarea, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { keyedList, LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiSelect, uiTextarea, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 import { closeSidePanel, openSidePanel, sideView } from './side-panel.ts';
 // ADR-0057: the conversation of a thread whose sessions talk to each other. A side panel beside the
 // terminals, not a dialog: the user can watch the sessions work while they read. It reads the room
@@ -65,6 +65,16 @@ export function createThreadChat(options: Options) {
   let current: ChatThread | null = null; let snapshot: ChatSnapshot | null = null; let events: ChatEvent[] = [];
   let timer = 0; let reading: number | null = null; let sending = false; let generation = 0; let toChosen = false;
   let lastSeenEvent: string | null = null;
+  // The room's first read: the bars after 300 ms, the sentence and Retry when it fails with nothing to show. A poll that
+  // fails once the room is on screen stays a status line.
+  let cancelLoading: (() => void) | null = null;
+  function readSettled() { cancelLoading?.(); cancelLoading = null; setPanelState(panel, { kind: 'ready' }); }
+  function readFailed(reason: string) {
+    cancelLoading?.(); cancelLoading = null;
+    if (snapshot) { setStatus(reason, 'error'); return; }
+    setStatus('');
+    setPanelState(panel, { kind: 'error', text: reason, retry: { label: 'Retry', run: () => { void read(); } } });
+  }
 
   const paintText = (element: HTMLElement, value: string) => {
     if (element.textContent !== value) element.textContent = value;
@@ -140,8 +150,8 @@ export function createThreadChat(options: Options) {
       const since = events.at(-1)?.timestamp ?? null;
       const value = parseSnapshot(await options.invoke<unknown>('thread_chat_snapshot', { request: { worksetId: scope.id, since } }));
       if (at !== generation) return;
-      if (!value) { setStatus('The conversation could not be read.', 'error'); return; }
-      snapshot = value;
+      if (!value) { readFailed('The conversation could not be read.'); return; }
+      snapshot = value; readSettled();
       if (!value.enabled) { events = []; setStatus('This thread\'s sessions do not talk to each other. Turn it on in the thread\'s settings (⋯).'); render(); return; }
       events = mergeEvents(events, value.events);
       setStatus('');
@@ -152,7 +162,7 @@ export function createThreadChat(options: Options) {
         options.seen(scope.id, latest.eventId, latest.timestamp);
       }
     } catch (error) {
-      if (at === generation) setStatus(message(error), 'error');
+      if (at === generation) readFailed(message(error));
     } finally { if (reading === at) reading = null; }
   }
   function schedule() {
@@ -192,7 +202,7 @@ export function createThreadChat(options: Options) {
   /** The view left the side panel (its ×, Escape, another view): the room is no longer read. */
   function left() {
     if (!current) return;
-    generation++; current = null; clearRoom(); window.clearInterval(timer);
+    generation++; current = null; clearRoom(); window.clearInterval(timer); readSettled();
   }
   function hide() {
     if (!current) return;
@@ -202,7 +212,11 @@ export function createThreadChat(options: Options) {
     element: panel,
     /** Opens the conversation of this thread, or brings it forward if it is already open. */
     open(scope: ChatThread) {
-      if (current?.id !== scope.id) { generation++; current = { ...scope }; clearRoom(); setStatus('Reading the room…'); }
+      if (current?.id !== scope.id) {
+        generation++; current = { ...scope }; clearRoom(); setStatus('Reading the room…'); readSettled();
+        const at = generation;
+        cancelLoading = showAfter(LOADING_DELAY_MS, () => { cancelLoading = null; if (at === generation && !snapshot) setPanelState(panel, { kind: 'loading', rows: 3 }); });
+      }
       openSidePanel(panel, { onLeave: left }); render(); title.focus(); schedule(); void read();
     },
     hide,

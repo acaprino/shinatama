@@ -1,4 +1,4 @@
-import { hasModal, uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { hasModal, LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
@@ -184,6 +184,14 @@ export function createSessionDetail(options: Options) {
   function field(label: string, value: string | number | null) {
     const key = uiPart('term', label); const item = uiPart('definition', value === null || value === '' ? 'Unknown' : String(value)); overview.append(key, item);
   }
+  // The first read of a session, and a read that failed with nothing to show, are the panel's states: the bars once the
+  // read lasts past 300 ms, the sentence with Retry on failure. A later page keeps the page on screen.
+  let loadingShown = false;
+  function paintState() {
+    setPanelState(view.root, !page && busy && loadingShown ? { kind: 'loading', rows: 4 }
+      : !page && failed && current ? { kind: 'error', text: message, retry: { label: 'Retry', run: () => { void load(null, 'reload'); } } }
+      : { kind: 'ready' });
+  }
   function render() {
     if (destroyed) return; view.root.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
@@ -191,6 +199,7 @@ export function createSessionDetail(options: Options) {
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
     status.textContent = busy ? 'Reading bounded session detail…' : message; status.dataset.state = failed ? 'error' : 'ready';
     for (const [name, panel] of panels) panel.hidden = name !== activeTab;
+    paintState();
     overview.replaceChildren(); events.replaceChildren(); notices.replaceChildren();
     if (page) {
       const shownPage=page;
@@ -251,7 +260,8 @@ export function createSessionDetail(options: Options) {
   async function load(requested: DetailCursor | null, direction: 'reload' | 'next' | 'previous') {
     if (busy || !current) return;
     const at = generation; const request: DetailRequest = { root: { ...current.root }, nativeId: current.nativeId, cursor: requested, limit: 50 };
-    busy = true; failed = false; render();
+    busy = true; failed = false; loadingShown = false; render();
+    const cancelLoading = showAfter(LOADING_DELAY_MS, () => { if (busy && !page && at === generation) { loadingShown = true; render(); } });
     try {
       const received = await options.read(request);
       if (destroyed || at !== generation || !view.isOpen()) return;
@@ -262,7 +272,7 @@ export function createSessionDetail(options: Options) {
       if (!destroyed && at === generation && view.isOpen()) { page = null; cursor = null; history = []; failed = true;
         const code = error instanceof Error ? error.message : typeof error === 'string' ? error : record(error) ? error.issue ?? error.code : null;
         message = typeof code === 'string' && Object.hasOwn(ERRORS, code) ? ERRORS[code] : 'Session detail could not be loaded. Retry explicitly.'; options.reportError(message); }
-    } finally { busy = false; if (!destroyed && at !== generation && view.isOpen()) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
+    } finally { cancelLoading(); loadingShown = false; busy = false; if (!destroyed && at !== generation && view.isOpen()) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
   }
   function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (view.isOpen()) view.close(); }
   function show(root: SessionRootSelector, id: string, jump: DetailCursor | null = null) {

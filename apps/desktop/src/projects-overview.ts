@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
 import { sidePanelOpen, sideSurface } from './side-panel.ts';
 import { listen } from '@tauri-apps/api/event';
 import { confirmsField } from './desktop-shell-model.ts';
@@ -14,6 +14,8 @@ type Options = {
   newSession: (path: string) => void;
   resume: (row: ProjectRow, thread: LastThread) => Promise<void>;
   decide: (title: string, message: string, accept: string) => Promise<boolean>;
+  /** Opens the project picker, the empty overview's first action. */
+  chooseProjects?: () => void;
   reportError: (message: string) => void;
   restoreFocus?: () => void;
 };
@@ -145,16 +147,24 @@ export function createProjectsOverview(options: Options) {
   }
   async function load() {
     const at = ++generation; status.dataset.state = 'ready'; status.textContent = 'Reading projects and Git status…';
+    // The bars show only when the read lasts past 300 ms, and not over rows already listed.
+    const cancelLoading = showAfter(LOADING_DELAY_MS, () => { if (at === generation && !slots.size) setPanelState(view.root, { kind: 'loading', rows: 3 }); });
     try {
       const [rows] = await Promise.all([options.invoke<ProjectRow[]>('project_overview'), readLeftovers()]);
+      cancelLoading();
       if (at !== generation) return;
       slots.clear();
       list.replaceChildren(...rows.map(rowElement));
       const xiox = leftovers.available ? '' : leftovers.reason ? ` Leftovers are not watched: ${leftovers.reason}` : '';
-      status.textContent = (rows.length ? `${rows.length} project${rows.length === 1 ? '' : 's'}. Pinned first.` : 'No projects yet. Open a folder first.') + xiox;
-    } catch (error) { if (at === generation) { status.dataset.state = 'error'; status.textContent = text(error); } }
+      status.textContent = (rows.length ? `${rows.length} project${rows.length === 1 ? '' : 's'}. Pinned first.` : '') + xiox;
+      setPanelState(view.root, rows.length ? { kind: 'ready' } : { kind: 'empty', title: 'No projects yet', text: 'Choose a folder to list its Git status, its last thread and what agents left there.',
+        ...(options.chooseProjects ? { action: { label: 'Choose projects', run: () => { view.close(); options.chooseProjects!(); } } } : {}) });
+    } catch (error) {
+      cancelLoading();
+      if (at === generation) setPanelState(view.root, { kind: 'error', text: text(error), retry: { label: 'Retry', run: () => { void load(); } } });
+    }
   }
-  view.onClose(() => { generation++; if (!sidePanelOpen()) options.restoreFocus?.(); });
+  view.onClose(() => { generation++; setPanelState(view.root, { kind: 'ready' }); if (!sidePanelOpen()) options.restoreFocus?.(); });
   async function show() { if (!view.isOpen()) view.open(); await load(); }
   return { show };
 }

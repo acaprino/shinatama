@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { LOADING_DELAY_MS, setPanelState, showAfter, uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 import { closeSidePanel, openSidePanel, sidePanelShows, sideView } from './side-panel.ts';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -43,6 +43,9 @@ export function createLeftoversPanel(options: Options) {
 
   let state: LeftoverStatus = { available: false, reason: null, projects: [] };
   let message = '';
+  // The first read, and a read that failed with nothing to show: the panel's own states (a failed read of a list already
+  // on screen stays a status line, as does the result of an action).
+  let loaded = false; let readFailure: string | null = null; let cancelLoading: (() => void) | null = null;
 
   // Whether the viewer opened or closed it themselves; until then Xiox decides, once, at the first read (refresh).
   let chosen = false; let decided = false;
@@ -155,23 +158,37 @@ export function createLeftoversPanel(options: Options) {
     badge.hidden = count === 0; badge.textContent = String(count);
     toggle.dataset.attention = String(state.projects.some(p => p.attention.length > 0));
     if (!shown()) return;
+    if (!loaded) { waitForFirstRead(); return; }
     if (!state.available) {
       list.replaceChildren();
-      say(state.reason ? `Not watching: ${state.reason}` : 'Reading Xiox…');
+      if (readFailure !== null) setPanelState(panel, { kind: 'error', text: readFailure, retry: { label: 'Retry', run: () => { void refresh(); } } });
+      else setPanelState(panel, { kind: 'empty', title: 'Not watching', text: state.reason ?? 'Xiox is not running.' });
       return;
     }
+    if (!state.projects.length) {
+      list.replaceChildren();
+      setPanelState(panel, { kind: 'empty', title: 'Nothing watched yet', text: 'Xiox starts with the first agent session of a project.' });
+      return;
+    }
+    setPanelState(panel, { kind: 'ready' });
     if (!message || status.dataset.state !== 'error') {
       status.dataset.state = 'ready';
-      status.textContent = state.projects.length
-        ? `${count} new across ${state.projects.length} project${state.projects.length === 1 ? '' : 's'}. Nothing is removed.`
-        : 'Nothing watched yet. Xiox starts with the first agent session of a project.';
+      status.textContent = `${count} new across ${state.projects.length} project${state.projects.length === 1 ? '' : 's'}. Nothing is removed.`;
     }
     const ordered = [...state.projects].sort((a, b) => visibleItems(b).length - visibleItems(a).length || b.liveSessions - a.liveSessions);
     list.replaceChildren(...ordered.map(project => projectElement(project, now)));
   }
 
+  /** Nothing is drawn before 300 ms; then the bars stand in for the rows. */
+  function waitForFirstRead() {
+    if (loaded || !shown()) return;
+    cancelLoading ??= showAfter(LOADING_DELAY_MS, () => { cancelLoading = null; if (!loaded && shown()) setPanelState(panel, { kind: 'loading', rows: 3 }); });
+  }
   async function refresh() {
-    try { state = await options.invoke<LeftoverStatus>('project_leftovers'); } catch (error) { if (shown()) say(text(error), true); }
+    waitForFirstRead();
+    try { state = await options.invoke<LeftoverStatus>('project_leftovers'); readFailure = null; }
+    catch (error) { readFailure = text(error); if (shown() && state.available) say(readFailure, true); }
+    loaded = true; cancelLoading?.(); cancelLoading = null;
     // Unless the viewer chose, it opens at the first read only, and only when Xiox watches: the side panel is the
     // window's one, and a read every 30 s must not take it from the conversation or the Model proxy.
     if (!chosen && !decided) { decided = true; if (state.available) show(true); }

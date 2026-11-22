@@ -1,4 +1,5 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { LOADING_DELAY_MS, showAfter, uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { stateLayer, type SectionState } from './panel-states.ts';
 /** Sessions: one panel for every session of an agent, whatever its state. Running sessions come
  * first, with what they are doing now; saved ones follow, read from the agents' own archives.
  * The search field filters both as you type and, on Enter, searches the text of the indexed
@@ -59,6 +60,11 @@ export function createSessionsPanel(options: Options) {
   savedHead.append(savedLabel, savedCount, savedNote, reload);
   const savedList = uiPart('list'); savedList.setAttribute('aria-label', 'Saved sessions');
   const savedEmpty = uiPart('paragraph');
+  // The saved list's loading, empty and error states (Imago's layer), written where the list is: the search field and
+  // the running sessions stay usable beside it.
+  const savedState = uiPart('stack'); savedState.id = 'sessions-saved-state';
+  let savedLoadingShown = false; let cancelSavedLoading = () => {};
+  function paintSavedState(state: SectionState | null) { savedState.replaceChildren(...(state ? [stateLayer(state)] : [])); }
   const more = uiButton('Load older sessions'); more.hidden = true;
 
   const advanced = uiPart('details');
@@ -70,10 +76,10 @@ export function createSessionsPanel(options: Options) {
   advancedTools.append(archivesButton, indexButton, settingsButton);
   advanced.append(advancedSummary, advancedTools, instances.legend);
 
-  view.body.append(tools, status, runningHead, runningEmpty, instances.element, savedHead, savedList, savedEmpty, more, advanced);
+  view.body.append(tools, status, runningHead, runningEmpty, instances.element, savedHead, savedList, savedState, savedEmpty, more, advanced);
 
   let timer = 0; let notice = 0; let generation = 0;
-  let archives: Archive[] = []; let savedState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle'; let savedFailure = '';
+  let archives: Archive[] = []; let loadState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle'; let savedFailure = '';
   let hits: SearchHit[] | null = null; let searched = ''; let searching = false; let expanded: string | null = null;
   let chosenScope = 'project';
 
@@ -160,23 +166,28 @@ export function createSessionsPanel(options: Options) {
       savedLabel.textContent = 'Matches in conversations'; savedCount.textContent = String(hits.length);
       savedNote.textContent = hits.length >= 50 ? 'first 50' : ''; reload.hidden = true; more.hidden = true;
       savedList.replaceChildren(...hits.map(hitRow)); savedList.hidden = !hits.length;
-      savedEmpty.hidden = hits.length > 0;
+      paintSavedState(null); savedEmpty.hidden = hits.length > 0;
       savedEmpty.textContent = `No indexed conversation contains “${searched}”. If the index is empty, open Options and archives, then Search index.`;
       return;
     }
     const rows = visibleSaved(); const loaded = archives.reduce((sum, archive) => sum + archive.rows.length, 0);
-    savedLabel.textContent = 'Saved'; savedCount.textContent = savedState === 'ready' || rows.length ? String(rows.length) : '';
+    savedLabel.textContent = 'Saved'; savedCount.textContent = loadState === 'ready' || rows.length ? String(rows.length) : '';
     const failed = archives.filter(archive => archive.failure);
-    savedNote.textContent = savedState === 'loading' ? 'reading archives…' : failed.length ? `${failed.length} archive${failed.length === 1 ? '' : 's'} could not be read` : '';
+    savedNote.textContent = loadState === 'loading' ? 'reading archives…' : failed.length ? `${failed.length} archive${failed.length === 1 ? '' : 's'} could not be read` : '';
     savedNote.title = failed.map(archive => `${archive.root.label ?? agentName(archive.root.harness)}: ${archive.failure}`).join('\n');
-    reload.hidden = false; reload.disabled = savedState === 'loading';
+    reload.hidden = false; reload.disabled = loadState === 'loading';
     savedList.replaceChildren(...rows.map(savedRow)); savedList.hidden = !rows.length;
-    more.hidden = savedState !== 'ready' || !archives.some(archive => archive.next); more.disabled = false;
-    savedEmpty.hidden = rows.length > 0 || savedState === 'loading';
-    savedEmpty.textContent = savedState === 'failed' ? savedFailure
-      : search.value.trim() ? 'No saved session matches the filter. Press Enter to search inside conversations.'
-      : loaded && chosenScope === 'project' ? 'No saved session of this project among those read. Choose All projects, or load older sessions.'
-      : 'No saved session yet.';
+    more.hidden = loadState !== 'ready' || !archives.some(archive => archive.next); more.disabled = false;
+    const filtered = search.value.trim() !== '';
+    const scoped = !filtered && loaded > 0 && chosenScope === 'project';
+    // Nothing to list: the first read waits (bars, once it lasts past 300 ms), fails (the sentence and Retry) or finds none.
+    paintSavedState(loadState === 'loading' && !rows.length && savedLoadingShown ? { kind: 'loading', rows: 3 }
+      : loadState === 'failed' ? { kind: 'error', text: savedFailure, retry: { label: 'Retry', run: () => { void loadSaved(); } } }
+      : loadState === 'ready' && !rows.length && !filtered && !scoped ? { kind: 'empty', text: 'No saved session yet.', action: { label: 'Read the archives again', run: () => { void loadSaved(); } } }
+      : null);
+    savedEmpty.hidden = rows.length > 0 || loadState === 'idle' || loadState === 'loading' || loadState === 'failed' || (loadState === 'ready' && !filtered && !scoped);
+    savedEmpty.textContent = filtered ? 'No saved session matches the filter. Press Enter to search inside conversations.'
+      : 'No saved session of this project among those read. Choose All projects, or load older sessions.';
   }
   const paint = () => { paintRunning(); paintSaved(); };
 
@@ -192,7 +203,10 @@ export function createSessionsPanel(options: Options) {
   }
   /** Every available archive, one after the other: the reader is a contained worker, never two at once. */
   async function loadSaved() {
-    const mine = ++generation; savedState = 'loading'; archives = []; expanded = null; paintScope(); paintSaved();
+    const mine = ++generation; loadState = 'loading'; archives = []; expanded = null; paintScope();
+    cancelSavedLoading(); savedLoadingShown = false;
+    cancelSavedLoading = showAfter(LOADING_DELAY_MS, () => { if (mine === generation && loadState === 'loading') { savedLoadingShown = true; paintSaved(); } });
+    paintSaved();
     try {
       const roots = rootsValue(await options.roots());
       if (mine !== generation) return;
@@ -203,14 +217,15 @@ export function createSessionsPanel(options: Options) {
         if (!archive.root.available) continue;
         await readPage(archive, null, mine); if (mine !== generation) return; paintSaved();
       }
-      savedState = 'ready';
-    } catch (error) { if (mine !== generation) return; savedState = 'failed'; savedFailure = failureText(error); }
+      loadState = 'ready';
+    } catch (error) { if (mine !== generation) return; loadState = 'failed'; savedFailure = failureText(error); }
+    cancelSavedLoading(); savedLoadingShown = false;
     paintSaved();
   }
   more.onclick = async () => {
-    const mine = generation; more.disabled = true; savedState = 'loading'; paintSaved();
+    const mine = generation; more.disabled = true; loadState = 'loading'; paintSaved();
     for (const archive of archives) { if (archive.next) await readPage(archive, archive.next, mine); if (mine !== generation) return; }
-    savedState = 'ready'; paintSaved();
+    loadState = 'ready'; paintSaved();
   };
   reload.onclick = () => { void loadSaved(); };
 
@@ -242,14 +257,14 @@ export function createSessionsPanel(options: Options) {
   archivesButton.onclick = () => options.openArchives();
   indexButton.onclick = () => options.openIndex();
   settingsButton.onclick = () => options.openSettings();
-  view.onClose(() => { clearInterval(timer); clearTimeout(notice); instances.reset(); if (!sidePanelOpen()) options.restoreFocus?.(); });
+  view.onClose(() => { cancelSavedLoading(); clearInterval(timer); clearTimeout(notice); instances.reset(); if (!sidePanelOpen()) options.restoreFocus?.(); });
 
   /** Opens the panel as it was left: the saved list is read once and kept until Reload. */
   async function show() {
     if (!view.isOpen()) { status.hidden = true; delete status.dataset.source; paintScope(); paint(); view.open(); search.focus(); }
     clearInterval(timer); timer = window.setInterval(() => { if (view.isOpen()) void refreshRunning(); }, REFRESH_MS);
     const running = refreshRunning(true);
-    if (savedState === 'idle' || savedState === 'failed') void loadSaved();
+    if (loadState === 'idle' || loadState === 'failed') void loadSaved();
     await running;
   }
   paintScope(); paint();
