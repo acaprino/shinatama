@@ -123,7 +123,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | Rust | ident_case | 1.0.1 | build-tool | MIT/Apache-2.0 | recognized | LICENSE |
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | imago-shell | 0.2.0 | runtime | Apache-2.0 | recognized | LICENSE |
+| Rust | imago-shell | 0.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -339,7 +339,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
-| npm | @acaprino/imago | 0.2.0 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @acaprino/imago | 0.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @codemirror/autocomplete | 6.20.4 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/commands | 6.11.1 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-css | 6.3.1 | runtime | MIT | recognized | LICENSE |
