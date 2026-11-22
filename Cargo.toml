@@ -27,7 +27,7 @@ license = "Apache-2.0"
 # without major versions, against the pinned 1.99.1 toolchain. watchexec-supervisor and expectrl
 # are not used, per the C13 card.
 [workspace.dependencies]
-imago-shell = { git = "https://github.com/acaprino/imago.git", rev = "e503c3a96c76ced8963e8f5f58503e2fa9d3262f" }
+imago-shell = { git = "https://github.com/acaprino/imago.git", rev = "3dbbe92fa953395034651c5c946256d929d15beb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"

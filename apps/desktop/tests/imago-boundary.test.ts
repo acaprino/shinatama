@@ -117,15 +117,21 @@ const fileSelectors = new Set([
 ]);
 // The frame's one rule: the tiling workspace and the Settings view fill the content panel's body.
 const shellSelectors = new Set(['.workspace-host', '.settings-view']);
+// The screens' layout (src/screens.css): Imago's DOM parts carry names and almost no layout, so a screen's own classes are
+// laid out here, from tokens. A selector is built from the screens' classes, attributes and tags, never from an Imago class
+// (imago-check holds the values to tokens, and a name of Imago's to the package).
+const screenSelector = (selector: string) => /^\.[a-z]/.test(selector) && !/(?<![\w-])\.im-|--im-\w+\s*:/.test(selector);
 function inspectCss(file: string, source: string): string[] {
   const scope = file === 'src/terminal-content.css' ? terminalSelectors : file === 'src/files-panel.css' ? fileSelectors : file === 'src/shell-content.css' ? shellSelectors : null;
-  if (!scope) return [file + ' is not a specialist content stylesheet'];
+  const screens = file === 'src/screens.css';
+  if (!scope && !screens) return [file + ' is not a specialist content stylesheet'];
   const issues: string[] = [];
   const root = postcss.parse(source, { from: file });
   root.walkRules(rule => {
-    for (const selector of rule.selectors) if (!scope.has(selector)) issues.push(file + ' unsupported selector ' + selector);
+    for (const selector of rule.selectors) if (scope ? !scope.has(selector) : !screenSelector(selector)) issues.push(file + ' unsupported selector ' + selector);
   });
   root.walkAtRules(rule => {
+    if (file === 'src/screens.css' && rule.name === 'container') return; // the shell's own breakpoints, as Imago's CSS writes them
     if (!(file === 'src/terminal-content.css' && rule.name === 'import' && /^(['"])@xterm\/xterm\/css\/xterm\.css\1$/.test(rule.params))) {
       issues.push(file + ' unsupported CSS at-rule @' + rule.name);
     }

@@ -173,6 +173,8 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const close = componentElement<HTMLButtonElement>(iconButtonHtml('Close the thread sidebar', 'close-sidebar', 'close'));
   close.title = 'Close the thread sidebar (the Threads button brings it back)';
   fold.before(close);
+  // Choosing the projects this sidebar lists is the sidebar's own action (shell-frame.ts made the button).
+  const choose = document.querySelector<HTMLElement>('#project'); if (choose) close.before(choose);
   // The same listbox as a list element: its rows are li options (the window's smokes find them so).
   const canonList = element.querySelector<HTMLElement>('.im-list')!;
   const list = uiTraits(uiPart('orderedList', undefined, 'im-panel-body thread-sidebar-list thread-sidebar-body'), 'list');

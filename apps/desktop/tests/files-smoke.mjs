@@ -11,6 +11,7 @@ import { realpathSync } from 'node:fs';
 const tmpdir = () => realpathSync.native(systemTmpdir());
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { openPanel } from './panel-open.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const workspace = process.cwd();
@@ -97,7 +98,7 @@ try {
   expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Mine\n');
   evidence.checks.versionCheckedSave = true;
   // UI: the Files button opens the panel, a Markdown file renders in split view.
-  await page.locator('#open-files').click();
+  await openPanel(page, 'open-files', 'Files');
   await expect(page.locator('#files-dialog')).toBeVisible();
   await page.locator('#files-dialog [role=treeitem]', { hasText: 'README.md' }).click();
   await expect(page.locator('#files-dialog .files-preview h1')).toHaveText('Mine', { timeout: 10000 });

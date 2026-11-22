@@ -42,18 +42,18 @@ const percent = (level: number) => `${Math.round(level * 100)}%`;
 export function createSettingsPanel(options: Options) {
   // The view fills the content region (shell-content.css); main.ts hides it until the Settings tab is selected.
   const dialog = uiPart('stack', undefined, 'settings-view'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title'); dialog.hidden = true;
-  const top = uiPart('stack');
-  const heading = uiPart('row'); const title = uiPart('minorHeading', 'Settings'); title.id = 'settings-title';
+  const top = uiPart('stack'); top.classList.add('settings-top');
+  const heading = uiPart('row'); heading.classList.add('settings-heading'); const title = uiPart('minorHeading', 'Settings'); title.id = 'settings-title';
   const closeButton = closeControl('Close settings');
   heading.append(title, closeButton);
-  const index = uiTraits(uiPart('nav'), 'row'); index.setAttribute('aria-label', 'Settings sections');
+  const index = uiTraits(uiPart('nav'), 'row'); index.classList.add('settings-index'); index.setAttribute('aria-label', 'Settings sections');
   top.append(heading, index);
   const intro = uiPart('hint', 'Appearance, Alerts and Sessions apply as you change them. Agents, Models, Memory, GitHub and Environment variables apply when you press Save.');
   intro.id = 'settings-intro';
 
   const parts = new Map<SettingsSection, { section: HTMLElement; heading: HTMLHeadingElement; link: HTMLButtonElement }>();
   for (const [id, label, text] of SETTINGS_SECTIONS) {
-    const section = uiTraits(uiPart('region'), 'stack', 'section'); section.id = `settings-section-${id}`;
+    const section = uiTraits(uiPart('region'), 'stack', 'section'); section.classList.add('settings-section'); section.id = `settings-section-${id}`;
     const sectionHeading = uiPart('heading', text); sectionHeading.id = `settings-section-${id}-title`; sectionHeading.tabIndex = -1;
     section.setAttribute('aria-labelledby', sectionHeading.id); section.append(sectionHeading);
     const link = uiButton(label, { cls: 'settings-index-link', sm: true }); link.setAttribute('aria-controls', section.id);
@@ -71,7 +71,7 @@ export function createSettingsPanel(options: Options) {
 
   // Agents
   const fullLabel = uiPart('label'); const full = uiInput('checkbox'); full.id = 'settings-full-access';
-  fullLabel.append(full, document.createTextNode(' Full access: start agents without their own protections'));
+  fullLabel.classList.add('settings-check'); fullLabel.append(full, document.createTextNode(' Full access: start agents without their own protections'));
   const fullHint = uiPart('hint', 'Claude starts in bypass-permissions mode, Codex without its sandbox and approvals, OpenCode allows every tool. '
     + 'Pi and PowerShell never asked. An agent can then change or delete anything your Windows account can, inside or outside the project. '
     + 'The private home keeps their settings and sign-ins apart; it does not confine their files. Applies to sessions started after you save.');
@@ -82,7 +82,7 @@ export function createSettingsPanel(options: Options) {
 
   // Memory
   const memoryLabel = uiPart('label'); const memoryCheck = uiInput('checkbox'); memoryCheck.id = 'settings-memory-safety';
-  memoryLabel.append(memoryCheck, document.createTextNode(' Check free memory before a session, shell or harness check starts'));
+  memoryLabel.classList.add('settings-check'); memoryLabel.append(memoryCheck, document.createTextNode(' Check free memory before a session, shell or harness check starts'));
   const marginLabel = uiPart('label', 'Memory kept free (MiB)'); marginLabel.htmlFor = 'settings-memory-margin';
   const margin = uiInput(); margin.id = 'settings-memory-margin'; margin.type = 'number'; margin.min = '0'; margin.max = String(MAX_MARGIN_MIB); margin.step = '64'; margin.inputMode = 'numeric';
   const memoryHint = uiPart('hint', 'On: a start waits a few seconds for a fresh measurement and is refused when free RAM or allocatable memory '
@@ -98,7 +98,7 @@ export function createSettingsPanel(options: Options) {
   const user = uiInput(); user.id = 'settings-github-user'; user.autocomplete = 'off'; user.spellcheck = false; user.maxLength = 39;
   const tokenLabel = uiPart('label', 'Personal access token'); tokenLabel.htmlFor = 'settings-github-token';
   const token = uiInput(); token.id = 'settings-github-token'; token.type = 'password'; token.autocomplete = 'new-password'; token.spellcheck = false; token.maxLength = 255;
-  const tokenRow = uiPart('row'); const removeToken = uiButton('Remove token'); removeToken.id = 'settings-github-remove';
+  const tokenRow = uiPart('row'); tokenRow.classList.add('settings-inline'); const removeToken = uiButton('Remove token'); removeToken.id = 'settings-github-remove';
   tokenRow.append(token, removeToken);
   const githubHint = uiPart('hint', 'GitHub no longer accepts an account password, so use a personal access token (a fine-grained one limited to the repositories you need is safest). '
     + 'Agents receive it as GH_TOKEN and as the Git credential for github.com, so git push and gh never ask. Stored encrypted for this Windows user; any agent you start can read it.');
@@ -112,10 +112,10 @@ export function createSettingsPanel(options: Options) {
 
   // Sessions
   const titlesLabel = uiPart('label'); const titles = uiInput('checkbox'); titles.id = 'settings-titles';
-  titlesLabel.append(titles, document.createTextNode(' Activity titles'));
+  titlesLabel.classList.add('settings-check'); titlesLabel.append(titles, document.createTextNode(' Activity titles'));
   const titlesHint = uiPart('hint', 'Sessions shows what each running session is doing, verbatim from its last tool call or message. Nothing leaves this computer.');
   const indexingLabel = uiPart('label'); const indexing = uiInput('checkbox'); indexing.id = 'settings-indexing';
-  indexingLabel.append(indexing, document.createTextNode(' Index session text for search'));
+  indexingLabel.classList.add('settings-check'); indexingLabel.append(indexing, document.createTextNode(' Index session text for search'));
   const indexingHint = uiPart('hint', 'Lets Search index read your session archives. Off stops indexing; text already indexed stays searchable until you forget it there.');
   const sessionsStatus = uiPart('hint'); sessionsStatus.id = 'settings-sessions-status'; sessionsStatus.setAttribute('role', 'status');
   part('sessions').append(titlesLabel, titlesHint, indexingLabel, indexingHint, sessionsStatus);
@@ -132,14 +132,14 @@ export function createSettingsPanel(options: Options) {
   syncNow.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`); openMuro.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`);
   part('plugins').append(pluginsStatus, pluginsRow, pluginsHint);
 
-  const actions = uiPart('actions');
-  const status = uiPart('status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
+  const actions = uiPart('actions'); actions.classList.add('settings-actions');
+  const status = uiPart('status'); status.classList.add('settings-status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
   const reload = uiButton('Reload'); reload.title = 'Read every saved setting again';
   const save = uiButton('Save', { primary: true }); save.id = 'settings-save'; save.setAttribute('aria-describedby', intro.id);
   const close = uiButton('Close');
   actions.append(status, reload, save, close);
   // The title and index above, the actions below, and only the sections between them scroll.
-  const body = uiTraits(uiPart('scroll'), 'grow'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
+  const body = uiTraits(uiPart('scroll'), 'grow'); body.classList.add('settings-body'); body.append(intro, ...[...parts.values()].map(entry => entry.section));
   dialog.append(top, body, actions);
 
   // The index follows the scroll; a section picked from it stays marked until the user scrolls.

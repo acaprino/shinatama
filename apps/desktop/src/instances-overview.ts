@@ -54,12 +54,12 @@ export function summaryLine(rows: { state: string }[]): string {
 export function createInstancesSection(options: Options) {
   const element = uiPart('stack');
   const warnings = uiPart('stack'); warnings.setAttribute('role', 'group'); warnings.setAttribute('aria-label', 'Possible conflicts'); warnings.hidden = true;
-  const list = uiPart('list'); list.setAttribute('aria-label', 'Running sessions');
+  const list = uiPart('list'); list.classList.add('instances-list'); list.setAttribute('aria-label', 'Running sessions');
   const timelineHeading = uiPart('subheading', 'Recent hops'); timelineHeading.hidden = true;
-  const timeline = uiTraits(uiPart('orderedList'), 'scroll', 'bounded');
+  const timeline = uiTraits(uiPart('orderedList'), 'scroll', 'bounded'); timeline.classList.add('instances-timeline');
   element.append(warnings, list, timelineHeading, timeline);
 
-  const legend = uiPart('paragraph');
+  const legend = uiPart('paragraph'); legend.classList.add('instances-legend');
   const certain = uiPart('text'); certain.append('● Certain, from the process');
   const inferred = uiPart('text'); inferred.append('○ Inferred from the terminal');
   legend.append(certain, inferred, uiPart('text', 'States come only from what Shinatama observed. Running states are unsure until native agent hooks are connected; a terminal signal never approves anything.'));
@@ -69,11 +69,11 @@ export function createInstancesSection(options: Options) {
 
   function instance(row: Row, titles: Titles | null): HTMLLIElement {
     const item = uiPart('item'); item.classList.add('instances-item'); item.dataset.instanceId = row.id; item.dataset.state = row.state;
-    const marker = uiPart('text', row.certain ? '●' : '○'); marker.setAttribute('aria-hidden', 'true');
-    const head = uiPart('row');
-    const name = uiPart('text', agentName(row.agent));
-    const tag = uiPart('text', row.id.slice(-4)); tag.title = row.id;
-    const actions = uiPart('actions');
+    const marker = uiPart('text', row.certain ? '●' : '○'); marker.classList.add('instances-marker'); marker.setAttribute('aria-hidden', 'true');
+    const head = uiPart('row'); head.classList.add('instances-head');
+    const name = uiPart('text', agentName(row.agent)); name.classList.add('instances-agent');
+    const tag = uiPart('text', row.id.slice(-4)); tag.classList.add('instances-id'); tag.title = row.id;
+    const actions = uiPart('actions'); actions.classList.add('instances-actions');
     const thread = options.threadOf(row.id);
     if (thread) {
       const paused = titles?.excluded.includes(thread) ?? false;
@@ -87,8 +87,9 @@ export function createInstancesSection(options: Options) {
     actions.append(focus);
     head.append(name, tag, actions);
     const state = uiPart('paragraph'); state.classList.add('instances-state');
-    state.append(uiPart('text', STATES[row.state] ?? row.state), uiPart('text', ` · ${SOURCES[row.stateSource] ?? row.stateSource}`));
-    const facts = uiPart('descriptionList');
+    const stateName = uiPart('text', STATES[row.state] ?? row.state); stateName.classList.add('instances-state-name');
+    state.append(stateName, uiPart('text', ` · ${SOURCES[row.stateSource] ?? row.stateSource}`));
+    const facts = uiPart('descriptionList'); facts.classList.add('instances-facts');
     const fact = (label: string, value: string, className = '') => {
       const term = uiPart('term', label); const detail = uiPart('definition', value); if (className) detail.classList.add(className); detail.title = value; facts.append(term, detail);
     };

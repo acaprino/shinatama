@@ -32,7 +32,7 @@ export function createAttentionControl(desktop: boolean, report: (message: strin
   limits.textContent = 'Which signals arrive depends on the agent. Read the question and answer it in the session: the alert opens the terminal and grants nothing.';
 
   function checkbox(id: string, text: string) {
-    const label = uiTraits(uiPart('field'), 'row'); label.htmlFor = id;
+    const label = uiTraits(uiPart('field'), 'row'); label.classList.add('settings-check'); label.htmlFor = id;
     const input = uiInput('checkbox'); input.id = id;
     label.append(input, uiPart('text', text));
     return { label, input };
