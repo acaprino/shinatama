@@ -7,6 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { openPanel } from './panel-open.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const workspace = process.cwd();
@@ -66,7 +67,7 @@ try {
   const asked = await waitFor(info.id, r => r.state === 'attention_requested', 'bell');
   expect(asked.stateSource).toBe('terminal_signal'); expect(asked.certain).toBe(false);
   evidence.checks.bellIsUnsureAttention = true;
-  await page.locator('#open-sessions').click();
+  await openPanel(page, 'open-sessions', 'Sessions');
   await expect(page.locator(`#sessions-dialog li[data-instance-id="${info.id}"] .instances-state`)).toHaveText('Asked for attention · from a terminal signal, unsure', { timeout: 10000 });
   await expect(page.locator('#sessions-dialog .instances-item button')).toHaveText(['Focus'], { timeout: 10000 });
   await page.locator('#sessions-dialog .im-panel-header button').click();

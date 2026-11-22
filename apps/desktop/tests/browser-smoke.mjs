@@ -12,6 +12,7 @@ import { createServer as createNet } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { openPanel } from './panel-open.mjs';
 
 const root = process.cwd();
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-browser-'));
@@ -66,12 +67,12 @@ try {
   }
   if (!browser) throw new Error(`WebView2 unavailable.\n${diagnostics}`);
   const page = await until(() => browser.contexts()[0].pages().find(p => p.url().includes('tauri.localhost') && !p.url().includes('widget.html')));
-  await page.waitForSelector('#open-files', { timeout: 30000 });
+  await page.waitForSelector('#open-files', { state: 'attached', timeout: 30000 });
   check('no browser host before a page is asked', hostPids().length === 0);
   await page.evaluate(path => window.__TAURI_INTERNALS__.invoke('project_select', { path }), project);
 
   // Files panel → Browser button on a local document.
-  await page.locator('#open-files').click();
+  await openPanel(page, 'open-files', 'Files');
   await page.locator('#files-dialog [role=treeitem]', { hasText: 'site' }).first().click();
   await page.locator('#files-dialog [role=treeitem]', { hasText: 'index.html' }).first().click();
   const button = page.locator('#files-dialog button', { hasText: 'Browser' });

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { openPanel } from './panel-open.mjs';
 
 const dist = resolve(process.env.SHINATAMA_SMOKE_DIST ?? fileURLToPath(new URL('../dist/', import.meta.url)));
 const origin = 'https://tauri.localhost';
@@ -197,7 +198,7 @@ try {
   await expect(workspaceTab).toHaveAttribute('aria-selected', 'true');
   // Sessions is a view of the side panel (the inspector), not a drawer. Its saved list could not be read here (the
   // fixture has no archive reader): the list says what failed, inside the view, with Retry, and Retry reads again.
-  await page.locator('#open-sessions').click();
+  await openPanel(page, 'open-sessions', 'Sessions');
   const sessions = page.locator('#sessions-dialog');
   await expect(sessions).toBeVisible();
   assert.ok(await sessions.evaluate(node => node.closest('.im-inspector') !== null && !(node instanceof HTMLDialogElement)));

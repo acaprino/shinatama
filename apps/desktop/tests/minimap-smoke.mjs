@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
 import { startSession } from './session-flow.mjs';
+import { openPanel } from './panel-open.mjs';
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
@@ -157,7 +158,7 @@ try {
 
   // 3. A drawer narrows the terminal: the minimap follows it and reads the same.
   const wide = await minimap();
-  await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+  await openPanel(page, 'open-sessions', 'Sessions');
   await until(async () => { const state = await minimap(); return { ...state, ok: !!state.strip && state.strip.x < wide.strip.x - 100 && Math.abs(state.ink - wide.ink) < 0.15 && !!state.mark }; },
     3000, 'With a drawer open, the minimap did not follow the narrower terminal.');
   await shot('restart-4-drawer');

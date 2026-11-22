@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { openPanel } from './panel-open.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const workspace = process.cwd();
@@ -74,7 +75,7 @@ try {
   expect(branches).toContain('shinatama/task-1');
   expect((await reply('project_worktree_create', { project: repo, name: 'task-1', confirmedPath: plan.path })).ok).toBe(false);
   evidence.checks.confirmedWorktreeOnly = true;
-  await page.locator('#open-projects').click();
+  await openPanel(page, 'open-projects', 'Overview');
   await expect(page.locator('#projects-overview-dialog .projects-overview-row').first()).toHaveAttribute('data-project-id', repoRecord.id, { timeout: 15000 });
   await expect(page.locator('#projects-overview-dialog .projects-git').first()).toContainText('main · 0 changed, 1 untracked');
   await page.locator('#projects-overview-dialog .projects-pin').first().click();
