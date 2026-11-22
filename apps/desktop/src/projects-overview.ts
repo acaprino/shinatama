@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { listen } from '@tauri-apps/api/event';
 import { openModal } from './modal.ts';
 import { confirmsField } from './desktop-shell-model.ts';
@@ -33,7 +34,7 @@ export function createProjectsOverview(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'projects-overview-dialog'; dialog.setAttribute('aria-labelledby', 'projects-overview-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'projects-overview-title'; title.textContent = 'Projects';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close projects');
+  const closeButton = closeControl('Close projects');
   heading.append(title, closeButton);
   const status = uiPart('status');
   const list = uiTraits(uiPart('list'), 'scroll', 'bounded');

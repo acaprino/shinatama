@@ -6,7 +6,7 @@ import type { Terminal } from '@xterm/xterm';
 // to register the browser listener while importing under Node, then restore it.
 const previousDocument = Reflect.get(globalThis, 'document');
 Reflect.set(globalThis, 'document', { addEventListener() {} });
-const { DEFAULT_PRESENTATION, PROFILES, ACCENT_TEXT_LIGHT, SKINS, SMOOTH, SMOOTH_LIGHT, applyTerminalProfile, optionsForProfile, storedLook, storedTheme, windowThemeFor } = await import('../src/presentation.ts');
+const { DEFAULT_PRESENTATION, PROFILES, ACCENT_TEXT_LIGHT, SKINS, SMOOTH, SMOOTH_LIGHT, applyTerminalProfile, optionsForProfile, skinFor, storedChoice } = await import('../src/presentation.ts');
 if (previousDocument === undefined) Reflect.deleteProperty(globalThis, 'document');
 else Reflect.set(globalThis, 'document', previousDocument);
 
@@ -57,13 +57,25 @@ test('every skin paints a dark terminal, so followed harnesses start on their da
   // shortcut: Smooth's light theme is not in this list, a followed harness starts on its dark ANSI theme over a light terminal; teach presentation.rs the theme if that reads badly.
   for (const [id, skin] of Object.entries({ ...SKINS, smooth: { tokens: SMOOTH } })) assert.ok(luminance(skin.tokens.terminal) < 0.179, id);
 });
-test('the window opens in Smooth unless ONI MODE was chosen, and followed terminals take the palette of the look', () => {
-  assert.equal(storedLook(null), 'smooth');
-  assert.equal(storedLook('ONI'), 'smooth', 'only the exact stored word');
-  assert.equal(storedLook('oni'), 'oni');
+test('a stored choice is read back; an ONI saved before ONI had a light theme stays dark', () => {
+  assert.deepEqual(storedChoice(null, null, null), { look: 'smooth', theme: 'system' });
+  assert.deepEqual(storedChoice('ONI', 'Light', '2'), { look: 'smooth', theme: 'system' }, 'only the exact stored words');
+  assert.deepEqual(storedChoice('smooth', 'light', null), { look: 'smooth', theme: 'light' });
+  assert.deepEqual(storedChoice('oni', 'light', null), { look: 'oni', theme: 'dark' }, "before version 2 the theme key held Smooth's theme");
+  assert.deepEqual(storedChoice('oni', 'light', '2'), { look: 'oni', theme: 'light' });
+  assert.deepEqual(storedChoice('oni', 'system', '2'), { look: 'oni', theme: 'system' });
+});
+test("a skin is ONI dark's only: the skins are dark palettes", () => {
+  assert.equal(skinFor('oni', 'dark', 'sumi'), 'sumi');
+  assert.equal(skinFor('oni', 'light', 'sumi'), null);
+  assert.equal(skinFor('smooth', 'dark', 'sumi'), null);
+});
+test('the window opens in Smooth unless ONI was chosen, and followed terminals take the palette of the look and the theme', () => {
   const followed = { ...DEFAULT_PRESENTATION, skin: 'sumi', followSkin: true };
   assert.equal(optionsForProfile('codex', followed, 'smooth').theme?.background, SMOOTH.terminal);
   assert.equal(optionsForProfile('codex', followed, 'oni').theme?.background, SKINS.sumi.tokens.terminal);
+  assert.equal(optionsForProfile('codex', followed, 'smooth', true).theme?.background, SMOOTH_LIGHT.terminal);
+  assert.equal(optionsForProfile('codex', followed, 'oni', true).theme?.background, SMOOTH_LIGHT.terminal, 'ONI light paints followed terminals light');
   assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /<html[^>]*data-im-look="smooth"/);
 });
 test('Imago scopes the two look geometries independently', () => {
@@ -72,18 +84,4 @@ test('Imago scopes the two look geometries independently', () => {
     const rule = css.split('[data-im-look="' + look + '"] {')[1]?.split('}')[0];
     assert.ok(rule?.includes('--im-r-control: ' + radius));
   }
-});
-test('Smooth follows Windows unless light or dark was chosen, and its light theme paints followed terminals light', () => {
-  assert.equal(storedTheme(null), 'system');
-  assert.equal(storedTheme('Light'), 'system', 'only the exact stored word');
-  assert.equal(storedTheme('light'), 'light');
-  assert.equal(storedTheme('dark'), 'dark');
-  const followed = { ...DEFAULT_PRESENTATION, followSkin: true };
-  assert.equal(optionsForProfile('codex', followed, 'smooth', true).theme?.background, SMOOTH_LIGHT.terminal);
-  assert.equal(optionsForProfile('codex', followed, 'oni', true).theme?.background, SKINS.shinatama.tokens.terminal, 'ONI MODE is always dark');
-});
-test('the window takes the theme of the look, so light glass never sits on a dark acrylic', () => {
-  assert.equal(windowThemeFor('oni', 'light'), 'dark', 'ONI MODE is always dark');
-  assert.equal(windowThemeFor('oni', 'system'), 'dark');
-  for (const theme of ['light', 'dark', 'system'] as const) assert.equal(windowThemeFor('smooth', theme), theme);
 });

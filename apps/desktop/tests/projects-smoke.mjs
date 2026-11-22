@@ -48,7 +48,7 @@ async function closeApp(instance) {
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
   if (hasTerminals) {
     await expect(instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
-    await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
+    await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   }
   await closed; await exited;
   await instance.browser.close().catch(() => {});
@@ -94,7 +94,7 @@ try {
   await closeApp(running); running = null;
   running = await openApp();
   await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await expect(running.page.locator('#notice')).toContainText('Last project unavailable');
+  await expect(running.page.locator('.im-notice', { hasText: 'Last project unavailable' })).toBeVisible();
   // New session offers its choices; nothing starts by itself in the unavailable folder.
   await running.page.locator('#new-terminal').click();
   await expect.poll(async () => await running.page.locator('#session-menu').isVisible() || await running.page.locator('#project-menu').isVisible()).toBe(true);

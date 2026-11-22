@@ -79,7 +79,7 @@ try {
   const opened = Date.now();
   await button.click();
   const tabShown = await until(() => page.locator('.browser-tab').count(), 30000);
-  if (!tabShown) throw new Error(`No browser tab. Notice: ${await page.locator('#notice span').textContent()}
+  if (!tabShown) throw new Error(`No browser tab. Notice: ${(await page.locator('.im-notice-text').allTextContents()).join(' | ')}
 ${diagnostics}`);
   const red = await until(async () => (await share(page, [192, 0, 0])) > 0.3, 30000);
   await page.locator('.browser-tab').first().screenshot({ path: resolve(process.env.SMOKE_SHOTS ?? fixture, 'browser-local.png') }).catch(() => undefined);

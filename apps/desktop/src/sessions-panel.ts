@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 /** Sessions: one panel for every session of an agent, whatever its state. Running sessions come
  * first, with what they are doing now; saved ones follow, read from the agents' own archives.
  * The search field filters both as you type and, on Enter, searches the text of the indexed
@@ -38,7 +39,7 @@ export function createSessionsPanel(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'sessions-dialog'; dialog.setAttribute('aria-labelledby', 'sessions-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title', 'Sessions'); title.id = 'sessions-title';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close sessions');
+  const closeButton = closeControl('Close sessions');
   heading.append(title, closeButton);
 
   const tools = uiPart('toolbar');

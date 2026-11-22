@@ -218,7 +218,7 @@ try {
     evidence.diagnostic = await page.evaluate(() => ({
       status: document.querySelector('#session-search-status')?.textContent,
       index: document.querySelector('#session-search-index-info')?.textContent,
-      notice: document.querySelector('#notice')?.textContent })).catch(() => 'unavailable');
+      notice: [...document.querySelectorAll('.im-notice')].map(node => node.textContent).join(' | ') })).catch(() => 'unavailable');
     await page.screenshot({ path: resolve(output, 'session-search-failure.png'), timeout: 3000 }).catch(() => {});
   }
   await save(); throw error;

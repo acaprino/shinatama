@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Shinatama Desktop
-description: Glass desktop workspace for agents that write code. Smooth look in dark and light, ONI MODE as the classic dark look, one pink accent.
+description: Glass desktop workspace for agents that write code. Smooth look in dark and light, ONI MODE as the classic look in dark (with its skins) and light, one pink accent.
 x-zsd:
   profile: "0.1"
   kind: project
@@ -27,7 +27,7 @@ x-zsd:
     primary-task: Watch and steer agent terminals, threads and panels without a second window.
     character: Glass over the Windows acrylic material, quiet chrome, hairlines, one pink accent.
     density: compact
-    theme: Smooth in dark, light or the Windows theme; ONI MODE always dark.
+    theme: either look in dark, light or the Windows theme (ONI with the Windows theme is dark); a skin paints ONI dark only.
     references:
       - SmoothUI, the model for the Smooth look (outlined buttons, underlined tabs, sentence case).
       - Windows 11 acrylic material (DWM system backdrop type 3, transient window).
@@ -460,7 +460,7 @@ components:
 
 ## Overview
 
-Shinatama is a Windows workspace for agents that write code. Smooth is the default look, in dark and light. ONI MODE is the classic look, always dark. Both looks paint translucent layers on the Windows acrylic material. Muro, Mukade, Xiox and Ethel use this file and `tokens/`.
+Shinatama is a Windows workspace for agents that write code. Smooth is the default look, in dark and light. ONI MODE is the classic look, in dark (with Shinatama's skins) and light. Both looks paint translucent layers on the Windows acrylic material. Muro, Mukade, Xiox and Ethel use this file and `tokens/`.
 
 ### Implementation
 

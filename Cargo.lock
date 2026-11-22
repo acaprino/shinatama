@@ -1620,8 +1620,8 @@ dependencies = [
 
 [[package]]
 name = "imago-shell"
-version = "0.1.4"
-source = "git+https://github.com/acaprino/imago.git?rev=de75226c78af3b1bd9ba54f5e3b736c14726ac0e#de75226c78af3b1bd9ba54f5e3b736c14726ac0e"
+version = "0.2.0"
+source = "git+https://github.com/acaprino/imago.git?rev=8418ccac391ffb56dc1a997b996e7237b714b606#8418ccac391ffb56dc1a997b996e7237b714b606"
 dependencies = [
  "serde",
  "serde_json",
@@ -3302,6 +3302,7 @@ dependencies = [
 name = "shinatama-cli"
 version = "0.2.1"
 dependencies = [
+ "embed-resource",
  "rusqlite",
  "serde_json",
  "shinatama-adapter",

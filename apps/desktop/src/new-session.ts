@@ -1,4 +1,5 @@
 import { segmentedControl, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openSheet } from './modal.ts';
 
 export type NewSessionProject = { id: string; path: string };
@@ -49,7 +50,7 @@ export function createNewSession(options: Options) {
   const form = uiPart('form'); form.noValidate = true;
   const heading = uiPart('row', undefined, 'dialog-heading');
   const title = uiPart('title', 'New session'); title.id = 'new-session-title';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close new session'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close new session'); heading.append(title, closeButton);
 
   // 1. Project: pick from the list, or browse / type a folder.
   const projectLabel = uiPart('label', 'Project'); projectLabel.htmlFor = 'new-session-project';

@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal, topModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
@@ -114,7 +115,7 @@ export function createSessionDetail(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-detail-dialog'; dialog.setAttribute('aria-labelledby', 'session-detail-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-detail-title'; title.textContent = 'Session detail';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close session detail'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close session detail'); heading.append(title, closeButton);
   if (options.back) {
     const back = uiButton(`‹ ${options.back.label}`);
     back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { dialog.close(); options.back!.open(); }; heading.prepend(back);

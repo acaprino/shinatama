@@ -1,4 +1,5 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiEmphasis } from '@acaprino/imago/ui';
+import { confirm, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
@@ -60,7 +61,7 @@ export function createSessionSearch(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-search-dialog'; dialog.setAttribute('aria-labelledby', 'session-search-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-search-title'; title.textContent = 'Search all sessions';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close search'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close search'); heading.append(title, closeButton);
   const description = uiPart('hint');
   description.textContent = 'Searches the text you and the agents wrote in indexed sessions. Indexing only reads your session archives; it never starts or resumes an agent.';
 
@@ -160,19 +161,16 @@ export function createSessionSearch(options: Options) {
     options.indexStart().then(() => { busy = false; poll(); void refresh(); }, error => { busy = false; options.reportError(reason(error)); void refresh(); });
   };
   stop.onclick = () => { void options.indexCancel().then(() => refresh(), () => undefined); };
-  // Confirmed in place: the first press arms the button for a few seconds, the second forgets.
-  const forgetLabel = forget.textContent; let forgetArmed = 0;
-  const disarmForget = () => { clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; uiEmphasis(forget, null); forget.removeAttribute('title'); };
-  forget.onblur = disarmForget;
-  forget.onclick = () => {
+  // Forgetting cannot be undone: a dialog says what goes and what stays, and the focus starts on Cancel.
+  forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
+  forget.onclick = async () => {
     if (busy) return;
-    if (!forgetArmed) {
-      forget.textContent = 'Confirm forget'; uiEmphasis(forget, 'danger');
-      forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
-      status.textContent = 'Press Confirm forget to remove all indexed session text. Your sessions and threads are not changed.';
-      forgetArmed = window.setTimeout(disarmForget, 5000); return;
-    }
-    disarmForget();
+    const yes = await confirm(document.querySelector<HTMLElement>('#app') ?? document.body, {
+      title: 'Forget the indexed session text?',
+      body: 'All the text indexed for search is removed; searching needs a new index. Your sessions and threads are not changed.',
+      confirm: 'Forget indexed text', cancel: 'Cancel', danger: true,
+    });
+    if (!yes || busy || destroyed) return;
     busy = true; renderIndex();
     options.indexForget().then(() => { results.replaceChildren(); status.textContent = 'Indexed text forgotten.'; },
       error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });

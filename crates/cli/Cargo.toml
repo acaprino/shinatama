@@ -9,6 +9,9 @@ license.workspace = true
 name = "shinatama"
 path = "src/main.rs"
 
+[build-dependencies]
+embed-resource.workspace = true
+
 [dev-dependencies]
 rusqlite.workspace = true
 

@@ -105,18 +105,18 @@ test('zoom keys follow Ctrl+= / Ctrl+- / Ctrl+0 on any layout', () => {
   assert.equal(zoomDirection({ ...key('=', 'Equal'), ctrlKey: false }), null);
 });
 
-test('zoom steps through the app levels to 200%, and a saved older level still opens', () => {
-  assert.equal(ZOOM_STEPS.at(-1), 2);
+test('zoom steps by 10% from 50 to 200%, and a level saved before is rounded to one', () => {
+  assert.deepEqual(ZOOM_STEPS, [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2]);
   let level = 1;
-  for (let i = 0; i < 20; i++) level = stepZoom(level, 1, ZOOM_STEPS);
+  for (let i = 0; i < 20; i++) level = stepZoom(level, 1);
   assert.equal(level, 2);
-  assert.equal(stepZoom(2, 1, ZOOM_STEPS), 2);
-  assert.equal(stepZoom(1.3, -1, ZOOM_STEPS), 1.25);
-  assert.equal(stepZoom(1.75, 0, ZOOM_STEPS), 1);
-  // shinatama.zoom as earlier versions saved it: 67, 75, 125 and 175% are kept, anything else is 100%.
-  for (const saved of ['0.67', '0.75', '1.25', '1.75', '1.5']) assert.equal(clampZoom(Number(saved), ZOOM_STEPS), Number(saved));
-  assert.equal(clampZoom(Number('7'), ZOOM_STEPS), 1);
-  assert.equal(clampZoom(Number(null), ZOOM_STEPS), 1);
+  assert.equal(stepZoom(2, 1), 2);
+  assert.equal(stepZoom(1.3, -1), 1.2);
+  assert.equal(stepZoom(1.75, 0), 1);
+  // shinatama.zoom as earlier versions saved it: rounded to the nearest 10%, half up.
+  for (const [saved, kept] of [['0.67', 0.7], ['0.75', 0.8], ['1.25', 1.3], ['1.75', 1.8], ['1.5', 1.5]] as const) assert.equal(clampZoom(Number(saved)), kept);
+  assert.equal(clampZoom(Number('7')), 2);
+  assert.equal(clampZoom(Number.NaN), 1);
 });
 
 test('the engine menu stays in fields, terminals and over selected text only; Select All in fields', () => {

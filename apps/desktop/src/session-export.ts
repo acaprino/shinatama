@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import { createProgressLine, type ProgressBackend } from './session-progress.ts';
@@ -35,7 +36,7 @@ export function createSessionExport(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-export-dialog'; dialog.setAttribute('aria-labelledby', 'session-export-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-export-title'; title.textContent = 'Export session';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close export'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close export'); heading.append(title, closeButton);
   const source = uiPart('hint');
   const formatSet = uiPart('fieldset'); const formatLegend = uiPart('legend', 'Format'); formatSet.append(formatLegend);
   const radios = new Map<ExportFormat, HTMLInputElement>();

@@ -147,17 +147,17 @@ try {
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
   const sidebar = page.locator('.thread-sidebar'); await showProject(page, projectId);
   await sidebar.locator(`button.thread-sidebar-anchor[data-workset-id="${worksetId}"]`).click();
-  const tabOf = item => page.locator(`.wm-tab[data-view-id="saved-${item.thread}"]`);
+  const tabOf = item => page.locator(`.im-tile-tab[data-view-id="saved-${item.thread}"]`);
   const card = page.locator('.session-idle:visible');
   const recover = card.getByRole('button', { name: 'Recover session', exact: true });
   const saved = item => database.prepare('SELECT revision,ended_at FROM activation WHERE instance_id=?').get(item.activation.instanceId);
   const request = item => ({ projectId, threadId: item.thread, expectedRevision: 1 });
   const open = async item => { await tabOf(item).click(); await expect(tabOf(item)).toHaveAttribute('aria-selected', 'true'); };
-  await expect(page.locator('.wm-tab')).toHaveCount(3);
+  await expect(page.locator('.im-tile-tab')).toHaveCount(3);
   await stage('refusals');
   for (const item of cases.filter(item => item.kind === 'alive')) {
     await open(item); await expect(card).toContainText('Marked open'); await expect(recover).toBeVisible();
-    await recover.click(); await expect(page.locator('#notice')).toContainText('could not be verified');
+    await recover.click(); await expect(page.locator('.im-notice', { hasText: 'could not be verified' })).toBeVisible();
     await expect(recover).toBeVisible();
     require(saved(item).ended_at === null && saved(item).revision === 1, 'refused-activation-changed');
   }

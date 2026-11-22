@@ -1,4 +1,5 @@
-import { breadcrumbs, documentPane, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone } from '@acaprino/imago/ui';
+import { breadcrumbs, documentPane, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone, componentElement, emptyStateHtml } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 import { createFilesTree, type Entry, type Listing } from './files-tree.ts';
 import type { CodeView } from './code-view.ts';
@@ -25,7 +26,7 @@ export function createFilesPanel(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'files-dialog'; uiTraits(dialog, 'fileDialog'); dialog.setAttribute('aria-labelledby', 'files-title');
   const heading = uiPart('header');
   const title = uiPart('title', 'Project files'); title.id = 'files-title';
-  const closeButton = uiButton('×', { attrs: { 'aria-label': 'Close files' } });
+  const closeButton = closeControl('Close files');
   const chooser = uiSelect(); chooser.name = 'files-project'; chooser.setAttribute('aria-label', 'Project'); chooser.classList.add('files-project');
   heading.append(title, chooser, closeButton);
   const SIDE_KEY = 'shinatama.files.side';
@@ -76,7 +77,8 @@ export function createFilesPanel(options: Options) {
   const preview = documentPane('rendered', 'Rendered Markdown'); preview.classList.add('files-preview');
   const picture = documentPane('picture'); picture.classList.add('files-picture'); picture.hidden = true;
   const visual = documentPane('form', 'Visual editor'); visual.classList.add('files-visual'); visual.hidden = true;
-  const empty = uiTraits(uiPart('hint', 'Choose a file in the tree, or find one by name.'), 'emptyMessage');
+  // The canon's empty state of a pane (im-empty), with no title of its own.
+  const empty = componentElement<HTMLElement>(emptyStateHtml('', 'Choose a file in the tree, or find one by name.'));
   panes.append(code, preview, picture, visual, empty);
   status.classList.add('files-status');
   dialog.append(heading, workspace.element);

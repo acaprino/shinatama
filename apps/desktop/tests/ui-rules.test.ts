@@ -28,3 +28,16 @@ test('reduced motion also stops pseudo-elements', () => {
   for (const selector of ['*::before', '*::after']) assert.ok(reduced.includes(selector));
   assert.match(reduced, /transition: none !important[\s\S]*animation: none !important/);
 });
+
+const scripts = readdirSync(source).filter(name => name.endsWith('.ts')).map(name => ({ name, ts: readFileSync(new URL(name, source), 'utf8') }));
+
+test("an icon-only control is the canon's icon button, its name also its tooltip (no button whose text is a symbol)", () => {
+  for (const { name, ts } of scripts) {
+    for (const match of ts.matchAll(/uiButton\('([^\p{L}\p{N}'][^']?)'/gu)) assert.fail(`${name}: ${match[0]}`);
+  }
+});
+
+test('no control has a hand cursor', () => {
+  for (const { name, css } of sheets) assert.doesNotMatch(css, /cursor:\s*pointer/, name);
+  for (const { name, ts } of scripts) assert.doesNotMatch(ts, /cursor:\s*'pointer'/, name);
+});

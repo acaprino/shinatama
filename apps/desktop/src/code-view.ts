@@ -79,7 +79,7 @@ const theme = EditorView.theme({
   '.cm-searchMatch': { backgroundColor: 'color-mix(in srgb, var(--im-warn) 22%, transparent)', outline: '1px solid color-mix(in srgb, var(--im-warn) 60%, transparent)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'color-mix(in srgb, var(--im-accent) 30%, transparent)' },
   '.cm-foldPlaceholder': { backgroundColor: 'transparent', border: '1px solid var(--im-line-strong)', color: 'var(--im-text-2)', padding: '0 4px', borderRadius: '0' },
-  '.cm-foldGutter .cm-gutterElement': { padding: '0 4px', color: 'var(--im-muted)', cursor: 'pointer' },
+  '.cm-foldGutter .cm-gutterElement': { padding: '0 4px', color: 'var(--im-muted)' },
   '.cm-panels': { backgroundColor: 'var(--im-sheet-solid)', color: 'var(--im-text)' },
   '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--im-line)' },
   '.cm-panels.cm-panels-bottom': { borderTop: '1px solid var(--im-line)' },

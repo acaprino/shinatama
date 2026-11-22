@@ -21,8 +21,9 @@ function mockDesktop() {
   const layout = { version: 1, root: { kind: 'split', id: 'split', axis: 'columns', weights: [1, 1], children }, views, focusedGroupId: children[0].id, maximizedGroupId: null };
   let saved = { workspaceId: 'main', revision: 1, schemaVersion: 1, layoutJson: JSON.stringify(layout), ownership: 'ours', readOnly: false };
   const settings = { version: 1, skin: 'shinatama', fontFamily: 'profile', fontSize: 13, lineHeight: 115, followSkin: false };
+  let presentationRevision = 1;
   const state = window.smoke = {
-    calls: [], failure: null, notice: null,
+    calls: [], failure: null, notice: null, saveRefused: false,
     emit(event, payload) { for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload }); },
   };
   window.isTauri = true;
@@ -56,7 +57,14 @@ function mockDesktop() {
         case 'global_workspace_save':
           saved = { ...saved, revision: saved.revision + 1, layoutJson: args.request.layoutJson };
           return saved;
-        case 'presentation_load': return { revision: 1, settings };
+        case 'presentation_load': return { revision: presentationRevision, settings };
+        // As presentation.rs: the next revision, with the settings it stored. Its one controller answers one request at
+        // a time, so the first save meets a load still returning (another window, a test's read) and is refused as busy.
+        case 'presentation_save':
+          if (!state.saveRefused) { state.saveRefused = true; throw { code: 'busy', message: 'The previous presentation request is still returning.' }; }
+          if (args.request.expectedRevision !== presentationRevision) throw new Error('presentation_save: stale revision');
+          presentationRevision += 1; Object.assign(settings, args.request.settings);
+          return { revision: presentationRevision, settings: { ...settings } };
         case 'storage_location': return { directory: 'C:/Fixture', database_path: 'C:/Fixture/state.sqlite', read_only: false, message: null };
         case 'attention_current': return { enabled: true, muted: false, current: state.notice };
         case 'attention_open': case 'attention_dismiss': state.notice = null; return;
@@ -86,18 +94,19 @@ try {
   const page = await context.newPage();
   await page.goto(origin + '/index.html');
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  const panes = page.locator('.wm-pane');
+  const panes = page.locator('.im-pane');
   await expect(panes).toHaveCount(2);
   const paneBoxes = () => panes.evaluateAll(nodes => nodes.map(node => { const { x, y, width, height } = node.getBoundingClientRect(); return { x, y, width, height }; }));
   await expect(page.locator('[data-group-id="pane-fixture-live"] .xterm')).toBeVisible();
-  // The terminal's minimap is Imago's overview strip, 20px wide at the right edge of the terminal view.
+  // The terminal's minimap is Imago's overview strip, 20px wide at the right edge of the terminal view, level with the\r
+  // text's first row (the view's top padding, --im-s-3).
   const strip = await page.locator('[data-group-id="pane-fixture-live"] .terminal-view').evaluate(view => {
     const overview = view.querySelector(':scope > .im-overview');
     if (!overview) return null;
     const box = overview.getBoundingClientRect(), host = view.getBoundingClientRect();
     return { width: box.width, right: host.right - box.right, top: box.top - host.top, hidden: overview.getAttribute('aria-hidden') };
   });
-  assert.ok(strip && Math.abs(strip.width - 20) <= 1 && Math.abs(strip.right - 4) <= 1 && Math.abs(strip.top - 10) <= 1 && strip.hidden === 'true',
+  assert.ok(strip && Math.abs(strip.width - 20) <= 1 && Math.abs(strip.right - 4) <= 1 && Math.abs(strip.top - 12) <= 1 && strip.hidden === 'true',
     'The minimap is Imago\'s overview strip in its place: ' + JSON.stringify(strip));
   const [left, right] = await paneBoxes();
   assert.ok(left.width > 250 && left.height > 400 && right.x >= left.x + left.width - 1, JSON.stringify([left, right]));
@@ -113,26 +122,59 @@ try {
   assert.ok(await dialog.evaluate(node => node instanceof HTMLDialogElement && node.open));
   await expect(page.locator('#settings-status')).toContainText('Reload before saving');
   const zoom = page.locator('#settings-zoom');
-  await zoom.selectOption('1.25');
+  await zoom.selectOption('1.2');
   await page.keyboard.press('Control+=');
-  await expect(zoom).toHaveValue('1.5');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.5');
-  assert.deepEqual(await page.evaluate(() => window.smoke.calls.filter(({ command }) => command === 'plugin:webview|set_webview_zoom').map(({ args }) => args.value)), [1.25, 1.5]);
+  await expect(zoom).toHaveValue('1.3');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.3');
+  assert.deepEqual(await page.evaluate(() => window.smoke.calls.filter(({ command }) => command === 'plugin:webview|set_webview_zoom').map(({ args }) => args.value)), [1.2, 1.3]);
+  // The look and the theme are the window's five Appearance commands, run from the palette (Ctrl+K), as in every app.
+  async function command(title) {
+    await page.locator('#project').focus();
+    await page.keyboard.press('Control+k');
+    const commands = page.getByRole('dialog', { name: 'Type a command' });
+    await expect(commands).toBeVisible();
+    await commands.getByRole('combobox').fill(title);
+    await commands.getByRole('option').filter({ hasText: title }).first().click();
+    await expect(commands).toBeHidden();
+  }
+  await expect(page.locator('#presentation-theme')).toHaveCount(0);
   const palette = [];
-  for (const theme of ['light', 'dark']) {
-    await page.locator('#presentation-theme').selectOption(theme);
+  for (const [title, theme] of [['Light theme', 'light'], ['Dark theme', 'dark']]) {
+    await command(title);
     await expect(page.locator('html')).toHaveAttribute('data-im-theme', theme);
     palette.push(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-sheet').trim()));
     await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe(theme);
   }
   assert.ok(palette.every(Boolean) && palette[0] !== palette[1], 'The Imago sheet color follows the theme');
+  // ONI has a light theme too. Shinatama's skins are dark palettes: under ONI light the skin control is disabled and
+  // says why, nothing of a skin is left on the root, and the window's theme is light.
+  const skin = page.locator('#presentation-skin');
+  await command('ONI look');
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'oni');
+  await expect(skin).toBeEnabled();
+  await command('Light theme');
+  await expect(page.locator('html')).toHaveAttribute('data-im-theme', 'light');
+  await expect(skin).toBeDisabled();
+  await expect(skin).toHaveAttribute('title', /Skins are dark/);
+  assert.equal(await page.locator('html').evaluate(node => node.style.getPropertyValue('--im-ground')), '');
+  await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe('light');
+  assert.equal(await page.evaluate(() => localStorage.getItem('shinatama.look-version')), '2');
+  // The Dark theme brings the skin back: it applies at once and is saved (presentation.ts).
+  await command('Dark theme');
+  await expect(skin).toBeEnabled();
+  await skin.selectOption('section9');
+  await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_save').at(-1)?.args.request.settings.skin)).toBe('section9');
+  await expect(page.locator('#presentation-status')).toHaveText('Preferences saved.');
+  assert.equal(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-accent').trim()), '#78e2dc');
+  await command('Smooth look');
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'smooth');
   // Settings is a drawer of Imago's one layer stack, beside live panels: Escape in the terminal belongs to the
   // agent, anywhere else it closes the drawer, and focus goes back to the focused pane (settings-panel.ts).
   assert.equal(await dialog.getAttribute('data-im-layer'), 'drawer');
   // Beside the panes, not over them: the work area gives the drawer its width.
   const drawerBox = await dialog.boundingBox();
   await expect.poll(async () => Math.max(...(await paneBoxes()).map(box => box.x + box.width))).toBeLessThanOrEqual(drawerBox.x + 1);
-  assert.equal(await page.locator('.wm-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
+  assert.equal(await page.locator('.im-pane').evaluateAll(nodes => nodes.some(node => node.closest('[inert]'))), false, 'The panes stay live beside a drawer');
   await page.locator('[data-group-id="pane-fixture-live"] .xterm-helper-textarea').focus();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
@@ -155,12 +197,39 @@ try {
   await expect(dialog).toBeHidden();
   await page.evaluate(() => { window.smoke.failure = 'plugin:window|minimize'; });
   await page.locator('#window-minimize').click();
-  await expect(page.locator('#notice')).toBeVisible();
-  await expect(page.locator('#notice')).toContainText(/minimize|fixture refused/i);
+  // Imago's error notice: it says "Error" in words and stays until it is dismissed.
+  const refused = page.locator('.im-notice[data-im-tone="err"]', { hasText: /minimize|fixture refused/i });
+  await expect(refused).toBeVisible();
+  await expect(refused.locator('.im-notice-text')).toHaveText(/^Error: /);
+  await refused.getByRole('button', { name: 'Dismiss' }).click();
+  await expect(refused).toHaveCount(0);
+  // An open in progress is said in the footer, not in a notice; at rest the line is empty and hidden.
+  await expect(page.locator('.im-footer #open-progress[role="status"]')).toBeHidden();
+  // The footer's keys come from the registry (footerKeys), one key cap per key: the palette, New session, the panes.
+  const footerKeys = page.locator('.im-footer .im-footer-keys');
+  await expect(footerKeys).toContainText('Commands');
+  await expect(footerKeys).toContainText('New session');
+  await expect(footerKeys).toContainText('Focus pane');
+  assert.ok(await footerKeys.locator('.im-key').count() >= 7, 'Ctrl K, Ctrl Shift T, Ctrl Shift and the two arrows are key caps');
+  // A focused terminal keeps its keys: Ctrl+K and Ctrl+F reach the program (readline uses them) and open nothing;
+  // F6 leaves the terminal for the next region, so the keyboard is never trapped in it.
+  const writes = () => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'terminal_write').map(call => call.args.data));
+  const written = (await writes()).length;
+  await page.locator('.xterm-helper-textarea').first().focus();
+  await page.keyboard.press('Control+k');
+  await page.keyboard.press('Control+f');
+  await expect.poll(async () => (await writes()).slice(written)).toEqual([[11], [6]]);
+  await expect(page.getByRole('dialog', { name: 'Type a command' })).toHaveCount(0);
+  await expect(page.locator('#terminal-find-dialog')).toBeHidden();
+  await page.keyboard.press('F6');
+  assert.equal(await page.evaluate(() => !!document.activeElement?.closest('.xterm')), false, 'F6 leaves the terminal');
 
   await page.evaluate(() => window.smoke.emit('confirm-close', null));
   const confirmation = page.getByRole('alertdialog', { name: 'Close workspace?' });
   await expect(confirmation).toBeVisible();
+  // The confirming button carries the verb and the object; focus starts on Cancel.
+  await expect(confirmation.getByRole('button', { name: 'Close workspace', exact: true })).toBeVisible();
+  await expect(confirmation.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Control+Shift+t');
   await expect(page.locator('#session-menu')).toBeHidden();
   await expect(confirmation).toBeVisible();

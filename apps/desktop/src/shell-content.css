@@ -1,0 +1,2 @@
+/* The tiling workspace fills the content panel's body: Imago's host (im-host) takes its parent's size. */
+.workspace-host { block-size: 100%; }

@@ -1,6 +1,6 @@
 {
   "agent-setup.ts": {
-    "parts": 20
+    "parts": 19
   },
   "attention-control.ts": {
     "parts": 9
@@ -8,20 +8,23 @@
   "browser-tab.ts": {
     "parts": 9
   },
+  "controls.ts": {
+    "parts": 1
+  },
   "files-panel.ts": {
-    "parts": 15
+    "parts": 14
   },
   "files-tree.ts": {
     "parts": 1
   },
   "hop-preview.ts": {
-    "parts": 24
+    "parts": 23
   },
   "instances-overview.ts": {
     "parts": 31
   },
   "leftovers-panel.ts": {
-    "parts": 32
+    "parts": 28
   },
   "main.ts": {
     "parts": 22
@@ -33,7 +36,7 @@
     "parts": 20
   },
   "new-session.ts": {
-    "parts": 24
+    "parts": 23
   },
   "presentation.ts": {
     "parts": 13
@@ -45,22 +48,22 @@
     "parts": 13
   },
   "projects-overview.ts": {
-    "parts": 30
+    "parts": 29
   },
   "resource-status.ts": {
     "parts": 1
   },
   "session-detail.ts": {
-    "parts": 44
+    "parts": 43
   },
   "session-export.ts": {
-    "parts": 30
+    "parts": 29
   },
   "session-find.ts": {
-    "parts": 21
+    "parts": 20
   },
   "session-library.ts": {
-    "parts": 65
+    "parts": 64
   },
   "session-menu.ts": {
     "parts": 1
@@ -69,28 +72,31 @@
     "parts": 3
   },
   "session-raw.ts": {
-    "parts": 15
+    "parts": 14
   },
   "session-search.ts": {
-    "parts": 36
+    "parts": 35
   },
   "sessions-panel.ts": {
-    "parts": 45
+    "parts": 44
   },
   "settings-panel.ts": {
-    "parts": 56
+    "parts": 54
   },
   "shell-frame.ts": {
-    "parts": 21
+    "parts": 15
+  },
+  "side-panel.ts": {
+    "parts": 6
   },
   "sidecar-control.ts": {
-    "parts": 31
+    "parts": 17
   },
   "team-map.ts": {
     "parts": 19
   },
   "terminal-find.ts": {
-    "parts": 10
+    "parts": 9
   },
   "terminal-history-view.ts": {
     "parts": 6
@@ -99,12 +105,12 @@
     "parts": 1
   },
   "thread-chat.ts": {
-    "parts": 34
+    "parts": 30
   },
   "toolbar-simple.ts": {
     "parts": 10
   },
   "workset-sidebar.ts": {
-    "parts": 59
+    "parts": 52
   }
 }

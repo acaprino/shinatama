@@ -128,6 +128,7 @@ async function act(command: 'attention_open' | 'attention_dismiss') {
 
 open.addEventListener('click', () => { void act('attention_open'); });
 dismiss.addEventListener('click', () => { void act('attention_dismiss'); });
+// imago-check: allow own-keydown — the attention window is not a shell and has no registry: Escape dismisses its one notice.
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); void act('attention_dismiss'); }
 });

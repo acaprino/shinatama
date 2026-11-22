@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
@@ -74,7 +75,7 @@ export function createSessionFind(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-find-dialog'; dialog.setAttribute('aria-labelledby', 'session-find-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-find-title'; title.textContent = 'Find in this session';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close session search'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close session search'); heading.append(title, closeButton);
   const source = uiPart('hint');
   const form = uiPart('form');
   const label = uiPart('label'); label.htmlFor = 'session-find-query'; label.textContent = 'Literal text';

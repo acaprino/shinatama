@@ -64,7 +64,7 @@ try {
   // Click the wrapped part, on the second row of the path.
   const screen = await terminal.locator('.xterm-screen').boundingBox();
   // The pane's footer says the terminal's size, e.g. 150×43.
-  const cols = Number((await window.locator('.wm-footer').first().textContent()).match(/(\d+)×\d+/)?.[1]);
+  const cols = Number((await window.locator('.pane-footer').first().textContent()).match(/(\d+)×\d+/)?.[1]);
   if (!cols) throw new Error('The terminal size is not shown.');
   const width = screen.width / cols;
   const box = await rows.nth(rowIndex).boundingBox();
@@ -73,7 +73,7 @@ try {
   await delay(300);
   await window.mouse.down(); await window.mouse.up();
   const tab = await until(async () => (await window.locator('.browser-tab').count()) > 0, 30000, 'No browser tab opened.')
-    .catch(async error => { throw new Error(`${error.message} Notice: ${await window.locator('#notice span').textContent().catch(() => '')}`); });
+    .catch(async error => { throw new Error(`${error.message} Notice: ${(await window.locator('.im-notice-text').allTextContents().catch(() => [])).join(' | ')}`); });
   const red = await until(() => window.evaluate(() => {
     const canvas = document.querySelector('.browser-tab:not([hidden]) .browser-canvas'); if (!canvas || !canvas.width) return false;
     const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; let hit = 0;

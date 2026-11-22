@@ -144,7 +144,7 @@ async function closeApp(instance) {
   const closing = Promise.all([instance.page.waitForEvent('close', { timeout: 10000 }), exitWithin(instance.app, 10000)]);
   void closing.catch(() => {});
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (hasTerminals) await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
+  if (hasTerminals) await instance.page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Close workspace', exact: true }).click();
   await closing; expect(instance.app.exitCode).toBe(0); expect(instance.errors).toEqual([]);
   await instance.browser.close().catch(() => {}); live.delete(instance);
 }

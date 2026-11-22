@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
+import { closeSidePanel, openSidePanel, sidePanelShows, sideView } from './side-panel.ts';
 import { listen } from '@tauri-apps/api/event';
 import {
   ago, authorText, baseName, countText, size, terminalLabel, visibleCount, visibleItems,
@@ -26,17 +27,16 @@ const text = (error: unknown) => typeof error === 'string' ? error : error insta
  * removes anything.
  */
 export function createLeftoversPanel(options: Options) {
-  const panel = uiTraits(uiPart('aside', undefined, 'leftovers-sidebar'), 'inspectionRail'); panel.setAttribute('aria-label', 'Leftovers');
-  const heading = uiPart('header');
-  const title = uiPart('heading', 'Leftovers');
-  const close = uiButton('×', { onClick: () => setHidden(true), title: 'Close the Leftovers panel' });
-  close.setAttribute('aria-label', 'Close the Leftovers panel');
-  heading.append(title, close);
+  // A view of the window's side panel, beside the panes.
+  const view = sideView('leftovers-panel', 'Leftovers', 'Close the Leftovers panel');
+  const panel = view.root; panel.classList.add('leftovers-sidebar');
+  view.close.onclick = () => setHidden(true);
   const status = uiPart('status');
-  const list = uiTraits(uiPart('stack'), 'scroll');
-  panel.append(heading, status, list);
+  const list = uiPart('stack');
+  view.body.append(status, list);
+  const shown = () => sidePanelShows(panel);
 
-  const toggle = uiButton('Leftovers', { onClick: () => setHidden(!panel.hidden), title: 'What agent sessions created: worktrees, copies, bench and backup folders' });
+  const toggle = uiButton('Leftovers', { onClick: () => setHidden(shown()), title: 'What agent sessions created: worktrees, copies, bench and backup folders' });
   toggle.id = 'leftovers-toggle';
   const badge = uiPart('text'); badge.hidden = true;
   toggle.append(badge);
@@ -44,9 +44,12 @@ export function createLeftoversPanel(options: Options) {
   let state: LeftoverStatus = { available: false, reason: null, projects: [] };
   let message = '';
 
-  // Whether the viewer opened or closed the rail themselves; until then Xiox decides (refresh).
-  let chosen = false;
-  function show(visible: boolean) { panel.hidden = !visible; toggle.setAttribute('aria-pressed', String(visible)); }
+  // Whether the viewer opened or closed it themselves; until then Xiox decides, once, at the first read (refresh).
+  let chosen = false; let decided = false;
+  function show(visible: boolean) {
+    if (visible) openSidePanel(panel, { opener: toggle, onLeave: () => toggle.setAttribute('aria-pressed', 'false') }); else closeSidePanel(panel);
+    toggle.setAttribute('aria-pressed', String(visible));
+  }
   function setHidden(hidden: boolean) {
     chosen = true;
     show(!hidden);
@@ -151,7 +154,7 @@ export function createLeftoversPanel(options: Options) {
     const count = visibleCount(state.projects);
     badge.hidden = count === 0; badge.textContent = String(count);
     toggle.dataset.attention = String(state.projects.some(p => p.attention.length > 0));
-    if (panel.hidden) return;
+    if (!shown()) return;
     if (!state.available) {
       list.replaceChildren();
       say(state.reason ? `Not watching: ${state.reason}` : 'Reading Xiox…');
@@ -168,18 +171,18 @@ export function createLeftoversPanel(options: Options) {
   }
 
   async function refresh() {
-    try { state = await options.invoke<LeftoverStatus>('project_leftovers'); } catch (error) { if (!panel.hidden) say(text(error), true); }
-    // Unless the viewer chose, the rail opens only when Xiox watches: a rail opened at every start
-    // to say xiox.exe is missing took the workspace's room (on a narrow window, over its tabs).
-    if (!chosen && panel.hidden === state.available) show(state.available);
+    try { state = await options.invoke<LeftoverStatus>('project_leftovers'); } catch (error) { if (shown()) say(text(error), true); }
+    // Unless the viewer chose, it opens at the first read only, and only when Xiox watches: the side panel is the
+    // window's one, and a read every 30 s must not take it from the conversation or the Model proxy.
+    if (!chosen && !decided) { decided = true; if (state.available) show(true); }
     render();
   }
 
   try {
     const stored = localStorage.getItem(HIDDEN_KEY);
     chosen = stored !== null;
-    show(stored === '0');
-  } catch { show(false); }
+    if (stored === '0') show(true); else toggle.setAttribute('aria-pressed', 'false');
+  } catch { toggle.setAttribute('aria-pressed', 'false'); }
   void listen('project-leftovers', () => { void refresh(); }).catch(() => {});
   // "5 min ago" moves on, and an observer that started meanwhile shows up.
   window.setInterval(() => { if (!document.hidden) void refresh(); }, 30_000);

@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
@@ -52,7 +53,7 @@ export function createSessionRaw(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-raw-dialog'; dialog.setAttribute('aria-labelledby', 'session-raw-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-raw-title'; title.textContent = 'RAW native entry';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close RAW entry');
+  const closeButton = closeControl('Close RAW entry');
   heading.append(title, closeButton);
   const warning = uiPart('paragraph'); warning.id = 'session-raw-warning';
   warning.textContent = 'RAW may contain credentials, private reasoning, signed or encrypted data, and other sensitive native fields. Nothing is hidden or redacted in this view. Load only if you intend to inspect this entry.';

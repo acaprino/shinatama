@@ -48,7 +48,7 @@ try {
   await (await startSession(page, { project: projectPath, harness: 'powershell' })).done(30000);
   const [session] = await ipc('terminal_list');
   if (!session) throw new Error('The PowerShell session did not open.');
-  const pane = page.locator('.wm-pane:has([data-view-id="' + session.id + '"])');
+  const pane = page.locator('.im-pane:has([data-view-id="' + session.id + '"])');
   const screen = pane.locator('.xterm-accessibility');
   await expect(screen).toContainText('PS ', { timeout: 30000 });
   const type = async command => {

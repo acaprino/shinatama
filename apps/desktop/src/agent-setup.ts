@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 
 export type AgentId = 'claude_code' | 'codex' | 'opencode' | 'pi' | 'hermes_agent' | 'deepseek_harness';
@@ -53,10 +54,10 @@ export function createAgentSetup(options: Options) {
     && typeof item.checkable === 'boolean' && all.findIndex(other => other.agentId === item.agentId) === index);
   const button = uiButton('Agents'); button.id = 'agents';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiTraits(uiPart('dialog'), 'paddedDrawer'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
+  const dialog = uiPart('dialog'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
   const heading = uiPart('row', undefined, 'dialog-heading');
   const title = uiPart('title', 'Agents'); title.id = 'agent-setup-title';
-  const dismiss = uiButton('×'); dismiss.setAttribute('aria-label', 'Close agents');
+  const dismiss = closeControl('Close agents');
   heading.append(title, dismiss);
   const description = uiPart('paragraph', 'Check an agent before opening it. Sign-in takes place in its original terminal interface.');
   const label = uiPart('label', 'Agent'); label.htmlFor = 'agent-provider';

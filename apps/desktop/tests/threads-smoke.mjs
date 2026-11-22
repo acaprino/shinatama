@@ -109,9 +109,9 @@ try {
   const separator = sidebar.getByRole('separator', { name: 'Thread sidebar width', exact: true });
   await expect(separator).toHaveAttribute('aria-valuenow', '264');
   await separator.focus(); await separator.press('ArrowRight');
-  await expect(separator).toHaveAttribute('aria-valuenow', '280');
+  await expect(separator).toHaveAttribute('aria-valuenow', '272');
   await sidebar.getByRole('button', { name: 'Collapse threads', exact: true }).click();
-  const collapsed = { version: 1, width: 280, collapsed: true };
+  const collapsed = { version: 1, width: 272, collapsed: true };
   await expect.poll(async () => {
     const value = await ipc('thread_sidebar_load'); return value.revision > 0 && Object.entries(collapsed).every(([key, wanted]) => value.settings[key] === wanted);
   }, { timeout: 15000 }).toBe(true);
@@ -120,7 +120,7 @@ try {
   await expect(selector).toBeAttached();
   await expect(sidebar.getByRole('button', { name: 'Expand threads', exact: true })).toBeVisible();
   await expect(sidebar).toHaveClass(/is-collapsed/);
-  expect(await sidebar.evaluate(element => element.style.getPropertyValue('--thread-sidebar-width'))).toBe('280px');
+  expect(await sidebar.evaluate(element => element.style.getPropertyValue('--thread-sidebar-width'))).toBe('272px');
   expect(await ipc('thread_sidebar_load')).toEqual(acknowledged);
   const missing = await idleReply('workset_list', { request: { ...listRequest, projectId: 'p_aaaaaaaaaaaa' } });
   expect(missing).toEqual({ ok: false, issue: { code: 'project_missing' } });
@@ -157,7 +157,7 @@ try {
   expect(await ipc('terminal_list')).toEqual([]); expect(errors).toEqual([]);
   // Observe the last display acknowledgement before frame close, rather than racing its debounce.
   await expect.poll(async () => (await ipc('thread_sidebar_load')).settings, { timeout: 15000 })
-    .toMatchObject({ version: 1, width: 280, collapsed: false });
+    .toMatchObject({ version: 1, width: 272, collapsed: false });
   evidence.checks.sameThreadAfterReloadAndNoAutoStart = true;
   await page.screenshot({ path: resolve(output, `${receiptName}.png`), timeout: 3000 });
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), exitWithin(15000)]); void closing.catch(() => {});

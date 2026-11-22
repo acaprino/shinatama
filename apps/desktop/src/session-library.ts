@@ -1,4 +1,5 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
+import { closeControl } from './controls.ts';
 import { openModal } from './modal.ts';
 
 export type SessionRootSelector = { storeRootId: string; configurationRevision: number };
@@ -106,7 +107,7 @@ export function createSessionLibrary(options: Options) {
   const dialog = uiPart('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
   const heading = uiPart('header'); heading.classList.add('dialog-heading');
   const title = uiPart('title'); title.id = 'session-library-title'; title.textContent = 'Archive browser';
-  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close sessions'); heading.append(title, closeButton);
+  const closeButton = closeControl('Close sessions'); heading.append(title, closeButton);
   const description = uiPart('paragraph', 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.');
   const tools = uiPart('toolbar');
   const loadRoots = uiButton('Load archives');
