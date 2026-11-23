@@ -1271,7 +1271,11 @@ impl Controller {
                 cleanup_timeout: Duration::from_secs(3),
                 drain_timeout: Duration::from_secs(30),
                 reservation_lease: Duration::from_secs(300),
-                maintenance_at_start: Duration::from_secs(10),
+                // Zero: the proxy starts at once. A cleanup before the launch held "Ready" back for the
+                // length of its budget plus the read of the archive (shinatama.log, 2026-11-22: Ready
+                // 30-33 s after launch, with the cleanup's 10 s inside them). The close cleanup, the
+                // idle one and a forget's keep the archive small.
+                maintenance_at_start: Duration::ZERO,
                 maintenance_command_timeout: Duration::from_secs(120),
             },
             provider,

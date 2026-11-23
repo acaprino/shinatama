@@ -52,6 +52,12 @@ Shinatama gives the proxy:
 4. A cleanup never delays an open by more than a few seconds and never loses a session a thread
    still has.
 
+> **Change, 2026-11-23.** The cleanup before the proxy's launch is off (`maintenance_at_start` is zero in
+> `apps/desktop/src-tauri/src/sidecar.rs`). `shinatama.log` of 2026-11-22 shows `proxy: Ready` 30 s and 33 s
+> after launch, with the cleanup's 10 s budget (`proxyarchive: removed … in 10 s`) inside them, although the
+> archive was already small: goal 2 was not met while that cleanup ran first. Cleanup now happens at close, when
+> idle (ten minutes with no agent session) and after a forget; goal 3's "at start" is replaced by those three.
+
 ## Non-goals
 
 - Changing the proxy (the pinned source build) or its configuration of retention.
