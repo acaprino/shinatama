@@ -5,7 +5,7 @@ import { useCommand } from '@acaprino/sigrid/assemblies';
 import type { Shinatama } from '../app.ts';
 import { COMMANDS } from '../keys.ts';
 
-function runners(app: Shinatama): Record<string, () => void> {
+export function runners(app: Shinatama): Record<string, () => void> {
   const { ui, layout, opens } = app;
   const toward = (direction: 'left' | 'right') => () => {
     ui.leaveToWorkspace();
@@ -35,3 +35,4 @@ export function useShinatamaCommands(app: Shinatama): void {
     useCommand({ id: spec.id, label: spec.title, group: 'Shinatama', keys: spec.keys, when: free, run: run[spec.id] ?? (() => {}) });
   }
 }
+    'find-in-terminal': () => app.terminals.openFind(),

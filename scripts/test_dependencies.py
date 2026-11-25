@@ -218,6 +218,28 @@ class DependencyPolicyTests(unittest.TestCase):
         self.write('node_modules/rolldown/package.json', {**common,'optionalDependencies':{child:'2.0.0'}})
         self.assertTrue(dependencies.npm_inventory(self.root)[1])
 
+    def test_reviewed_npm_text_requires_exact_integrity_license_and_repository(self):
+        body = 'MIT supplement fixture\n'
+        repository = 'https://example.test/owner/repo'
+        info = {'ecosystem':'npm', 'license':'MIT', 'repository':repository, 'sha256':dependencies.sha256(body), 'source':repository,
+                'packages':{'example':{'version':'1.2.3', 'integrity':'sha512-pinned'}}}
+        self.write(dependencies.POLICY, f"<!-- supplement {json.dumps(info)} -->\n```text\n{body}```\n")
+        self.write('package.json', {'dependencies':{'example':'1.2.3'}})
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-pinned'}}})
+        self.write('node_modules/example/package.json', {'version':'1.2.3', 'license':'MIT', 'repository':{'type':'git', 'url':f'git+{repository}.git'}})
+        entries, errors = dependencies.npm_inventory(self.root)
+        self.assertEqual(errors, [])
+        self.assertEqual(entries[0]['license_texts'][0]['source'], 'reviewed-supplement')
+        self.assertTrue(dependencies.has_license_text(entries[0]['license_texts']))
+        # another tarball, another license or another repository is not the reviewed one
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-other'}}})
+        self.assertTrue(any('provenance mismatch' in error for error in dependencies.npm_inventory(self.root)[1]))
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-pinned'}}})
+        self.write('node_modules/example/package.json', {'version':'1.2.3', 'license':'MIT', 'repository':'https://example.test/other/repo'})
+        self.assertTrue(any('provenance mismatch' in error for error in dependencies.npm_inventory(self.root)[1]))
+        # a crate supplement is not an npm supplement
+        self.assertEqual(dependencies.supplements(self.root), {})
+
     def test_notice_render_is_deterministic_and_escapes_table_content(self):
         entry={'ecosystem':'npm','name':'bad|<script>\nname','version':'1.0.0','roles':['runtime'],'license':'MIT','policy':'recognized','license_texts':[{'file':'LICENSE'}]}
         first=dependencies.markdown([entry],[])

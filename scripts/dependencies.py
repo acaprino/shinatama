@@ -324,16 +324,45 @@ def cargo_roles(metadata: dict) -> dict[str, set[str]]:
     return roles
 
 
-def supplements(root: Path) -> dict[tuple[str, str], dict]:
-    result = {}
+def supplement_blocks(root: Path) -> list[tuple[dict, str]]:
+    blocks = []
     text = (root/POLICY).read_text(encoding='utf-8')
     for match in re.finditer(r'<!-- supplement (\{[^\n]+\}) -->\s*```text\n(.*?)\n```', text, re.S):
         info = json.loads(match[1])
         body = match[2].replace('\r\n', '\n').strip() + '\n'
         if sha256(body) != info['sha256']:
             raise ValueError('Reviewed license supplement hash mismatch')
+        blocks.append((info, body))
+    return blocks
+
+
+def supplements(root: Path) -> dict[tuple[str, str], dict]:
+    """Reviewed texts of Rust crates, bound to the exact version and VCS revision."""
+    result = {}
+    for info, body in supplement_blocks(root):
+        if info.get('ecosystem', 'rust') != 'rust':
+            continue
         for name, package in info['packages'].items():
             result[(name, package['version'])] = {**info, 'revision':package['revision'], 'text':body}
+    return result
+
+
+def repository_key(value) -> str | None:
+    """A repository URL as a manifest and a review spell it, once: no credentials, no `git+`, no `.git`."""
+    url = clean_url(value)
+    return url.removesuffix('.git') if url else None
+
+
+def npm_supplements(root: Path) -> dict[tuple[str, str], dict]:
+    """Reviewed texts of npm packages that ship none, bound to the exact version, the lockfile integrity, the declared license and the repository."""
+    result = {}
+    if not (root/POLICY).is_file():
+        return result
+    for info, body in supplement_blocks(root):
+        if info.get('ecosystem') != 'npm':
+            continue
+        for name, package in info['packages'].items():
+            result[(name, package['version'])] = {**info, 'integrity':package['integrity'], 'text':body}
     return result
 
 
@@ -372,6 +401,7 @@ def npm_inventory(root: Path) -> tuple[list[dict], list[str]]:
     lock = read_json(root/'package-lock.json')
     manifest = read_json(root/'package.json')
     direct = set().union(*(manifest.get(key, {}) for key in ('dependencies', 'devDependencies', 'optionalDependencies')))
+    reviewed = npm_supplements(root)
     for key, package in sorted(lock['packages'].items()):
         if not key or not target_matches(package.get('os'), 'win32') or not target_matches(package.get('cpu'), 'x64'):
             continue
@@ -399,6 +429,14 @@ def npm_inventory(root: Path) -> tuple[list[dict], list[str]]:
                     and clean_url(wrapper.get('repository'))):
                     texts = [{**text, 'file':f"{wrapper_name}/{text['file']}", 'source':'reviewed-wrapper'} for text in license_files(wrapper_base)]
         license = package.get('license') or local.get('license')
+        supplement = reviewed.get((name, version))
+        if base.is_dir() and not has_license_text(texts) and supplement:
+            if (package.get('integrity') != supplement['integrity'] or license != supplement['license']
+                or repository_key(local.get('repository')) != repository_key(supplement['repository'])):
+                errors.append(f'npm {name}@{version}: reviewed supplement provenance mismatch')
+            else:
+                texts.append({'file':'LICENSE (reviewed source supplement)', 'sha256':supplement['sha256'],
+                    'source':'reviewed-supplement', 'url':supplement['source'], 'text':supplement['text']})
         policy, notes = license_policy(license)
         if policy == 'error':
             errors.extend(f'npm {name}@{version}: {note}' for note in notes)

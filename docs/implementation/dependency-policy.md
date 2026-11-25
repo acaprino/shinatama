@@ -703,3 +703,30 @@ Documentation in this project (excluding specifications) is licensed under
 CC-BY-4.0. See https://creativecommons.org/licenses/by/4.0/legalcode for
 the full license text.
 ```
+
+The npm package `react-compiler-runtime@1.0.0` (MIT, reached through Sigrid's graph canvas: `@acaprino/sigrid` → `@xyflow/react` → `react-compiler-runtime`) publishes no license file. It lives in the `facebook/react` repository (`compiler/packages/react-compiler-runtime`), whose license is MIT, Copyright (c) Meta Platforms, Inc. and affiliates, the text `react` itself packages. That text is carried below as a reviewed supplement, bound to the exact version and the lockfile integrity of the tarball, to the declared license (`MIT`) and to the repository of the installed manifest; a different version, tarball, license or repository fails the check, and a package update must be reviewed again. The owner confirmed on 2026-11-25 that the license is MIT.
+
+<!-- supplement {"ecosystem": "npm", "license": "MIT", "packages": {"react-compiler-runtime": {"integrity": "sha512-rRfjYv66HlG8896yPUDONgKzG5BxZD1nV9U6rkm+7VCuvQc903C4MjcoZR4zPw53IKSOX9wMQVpA1IAbRtzQ7w==", "version": "1.0.0"}}, "repository": "https://github.com/facebook/react", "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93", "source": "https://github.com/facebook/react (LICENSE of the same repository, as packaged in react@19.3.1)"} -->
+```text
+MIT License
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
