@@ -8,7 +8,7 @@
 // seed are Rust's, proved by crates/cli/tests/sessions.rs and crates/engine/tests/session_reader.rs.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { check, clearNotices, finish, fixtureFolder, goTo, openApp, startSession, until } from './lib.mjs';
+import { check, clearNotices, finish, fixtureFolder, goTo, openApp, startSession, toggle, until } from './lib.mjs';
 
 const fixture = await fixtureFolder('sessions');
 const archive = resolve(fixture.folder, 'synthetic-claude');
@@ -80,7 +80,7 @@ try {
   // A hop shows the exact seed it would send, and starts nothing.
   await facts.getByRole('button', { name: /^Hop/ }).click();
   const hop = page.getByRole('complementary', { name: 'Hop to another agent', exact: true });
-  await hop.getByRole('radio', { name: /Codex/ }).check();
+  await toggle(page, hop.getByRole('radio', { name: /Codex/ }));
   await hop.getByRole('button', { name: 'Prepare preview' }).click();
   check('the preview shows the exact seed', !!await until(() => hop.getByLabel('Exact seed').isVisible(), 60000, 'no seed').catch(() => null));
   check('and the hop started no terminal', (await ipc('terminal_list')).length === 0);

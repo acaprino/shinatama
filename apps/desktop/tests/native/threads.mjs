@@ -5,7 +5,7 @@
 //   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/threads.mjs
 // It stands for legacy threads-smoke, thread-rename-smoke and thread-sets-smoke (the sidebar's width and collapse are Imago's now, kept under the
 // app's own storage key); thread-recovery-smoke is stood for by the unit tests of the opens and by crates/state (recovery), see docs/desktop-ui.md.
-import { check, clearNotices, describeWindow, finish, fixtureFolder, openApp, pathKey, startSession, tabOf, until } from './lib.mjs';
+import { check, clearNotices, describeWindow, finish, fixtureFolder, openApp, pathKey, startSession, tabOf, toggle, until } from './lib.mjs';
 
 const fixture = await fixtureFolder('threads');
 let handle;
@@ -41,11 +41,11 @@ try {
   await empty.click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Archive' }).click();
   check('an archived thread leaves the list', !!await until(async () => (await worksets(project.id)).length === 1 && (await worksets(project.id, true)).length === 1, 10000, 'not archived').catch(() => null));
-  await threads.getByRole('checkbox', { name: 'Show archived threads' }).check();
+  await toggle(page, threads.getByRole('checkbox', { name: 'Show archived threads' }));
   check('the archived list shows it, as archived', !!await until(async () => /Archived/.test(await threads.getByRole('button', { name: /^New thread(?! in )/ }).first().textContent()), 10000, 'not shown').catch(() => null));
   await threads.getByRole('button', { name: /^New thread(?! in )/ }).first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Unarchive' }).click();
-  await threads.getByRole('checkbox', { name: 'Show archived threads' }).uncheck();
+  await toggle(page, threads.getByRole('checkbox', { name: 'Show archived threads' }));
   check('Unarchive brings it back', !!await until(async () => (await worksets(project.id, true)).length === 0, 10000, 'still archived').catch(() => null));
 
   // A thread with a running session asks before it is turned off.
