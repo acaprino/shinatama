@@ -73,3 +73,17 @@ The text stays Italian. It asks Rust for `attention_current`, `attention_open` a
 Imago's `startApp` is written for the one main window. In a second window it calls the shell's plugin (`kept_theme`, `kept_glass`,
 `ready`), which refuses a window that is not `imago-shell`'s (console warnings), and it paints an opaque ground over the transparent
 window. The page follows the scheme the main window keeps because both read `shinatama.theme` (same origin, the `storage` event).
+
+## The browser tab
+
+A page Rust drives through the browser engine (ADR-0056) is a tab of kind `browser` (view id `browser-<page>`). `src/screens/browser/index.tsx`
+exports `BrowserTab({ viewId, visible })`, which the workspace's tab renderer mounts: a bar (Back, Forward, Reload, the address, the system's
+browser), the strip that says an agent drives the page and offers to take it over, and the page (`surface.tsx`). A tab the layout kept whose
+page is not open (after a restart) shows its last address and "Riapri". `app.browser` (`controllers/browser.ts`) holds the pages, sends the
+person's input in batches (`browser-input.ts` maps it), the size and whether the tab is in sight, and hands the frames (JPEG, over a Tauri
+channel, `api/browser.ts`) to the surface. The tab renderer names the tab with `app.browser.label(viewId)` and closes it with
+`app.browser.close(viewId)`; the Files inspector opens a document with `app.browser.open({ file })`.
+
+The page is drawn by Sigrid's `FrameSurface`, which is built (branch `claude/frame-surface` of acaprino/sigrid) and not released: until the app
+pins that release `surface.tsx` shows the page's place, with the exact swap in its header. Proved by `npm run test:browser` (mock, roles, in
+`tests/harness/browser.html`) and `tests/browser-native.mjs` (Windows).
