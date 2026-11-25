@@ -15,13 +15,16 @@ import {
 
 /** A tab of the tree: what a view is, and how it is named. `kind` is the kind of the view's resource (a terminal, a team map...). */
 export interface PaneTab extends WorkspaceTab {
+  /** The colour of the thread the tab belongs to (one of Sigrid's 18), when that thread is on; Sigrid draws it as a dot before the title
+   *  (`WorkspaceTab.color`, in the release after 6.11.0: until the pin moves the field is carried and not drawn). */
+  color?: string | undefined;
   kind: PanelView['resource']['kind'];
   /** The session a terminal tab stands for, when it stands for one. */
   threadId: string | null;
 }
 
 /** How a tab is named and drawn, given the view: the controllers know (a session's name, a thread's colour). */
-export type DescribeView = (view: PanelView) => Pick<PaneTab, 'title' | 'icon' | 'closable'>;
+export type DescribeView = (view: PanelView) => Pick<PaneTab, 'title' | 'icon' | 'closable' | 'color'>;
 
 /** The layout as a tree of panes. A pane with no tab is kept (the only pane of an empty window). */
 export function layoutToTree(layout: WorkspaceLayout, describe: DescribeView): WorkspaceNode<PaneTab> {

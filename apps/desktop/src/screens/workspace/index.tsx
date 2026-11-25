@@ -38,7 +38,7 @@ export function Workspace() {
     return () => { gone = true; stop?.(); };
   }, []);
 
-  const tree = layout.tree(view => ({ title: app.threads.tabTitle(view), icon: TAB_ICONS[view.resource.kind], closable: true }));
+  const tree = layout.tree(view => ({ title: app.threads.tabTitle(view), icon: TAB_ICONS[view.resource.kind], closable: true, color: app.threads.tabTone(view.id) ?? undefined }));
   const groups = layout.groups.filter(group => group.activeTabId !== null);
 
   const renderTab = (tab: PaneTab, state: WorkspaceTabState) => {

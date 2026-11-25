@@ -263,3 +263,14 @@ test('the threads that were on are read when the start asks, not before: a termi
     Reflect.deleteProperty(globalThis, 'sessionStorage');
   }
 });
+
+test('a tab has the colour of its thread while the thread is on: a session\'s, its conversation\'s and its team map\'s', async () => {
+  const { app } = fakeHost({ workset_threads: [row('t_one')] });
+  const colour = (id: string) => app.threads.tabTone(id);
+  assert.equal(colour(`chat-${WORKSET.id}`), null, 'a thread that is off has none');
+  await app.threads.showWorkset(WORKSET);
+  assert.equal(colour(`chat-${WORKSET.id}`)?.startsWith('#'), true);
+  assert.equal(colour(`team-${WORKSET.id}`), colour(`chat-${WORKSET.id}`));
+  assert.equal(colour('saved-t_one'), colour(`chat-${WORKSET.id}`));
+  assert.equal(colour('files-1'), null);
+});

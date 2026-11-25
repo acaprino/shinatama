@@ -38,6 +38,7 @@
     "test": "node --experimental-strip-types --test apps/desktop/tests/*.test.ts",
     "test:widget": "node apps/desktop/tests/widget.smoke.mjs",
     "test:browser": "node apps/desktop/tests/browser.smoke.mjs",
+    "test:workspace": "node apps/desktop/tests/workspace.smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
     "verify": "pwsh -NoProfile -File scripts/verify.ps1",

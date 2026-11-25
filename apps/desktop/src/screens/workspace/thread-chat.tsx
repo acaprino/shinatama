@@ -99,8 +99,8 @@ export function ThreadChat({ threadId, state }: { threadId: string; state: Works
               time={time}
             >
               <Cluster gap="xs">
-                <Text variant="strong">{line.who}</Text>
-                {line.tag ? <Text variant="muted">{line.tag}</Text> : null}
+                <Text variant="strong" aria-hidden>{line.who}</Text>
+                {line.tag ? <Text variant="muted" aria-hidden>{line.tag}</Text> : null}
               </Cluster>
               <MarkdownBlocks text={line.what} />
             </Message>

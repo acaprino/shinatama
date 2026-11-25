@@ -94,3 +94,32 @@ channel, `api/browser.ts`) to the surface. The tab renderer names the tab with `
 The page is drawn by Sigrid's `FrameSurface`, which is built (branch `claude/frame-surface` of acaprino/sigrid) and not released: until the app
 pins that release `surface.tsx` shows the page's place, with the exact swap in its header. Proved by `npm run test:browser` (mock, roles, in
 `tests/harness/browser.html`) and `tests/browser-native.mjs` (Windows).
+
+## The workspace
+
+`src/screens/workspace/` draws the Workspace view's panes and everything in them; `controllers/{layout,terminals,threads,chat,opens}.ts` keep what
+they show.
+
+| File | What it is |
+|---|---|
+| `index.tsx` | Sigrid's `Workspace` over `app.layout.tree(...)`: the tab renderer (a session, the thread's conversation, its team map, a browser page), the tab's menu (Find in terminal, Thread settings), the close of a tab (a running session stops after asking and moves to Closed sessions), the drop of files on the window, and one pane at a time in a window under 620px (`maximizedId` is the pane the person works in, with a row of "Pane n" buttons) |
+| `terminal-tab.tsx` | A session's tab: Sigrid's `Terminal` wired to `app.terminals` (output, input, size, links, the window's own chords through `appKeys`, paste and drop of files and images), its `OverviewStrip` with the archive, a foot (state, memory, size, folder) and, when the process ended, "New session" and "Close terminal". A tab whose session does not run is a card: Resume, Recover session, Remove, or where its open stands |
+| `terminal-history.tsx`, `src/terminal-history.ts` | What a terminal no longer holds: the archive (lines that fall out of xterm's 1000 are kept as text with colours, in Blobs) and its view, a read-only `Terminal` in a drawer, a window of 2000 lines with Earlier and Later |
+| `terminal-find.tsx`, `src/terminal-find.ts` | Find in terminal (Ctrl+F in the Workspace, Ctrl+Shift+F in a terminal, the tab's menu): a dialog with a search field over the last 5500 retained lines |
+| `terminal-io.ts` | The clipboard and the window's drop (`tauri://drag-drop`): paths of files and images, quoted for the reader (`src/terminal-input.ts`), pasted as one paste |
+| `thread-chat.tsx` | The conversation of a thread that talks (ADR-0057): `Conversation`, `Message`, `PromptInput` and the recipients' `Select`; the room is read by `app.chat.watch` while the tab is shown |
+| `sidebar.tsx` | The thread sidebar: a group per project, a row per thread (its colour dot, its state line, + and ⋯, a menu on the row), the filter (Sigrid's `Sidebar search`), Show archived threads |
+| `tools.tsx`, `telemetry.ts` | The tools of the title bar (New session, Files, Leftovers) and the window's report of its own measures, once a second, for the resources badge of the status strip |
+
+A terminal is in `ownKeysIn` (`main.tsx`): the shell runs no key of a command in it. The window's own chords (`src/keys.ts`) are run by the terminal's
+`appKeys` (`commandOfKey`), and F6 and the zoom are left to the shell (`terminalLeavesKey`).
+
+In development the browser shows a populated workspace: `src/mock/workspace.ts` is the saved layout (three panes), `mock/terminals.ts` four terminals
+with output (typing `flood` in the shell prints 2500 lines, for the history), `mock/threads.ts` the projects' threads, their sessions and a room that
+talks. The page storage starts with the threads that were on. Proved by `npm test` (`workspace.test.ts`, `thread-sidebar.test.ts`,
+`terminal-*.test.ts`, `workspace-keys.test.ts`, `thread-chat-model.test.ts`) and `npm run test:workspace` (roles, both schemes, the widths where the
+frame changes). What only a real window proves: the native drop of files, WebView2's paste of images, Snap Layouts, the first frame.
+
+Pending in Sigrid (branch `claude/terminal-fill` of acaprino/sigrid, after 6.11.0): a `Terminal` fills its box and `Cluster` takes `fill` (without them a terminal
+in a pane is 0 high: `terminal-tab.tsx` carries the one line to remove), and a `WorkspaceTab` takes `color` (the thread's dot on its tabs; `PaneTab.color` already
+carries it).

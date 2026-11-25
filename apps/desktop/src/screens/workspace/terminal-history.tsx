@@ -3,7 +3,7 @@
 // The live terminal keeps running and receiving output underneath.
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@acaprino/sigrid/components';
-import { Button, Cluster, Column, Cell, Text } from '@acaprino/sigrid/primitives';
+import { Button, Cluster, Column } from '@acaprino/sigrid/primitives';
 import { Terminal, type TerminalHandle } from '@acaprino/sigrid/terminal';
 import { WINDOW_LINES, WINDOW_STEP, windowStart, windowTitle, type TerminalHistory } from '../../terminal-history.ts';
 
@@ -43,7 +43,7 @@ export function TerminalHistoryView({ archive, line, onClose }: { archive: Termi
       onOpenChange={open => { if (!open) onClose(); }}
       title="Earlier terminal lines"
       description={windowTitle(window_.start, window_.shown, total, lost)}
-      width="xl"
+      drawer
       onCloseAutoFocus={event => event.preventDefault()}
       footer={(
         <Cluster>
@@ -54,10 +54,7 @@ export function TerminalHistoryView({ archive, line, onClose }: { archive: Termi
       )}
     >
       <Column fill>
-        <Cell grow>
-          <Terminal ref={screen} aria-label="Earlier terminal lines" readOnly scrollback={WINDOW_LINES} />
-        </Cell>
-        <Text variant="muted" srOnly>{windowTitle(window_.start, window_.shown, total, lost)}</Text>
+        <Terminal ref={screen} aria-label="Earlier terminal lines" readOnly scrollback={WINDOW_LINES} />
       </Column>
     </Dialog>
   );

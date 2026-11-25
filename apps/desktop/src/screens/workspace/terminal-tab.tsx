@@ -170,7 +170,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
           </Button>
         </Cluster>
       ) : null}
-      <Cluster gap="sm" pad="xs" wrap={false} aria-label="Terminal" role="status">
+      <Cluster gap="sm" pad="xs" wrap={false} role="group" aria-label="Terminal details">
         {ended ? <Badge tone="warning">{session.exitCode === null ? 'Exited' : `Exited · code ${session.exitCode}`}</Badge> : <Badge tone="success">Running</Badge>}
         <Text variant="muted">{harness}</Text>
         {measured ? <Text variant="muted" title={measured.detail} aria-label="Terminal resources">{measured.summary}</Text> : null}

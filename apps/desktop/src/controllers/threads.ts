@@ -201,12 +201,15 @@ export class ThreadsController extends Store {
     const thread = (id: string | null) => (id && this.title(id)) || 'Thread';
     if (kind === 'chat') return `Conversation · ${thread(threadOfChatView(view.id))}`;
     if (kind === 'team') return `Team map · ${thread(threadOfTeamView(view.id))}`;
-    if (kind === 'browser') return this.app.browser.pages.get(view.id)?.title || this.app.browser.savedPage(view.id)?.title || 'Browser';
+    if (kind === 'browser') return this.app.browser.label(view.id);
     return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
 
-  /** The colour of the thread a tab belongs to; none for terminals of no thread and for the other kinds of tab. */
+  /** The colour of the thread a tab belongs to (its conversation and its team map included); none for terminals of no thread and for the
+   *  other kinds of tab. */
   tabTone(viewId: string): string | null {
+    const own = threadOfChatView(viewId) ?? threadOfTeamView(viewId);
+    if (own) return this.toneOf(own);
     const running = this.app.terminals.get(viewId);
     if (running) return running.workset ? this.toneOf(running.workset.id) : null;
     const saved = this.savedSession(viewId);

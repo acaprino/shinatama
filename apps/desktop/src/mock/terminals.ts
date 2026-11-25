@@ -86,12 +86,12 @@ function greeting(session: MockSession): string {
   return shell(session.cwd);
 }
 
-type Live = { session: MockSession; pending: string[]; ended: boolean };
+type Live = { session: MockSession; pending: string[]; ended: boolean; typed: string };
 const live = new Map<string, Live>();
 let sequence = 0;
 
 function start(session: MockSession, quiet = false): void {
-  live.set(session.id, { session, pending: quiet ? [] : [greeting(session)], ended: false });
+  live.set(session.id, { session, pending: quiet ? [] : [greeting(session)], ended: false, typed: '' });
 }
 for (const session of RUNNING) start(session);
 
@@ -122,8 +122,15 @@ export const answers: Answers = {
     const one = live.get(id);
     if (!one || one.ended) return null;
     const text = new TextDecoder().decode(new Uint8Array(data));
-    // A line the person typed is echoed, and Enter answers with a new prompt.
-    one.pending.push(text.replace(/\r/g, '\r\n') + (text.includes('\r') ? `${green('PS')} ${one.session.cwd}> ` : ''));
+    // What is typed is echoed, and Enter runs the line: `flood` prints a long output (so that the lines that scroll out of the live buffer
+    // can be looked at in the history), anything else just answers with a new prompt.
+    one.typed += text;
+    if (text.includes('\r')) {
+      const line = one.typed.replace(/\r/g, '').trim();
+      one.typed = '';
+      const prompt = `${green('PS')} ${one.session.cwd}> `;
+      one.pending.push(text.replace(/\r/g, '\r\n') + (line === 'flood' ? lines(...Array.from({ length: 2500 }, (_, n) => `output line ${n + 1}`)) : '') + prompt);
+    } else one.pending.push(text);
     return null;
   },
   terminal_resize: null,
