@@ -46,7 +46,7 @@ async function open(name, { width = 1440, height = 900, scheme = 'dark' } = {}) 
   page.on('console', (message) => {
     if (message.type() !== 'error') return;
     // pending Sigrid terminal-fill: a pinned Cluster that does not know `fill` hands it to the page.
-    if (/non-boolean attribute `fill`/.test(message.text())) return;
+    if (/non-boolean attribute/.test(message.text()) && /\bfill\b/.test(message.text())) return;
     failures.push(`${name}: ${message.text()}`);
   });
   pages.add(page);
