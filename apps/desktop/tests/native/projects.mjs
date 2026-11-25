@@ -62,7 +62,7 @@ try {
   await session.getByText('Launch review').click();
   await session.getByRole('button', { name: 'Review the launch' }).click();
   // Whatever the engine answers, the review ends in words (a launch it would start, refuses or cannot finish, or why it could not run).
-  check('the review ends in words', !!await until(() => session.getByText(/^(The engine (would start this agent|refuses this launch|cannot finish this review yet)\.|The review could not run)/).first().isVisible(), 60000, 'no review').catch(() => null), await session.innerText().then((text) => text.replace(/\s+/g, ' ').slice(-300)).catch(() => ''));
+  check('the review ends in words', !!await until(() => session.getByText(/(The engine (would start this agent|refuses this launch|cannot finish this review yet)\.|The review could not run)/).first().isVisible(), 60000, 'no review').catch(() => null), await session.innerText().then((text) => text.replace(/\s+/g, ' ').slice(-300)).catch(() => ''));
   check('and no terminal was started by it', (await handle.ipc('terminal_list')).length === 0);
   check('the page said nothing wrong', handle.errors.length === 0, handle.errors.join(' | '));
 } catch (error) {

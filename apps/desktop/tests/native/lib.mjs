@@ -219,3 +219,11 @@ export async function resumeClosed(page, { wait = 10000 } = {}) {
   await button.waitFor({ timeout: wait });
   return button;
 }
+
+/** What the page shows of the sidebar and of its size: for the message of a probe that stopped, since nothing else of a runner's window is seen. */
+export async function describeWindow(page) {
+  const size = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth, height: innerHeight })).catch(() => null);
+  const threads = await page.getByRole('navigation', { name: 'Threads' }).innerText().catch(() => 'no Threads navigation');
+  const tabs = await page.getByRole('tab').allTextContents().catch(() => []);
+  return `window ${JSON.stringify(size)}; threads: ${threads.replace(/\s+/g, ' ').slice(0, 400)}; tabs: ${tabs.join(' | ').slice(0, 300)}`;
+}

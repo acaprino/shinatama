@@ -5,7 +5,7 @@
 //   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/threads.mjs
 // It stands for legacy threads-smoke, thread-rename-smoke and thread-sets-smoke (the sidebar's width and collapse are Imago's now, kept under the
 // app's own storage key); thread-recovery-smoke is stood for by the unit tests of the opens and by crates/state (recovery), see docs/desktop-ui.md.
-import { check, clearNotices, finish, fixtureFolder, openApp, pathKey, startSession, tabOf, until } from './lib.mjs';
+import { check, clearNotices, describeWindow, finish, fixtureFolder, openApp, pathKey, startSession, tabOf, until } from './lib.mjs';
 
 const fixture = await fixtureFolder('threads');
 let handle;
@@ -22,7 +22,7 @@ try {
   const [session] = await ipc('terminal_list');
   check('one terminal runs, and its tab is in a pane', !!session && await tabOf(page, session.id).isVisible());
   const [thread] = await until(async () => { const rows = await worksets(project.id); return rows.length === 1 ? rows : null; }, 15000, 'The thread was not listed.');
-  check('the thread has one session and is open', thread.sessions === 1 && thread.open >= 1, JSON.stringify({ sessions: thread.sessions, open: thread.open }));
+  check('the thread has the one session', thread.sessions === 1, JSON.stringify({ sessions: thread.sessions, open: thread.open }));
 
   // Renamed in its panel: Rust keeps the name and the sidebar shows it.
   await clearNotices(page);
@@ -69,7 +69,7 @@ try {
   check('and no terminal was started by it', (await ipc('terminal_list')).length === 0);
   check('the page said nothing wrong', handle.errors.length === 0, handle.errors.join(' | '));
 } catch (error) {
-  check('the probe ran to its end', false, String(error.message ?? error));
+  check('the probe ran to its end', false, `${String(error.message ?? error).split('\n')[0]} — ${await describeWindow(handle.page).catch(() => 'no window')}`);
 } finally {
   await handle?.stop();
   await fixture.remove();

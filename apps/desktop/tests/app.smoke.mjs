@@ -167,6 +167,13 @@ try {
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('heading', { name: 'Leftovers', exact: true }).waitFor({ state: 'detached' });
 
+  // "Choose projects" of the thread sidebar is the dialog that lists projects in it (a press adds one or takes it away), not the one that chooses the window's.
+  await page.getByRole('button', { name: 'Choose projects' }).click();
+  const choose = page.getByRole('dialog', { name: 'Projects' });
+  await choose.getByText(/Choose the projects whose threads the sidebar lists/).waitFor();
+  await page.keyboard.press('Escape');
+  await choose.waitFor({ state: 'detached' });
+
   // --- a new session, from the palette to its terminal ------------------------------------------------------------------------------------
   const tabsBefore = await page.getByRole('tab').allTextContents();
   await command(page, 'New session');

@@ -29,7 +29,7 @@ export function Dialogs() {
       );
     case 'new-session': return <NewSession spec={dialog} />;
     case 'new-project': return <NewProject />;
-    case 'project-picker': return <ProjectPicker {...(dialog.browse ? { browse: true } : {})} />;
+    case 'project-picker': return <ProjectPicker {...(dialog.browse ? { browse: true } : {})} {...(dialog.filter ? { listing: true } : {})} />;
     case 'projects-overview': return <ProjectsOverview />;
   }
 }

@@ -16,9 +16,17 @@ function rootWords(scanned: CatalogRoot | undefined): string {
   return scanned.state === 'ready' ? `${scanned.projectCount} ${scanned.projectCount === 1 ? 'project' : 'projects'}` : STATE_WORDS[scanned.state];
 }
 
-export function ProjectPicker({ browse }: { browse?: boolean }) {
+/** `browse`: the native chooser opens at once. `listing`: the dialog of "Choose projects" in the thread sidebar, where a press puts a project in the
+ *  sidebar or takes it away (and the dialog stays), instead of making it the window's project. */
+export function ProjectPicker({ browse, listing }: { browse?: boolean; listing?: boolean }) {
   const app = useApp();
   const catalog = useController(app.catalog);
+  const threads = useController(app.threads);
+  const listed = new Set(threads.activeProjectIds().map(id => app.projects.pathOf(id)?.replace(/[\\/]+$/, '').toLowerCase()));
+  const press = (path: string) => {
+    if (listing) void app.threads.toggleProjectAt(path); else void catalog.select(path);
+  };
+  const marked = (path: string) => listing && listed.has(path.replace(/[\\/]+$/, '').toLowerCase());
   const [folder, setFolder] = useState('');
   const [root, setRoot] = useState('');
   useEffect(() => {
@@ -39,7 +47,7 @@ export function ProjectPicker({ browse }: { browse?: boolean }) {
       open
       onOpenChange={next => { if (!next) void catalog.cancelOrClose(); }}
       title="Projects"
-      description="Choose the folder new sessions start in."
+      description={listing ? "Choose the projects whose threads the sidebar lists: a press adds a project, or takes it away." : "Choose the folder new sessions start in."}
       width="xl"
       footer={(
         <>
@@ -60,7 +68,7 @@ export function ProjectPicker({ browse }: { browse?: boolean }) {
               <ItemList aria-label={shown.historyHeading}>
                 {shown.history.map(project => (
                   <ItemRow key={project.path} title={project.name || folderName(project.path)} description={project.available ? project.path : `${project.path} · folder unavailable`} leading={<Icon name="folder" />}
-                    disabled={!project.available || catalog.saving} onClick={() => { void catalog.select(project.path); }} />
+                    disabled={!project.available || catalog.saving} current={marked(project.path)} onClick={() => press(project.path)} />
                 ))}
               </ItemList>
             ) : <Text variant="muted">No matching folders.</Text>}
@@ -71,7 +79,7 @@ export function ProjectPicker({ browse }: { browse?: boolean }) {
             <ItemList aria-label="Projects under the roots">
               {shown.projects.map(project => (
                 <ItemRow key={project.path} title={project.name} description={project.path} leading={<Icon name="folder" />}
-                  disabled={!project.available || catalog.saving} onClick={() => { void catalog.select(project.path); }} />
+                  disabled={!project.available || catalog.saving} current={marked(project.path)} onClick={() => press(project.path)} />
               ))}
             </ItemList>
             {catalog.catalog && (catalog.catalog.total > catalog.catalog.limit || catalog.catalog.offset > 0) ? (

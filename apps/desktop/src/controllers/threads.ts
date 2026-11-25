@@ -3,6 +3,7 @@
 // holds which threads are on, the sessions of those threads (the members), the names of the tabs, and what the thread sidebar lists
 // (the projects, their threads). Turning a thread on starts nothing; turning it off closes its tabs and stops its sessions, after asking.
 import { errorText, sleep } from '../api/core.ts';
+import { projectsApi } from '../api/projects.ts';
 import { terminalsApi } from '../api/terminals.ts';
 import { threadsApi, type WorksetScope, type WorksetSummary } from '../api/threads.ts';
 import type { Shinatama } from '../app.ts';
@@ -550,6 +551,22 @@ export class ThreadsController extends Store {
     await this.saveSidebar({ ...state, activeProjects: listed ? active.filter(id => id !== projectId) : [...active, projectId] });
     if (!listed) await this.refreshList(projectId);
     return !listed;
+  }
+
+  /** "Choose projects": a folder is put in the sidebar, or taken away. A folder that is not a project yet is recorded as one first (the window's
+   *  own project does not change). Said in a notice when Rust refuses it. */
+  async toggleProjectAt(path: string): Promise<void> {
+    try {
+      const project = await projectsApi.select(path);
+      await this.toggleActive(project.id);
+      await this.app.projects.refreshRecent();
+    } catch (error) { this.app.ui.error(error); }
+  }
+
+  /** A project whose session was just started is listed, so that the thread that session is in has its row. */
+  async listProject(projectId: string): Promise<void> {
+    if (this.activeProjectIds().includes(projectId)) return;
+    try { await this.toggleActive(projectId); } catch { /* the thread is on and its tab is shown; the sidebar lists it at the next choice */ }
   }
 
   /** Does one operation of the sidebar (a rename, an archive, a delete): the controls wait for it, and a refusal is said in a notice that

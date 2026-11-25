@@ -192,6 +192,7 @@ export class OpensController extends Store {
         threads.focusWorkset(workset?.id ?? threads.currentWorkset);
         await threads.refreshMembers();
         await projects.refreshRecent();
+        await threads.listProject(selected.id);
         void threads.refreshList(selected.id);
       } finally { this.endOpening(); }
     });
