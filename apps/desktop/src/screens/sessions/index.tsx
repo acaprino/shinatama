@@ -2,7 +2,7 @@
 // table with a search above it. Typing filters what is listed; Enter searches the text of the conversations the index holds, and the
 // matches replace the table until the search is cleared. A row opens its facts in the inspector (`app.sessions.select`), from which its
 // conversation is read or handed to another agent; a running one takes the person to its pane.
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePhone } from '@acaprino/sigrid';
 import { DataTable, type DataColumn } from '@acaprino/sigrid/table';
 import { ContextMenu, Empty, ItemList, ItemRow, Note, SearchField } from '@acaprino/sigrid/components';
@@ -44,6 +44,8 @@ export function Sessions() {
   useController(app.ui);
   useEffect(() => { void app.sessions.ensureSaved(); return app.sessions.watchRunning(); }, [app]);
   const phone = usePhone();
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => { app.sessions.focusFilter = () => field.current?.focus(); return () => { app.sessions.focusFilter = () => {}; }; }, [app]);
   const { hits, searching, loadState, query } = sessions;
   const saved = sessions.saved;
   const running = sessions.shown;
@@ -126,6 +128,7 @@ export function Sessions() {
       subtitle={hits ? `Matches in conversations · ${hits.length}${hits.length >= 50 ? ' (first 50)' : ''}` : `${saved.length} saved · ${running.length} running`}
       tools={(
         <SearchField
+          ref={field}
           aria-label="Filter sessions, or press Enter to search the text of conversations"
           placeholder="Filter · Enter searches text"
           value={query}

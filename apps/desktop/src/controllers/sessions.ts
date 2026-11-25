@@ -68,6 +68,9 @@ export class SessionsController extends Store {
   index: IndexState | null = null;
   indexBusy = false;
 
+  /** Puts the keyboard in the filter of the list: the Sessions screen sets it, and Ctrl+F (the shell's search of the view) calls it. */
+  focusFilter: () => void = () => {};
+
   private generation = 0;
   private readingRunning = false;
   private runningRevision = 0;
