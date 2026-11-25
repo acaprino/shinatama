@@ -7,6 +7,7 @@ import { appLog } from './api/core.ts';
 import { BrowserController } from './controllers/browser.ts';
 import { CatalogController } from './controllers/catalog.ts';
 import { ChatController } from './controllers/chat.ts';
+import { FileTabsController } from './controllers/file-tabs.ts';
 import { FilesController } from './controllers/files.ts';
 import { HopController } from './controllers/hop.ts';
 import { LayoutController } from './controllers/layout.ts';
@@ -39,6 +40,7 @@ export class Shinatama {
   readonly hop = new HopController(this);
   readonly sessions = new SessionsController(this);
   readonly files = new FilesController(this);
+  readonly fileTabs = new FileTabsController(this);
   readonly leftovers = new LeftoversController(this);
   readonly threadSettings = new ThreadSettingsController(this);
   readonly team = new TeamController(this);

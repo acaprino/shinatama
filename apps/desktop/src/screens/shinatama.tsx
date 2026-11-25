@@ -62,8 +62,9 @@ function Window() {
       view={view}
       onView={next => ui.setView(next)}
       tools={view === 'workspace' ? <WorkspaceTools /> : undefined}
-      // Ctrl+F in the Workspace is the search of the terminal in the pane the person works in (a terminal keeps its own Ctrl+F).
-      search={view === 'workspace' ? () => app.terminals.openFind() : null}
+      // Ctrl+F is the search of the view: in the Workspace the terminal in the pane the person works in (a terminal keeps its own Ctrl+F), in
+      // Sessions the filter of the list; Settings has none.
+      search={view === 'workspace' ? () => app.terminals.openFind() : view === 'sessions' ? () => app.sessions.focusFilter() : null}
       status={<Status />}
       sidebar={state => view === 'workspace' ? <WorkspaceSidebar state={state} /> : view === 'sessions' ? <SessionsSidebar state={state} /> : <SettingsSidebar state={state} />}
       inspector={view === 'workspace' && team.inspecting ? <ScreenBoundary of={team.shownThread}><TeamInspector /></ScreenBoundary>

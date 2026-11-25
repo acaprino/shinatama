@@ -8,16 +8,14 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { launch, serve, watch } from './smoke-lib.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = `${here}out/`;
 mkdirSync(out, { recursive: true });
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1452, strictPort: false }, logLevel: 'error' });
-await server.listen();
+const { server } = await serve(1452);
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch({ args: ['--disable-lcd-text'] });
+const browser = await launch({ args: ['--disable-lcd-text'] });
 const failures = [];
 const pages = new Set();
 const check = (ok, message) => { if (!ok) failures.push(message); };
@@ -42,13 +40,7 @@ const overflow = (page) => page.evaluate(() => {
 async function open(name, { width = 1440, height = 900, scheme = 'dark' } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, colorScheme: scheme, deviceScaleFactor: 1 });
   await page.addInitScript((value) => { try { localStorage.setItem('shinatama.theme', value); } catch { /* no storage */ } }, scheme);
-  page.on('pageerror', (error) => failures.push(`${name}: ${error}`));
-  page.on('console', (message) => {
-    if (message.type() !== 'error') return;
-    // pending Sigrid terminal-fill: a pinned Cluster that does not know `fill` hands it to the page.
-    if (/non-boolean attribute/.test(message.text()) && /\bfill\b/.test(message.text())) return;
-    failures.push(`${name}: ${message.text()}`);
-  });
+  watch(page, name, failures);
   pages.add(page);
   page.on('close', () => pages.delete(page));
   await page.goto(url);

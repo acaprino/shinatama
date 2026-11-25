@@ -6,27 +6,21 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { launch, serve, watch } from './smoke-lib.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = `${here}out/`;
 mkdirSync(out, { recursive: true });
 // No watcher: another edit of the sources must not reload the page in the middle of a check.
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1437, strictPort: false, watch: null }, logLevel: 'error' });
-await server.listen();
+const { server } = await serve(1437);
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch({ args: ['--disable-lcd-text'] });
+const browser = await launch({ args: ['--disable-lcd-text'] });
 const failures = [];
 
 async function open(scheme = 'dark', width = 1280) {
   const page = await browser.newPage({ viewport: { width, height: 860 }, colorScheme: scheme, deviceScaleFactor: 1 });
   await page.addInitScript((value) => { try { localStorage.setItem('shinatama.theme', value); } catch { /* no storage */ } }, scheme);
-  page.on('pageerror', (error) => failures.push(`pageerror: ${error}`));
-  page.on('console', (message) => {
-    // The workspace's terminal tab hands `fill` to an element of the page (a warning of React, not of this area): said once by its owner.
-    if ((message.type() === 'error' || message.type() === 'warning') && !/non-boolean attribute/.test(message.text())) failures.push(`console: ${message.text()}`);
-  });
+  watch(page, 'sessions', failures);
   await page.goto(url);
   await page.getByRole('link', { name: 'Sessions' }).or(page.getByRole('tab', { name: 'Sessions' })).or(page.getByRole('button', { name: 'Sessions' })).first().click();
   await page.getByRole('treegrid', { name: 'Sessions' }).waitFor();

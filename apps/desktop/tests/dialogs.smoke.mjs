@@ -3,15 +3,15 @@
 // projects of the window (the filter, the roots that can be added, made the default and removed with Undo, a folder typed), a new project (its
 // name is checked before anything is sent), the overview (pins, a worktree that asks first), and nothing runs off the page at 340px.
 //   npm run test:dialogs
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { launch, serve, watch } from './smoke-lib.mjs';
+import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1475, strictPort: false, hmr: false, watch: null }, logLevel: 'error' });
-await server.listen();
+mkdirSync(`${here}out`, { recursive: true });
+const { server } = await serve(1475);
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch();
+const browser = await launch();
 const failures = [];
 let current = null;
 const check = (ok, message) => { if (!ok) failures.push(message); };
@@ -19,9 +19,7 @@ const check = (ok, message) => { if (!ok) failures.push(message); };
 async function open(name, { width = 1440, height = 900, scheme = 'dark' } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, colorScheme: scheme });
   current = page;
-  page.on('pageerror', error => failures.push(`${name}: ${error}`));
-  // A warning about another area's part (a `fill` passed to the page by the workspace's rows) is that area's to fix, not this smoke's.
-  page.on('console', message => { if (message.type() === 'error' && !/non-boolean attribute/.test(message.text())) failures.push(`${name}: ${message.text()}`); });
+  watch(page, name, failures);
   await page.goto(url);
   await page.getByRole('button', { name: /Commands/ }).first().waitFor();
   await page.waitForTimeout(800);
@@ -133,7 +131,7 @@ try {
   check(!!box && box.x >= 0 && box.x + box.width <= 340.5, 'dialogs 340: the dialog runs off the page');
   await narrow.close();
 } catch (error) {
-  if (current) { await current.screenshot({ path: `${here}out-dialogs.png` }).catch(() => {}); }
+  if (current) { await current.screenshot({ path: `${here}out/dialogs-failed.png` }).catch(() => {}); }
   failures.push(String(error?.stack ?? error));
 } finally {
   await browser.close();

@@ -91,3 +91,34 @@ export function ancestorsOf(path: string): string[] {
   const parts = path.split('/').filter(Boolean);
   return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join('/'));
 }
+
+// --- a file in a pane ------------------------------------------------------------------------------------------------------------------
+
+/** The view of a file open in a pane: its id may hold no path (a view id is letters, digits and a few signs), so it is a hash of the file. */
+export function fileViewId(project: string, path: string): string {
+  let hash = 0x811c9dc5;
+  for (const unit of `${project.toLowerCase()}\0${path}`) hash = Math.imul(hash ^ unit.codePointAt(0)!, 0x01000193) >>> 0;
+  return `file-${hash.toString(16).padStart(8, '0')}`;
+}
+
+/** Where a file open in a pane lives: kept so that a tab saved in the layout can read its file again after a restart. */
+export type SavedFile = { project: string; path: string };
+
+/** The files that were open in panes as storage kept them: anything that is not a file is left out. */
+export function parseSavedFiles(text: string | null): Record<string, SavedFile> {
+  try {
+    const value: unknown = JSON.parse(text ?? '{}');
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+    const saved: Record<string, SavedFile> = {};
+    for (const [view, file] of Object.entries(value)) {
+      const { project, path } = (file ?? {}) as Record<string, unknown>;
+      if (typeof project === 'string' && typeof path === 'string') saved[view] = { project, path };
+    }
+    return saved;
+  } catch { return {}; }
+}
+
+/** The name of a tab: the file's own name, a dot after it while it has changes that are not saved. */
+export function fileTabLabel(path: string, unsaved: boolean): string {
+  return `${path.split('/').filter(Boolean).at(-1) ?? path}${unsaved ? ' •' : ''}`;
+}

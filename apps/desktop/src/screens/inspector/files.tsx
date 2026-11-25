@@ -7,7 +7,7 @@ import { Tree } from '@acaprino/sigrid/assemblies';
 import { CodeView, codeLanguageOf } from '@acaprino/sigrid/code';
 import { Empty, MarkdownBlocks, Note, SearchField } from '@acaprino/sigrid/components';
 import { Lightbox } from '@acaprino/sigrid/assemblies';
-import { Button, Cell, Cluster, Column, Progress, Select, Spacer, Text, ToggleGroup, ToggleGroupItem } from '@acaprino/sigrid/primitives';
+import { Button, Cell, Cluster, Column, Icon, Progress, Select, Spacer, Text, ToggleGroup, ToggleGroupItem } from '@acaprino/sigrid/primitives';
 import { useApp, useAfter, useController } from '../../hooks.ts';
 import { dirty, isMarkdown, isPage } from '../../files-model.ts';
 import { Frame } from './frame.tsx';
@@ -56,7 +56,10 @@ export function FilesPanel() {
             <>
               <Cluster gap="sm" justify="between">
                 <Text variant="strong" truncate title={current.path}>{current.path}</Text>
-                <Text variant="muted">{codeLanguageOf(current.path)?.label ?? 'Plain text'}</Text>
+                <Cluster gap="sm" wrap={false}>
+                  <Text variant="muted">{codeLanguageOf(current.path)?.label ?? 'Plain text'}</Text>
+                  <Button variant="outline" size="icon-sm" aria-label="Open in a pane" title="Open in a pane: move this file to a tab of the workspace, beside the terminals" onClick={() => files.openInPane()}><Icon name="split" /></Button>
+                </Cluster>
               </Cluster>
               <Cluster gap="sm" justify="between">
                 {isMarkdown(current.path) ? (

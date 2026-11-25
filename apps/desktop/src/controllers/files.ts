@@ -20,6 +20,33 @@ export const requestId = (): string => `files-${Date.now().toString(36)}-${++seq
 const SEARCH_MS = 250;
 const message = (error: unknown): string => errorText(error) || 'The file operation failed.';
 
+/** Writes a buffer, checked against the version that was read: a file that changed on disk since asks before it is replaced. `stale` says
+ *  the buffer is no longer the one the person works on (nothing more is said or done); `report` says how it went. Throws what the write
+ *  throws. The panel and a file in a pane write the same way. */
+export async function writeBuffer(app: Shinatama, buffer: Buffer, report: (text: string, error?: boolean) => void, stale: () => boolean): Promise<void> {
+  if (stale() || buffer.text === buffer.baseText) return;
+  const request = { project: buffer.project, path: buffer.path, text: buffer.text, baseSha256: buffer.baseSha256, overwrite: false };
+  let outcome = await filesApi.save(request) as SaveOutcome;
+  if (outcome.state === 'conflict') {
+    if (stale()) return;
+    const replace = await app.ui.ask({
+      title: 'The file changed on disk',
+      description: `${buffer.path} was changed by someone else (an agent?) after you opened it. Overwrite it with your version? Cancel keeps your text here unsaved.`,
+      confirm: `Overwrite ${buffer.path}`,
+    });
+    if (!replace) { report('Not saved: the file on disk is newer. Your text is still here.', true); return; }
+    if (stale()) return;
+    if (buffer.text !== request.text) { report('The draft changed during confirmation. Save again to write it.'); return; }
+    // Authorize replacement of the reviewed disk version only.
+    outcome = await filesApi.save({ ...request, baseSha256: outcome.disk_sha256 }) as SaveOutcome;
+  }
+  if (outcome.state === 'saved') {
+    buffer.baseSha256 = outcome.sha256;
+    buffer.baseText = request.text;
+    report(dirty(buffer) ? 'Saved. Newer edits are still unsaved.' : 'Saved.');
+  } else report(outcome.state === 'failed' ? outcome.message : 'The file changed again. Save to review it.', true);
+}
+
 export type FileProject = { path: string; name: string };
 export type PreviewMode = 'source' | 'preview';
 
@@ -285,33 +312,30 @@ export class FilesController extends Store {
     this.saving = true; this.changed();
     const report = (text: string, error = false) => { if (this.current === buffer) this.say(text, error); };
     try {
-      if (this.buffers.get(buffer.path) !== buffer || buffer.text === buffer.baseText) return;
-      const request = { project: buffer.project, path: buffer.path, text: buffer.text, baseSha256: buffer.baseSha256, overwrite: false };
-      let outcome = await filesApi.save(request) as SaveOutcome;
-      if (outcome.state === 'conflict') {
-        if (this.buffers.get(buffer.path) !== buffer) return;
-        const replace = await this.app.ui.ask({
-          title: 'The file changed on disk',
-          description: `${buffer.path} was changed by someone else (an agent?) after you opened it. Overwrite it with your version? Cancel keeps your text here unsaved.`,
-          confirm: `Overwrite ${buffer.path}`,
-        });
-        if (!replace) { report('Not saved: the file on disk is newer. Your text is still here.', true); return; }
-        if (this.buffers.get(buffer.path) !== buffer) return;
-        if (buffer.text !== request.text) { report('The draft changed during confirmation. Save again to write it.'); return; }
-        // Authorize replacement of the reviewed disk version only.
-        outcome = await filesApi.save({ ...request, baseSha256: outcome.disk_sha256 }) as SaveOutcome;
-      }
-      if (outcome.state === 'saved') {
-        buffer.baseSha256 = outcome.sha256;
-        buffer.baseText = request.text;
-        report(dirty(buffer) ? 'Saved. Newer edits are still unsaved.' : 'Saved.');
-      } else report(outcome.state === 'failed' ? outcome.message : 'The file changed again. Save to review it.', true);
+      await writeBuffer(this.app, buffer, report, () => this.buffers.get(buffer.path) !== buffer);
     } catch (error) {
       report(message(error), true);
     } finally {
       this.saving = false;
       this.changed();
     }
+  }
+
+  /** "Open in a pane": the file becomes a tab of the workspace and leaves the panel. */
+  openInPane(): void {
+    const buffer = this.takeCurrent();
+    if (buffer) this.app.fileTabs.open(buffer);
+  }
+
+  /** The file leaves the panel for a tab, with the changes it has not saved (the tab is its one owner from now on). */
+  takeCurrent(): Buffer | null {
+    const buffer = this.current;
+    if (!buffer) return null;
+    this.buffers.delete(buffer.path);
+    this.current = null;
+    this.say(`${buffer.path} is open in a pane.`);
+    this.changed();
+    return buffer;
   }
 
   // --- leaving ---------------------------------------------------------------------------------------------------------------------

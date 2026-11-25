@@ -1,6 +1,6 @@
 // WORKSPACE. The pane area of the Workspace view: Sigrid's `Workspace` over the layout the controller keeps. A terminal in each tab of a
 // session (`terminal-tab.tsx`: Sigrid's `Terminal`, fed by `app.terminals`), and beside the terminals the tabs of a thread's team map and
-// conversation. Every tab stays mounted while it is moved or hidden, so a terminal keeps running and keeps what it printed. In a narrow
+// conversation, of a browser page and of a file opened in a pane. Every tab stays mounted while it is moved or hidden, so a terminal keeps running and keeps what it printed. In a narrow
 // window one pane is shown at a time (the one the person works in), and a row of buttons above it goes to another.
 import { useEffect } from 'react';
 import { useMedia } from '@acaprino/sigrid';
@@ -12,6 +12,7 @@ import { useApp, useController } from '../../hooks.ts';
 import { threadOfChatView, threadOfTeamView } from '../../view-ids.ts';
 import { BrowserTab } from '../browser/index.tsx';
 import { Team } from '../team/index.tsx';
+import { FileTab } from './file-tab.tsx';
 import { TerminalFind } from './terminal-find.tsx';
 import { startTerminalDrops } from './terminal-io.ts';
 import { TerminalTab } from './terminal-tab.tsx';
@@ -29,6 +30,7 @@ export function Workspace() {
   useController(app.chat);
   useController(app.opens);
   useController(app.browser);
+  useController(app.fileTabs);
   const narrow = useMedia(NARROW);
 
   // Files and folders dropped on the window paste their paths into the terminal under the pointer.
@@ -49,6 +51,7 @@ export function Workspace() {
       // The map keeps drawing and reading its team only while its tab is shown.
       case 'team': return state.visible && ui.view === 'workspace' ? <Team threadId={threadOfTeamView(tab.id) ?? ''} /> : null;
       case 'browser': return <BrowserTab viewId={tab.id} visible={state.visible} />;
+      case 'files': return <FileTab viewId={tab.id} />;
       default: return <Empty fill title={tab.title} description="This kind of tab has no screen in this window." />;
     }
   };

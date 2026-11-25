@@ -125,7 +125,7 @@ export function Sessions() {
   return (
     <Panel
       title="Sessions"
-      subtitle={hits ? `Matches in conversations · ${hits.length}${hits.length >= 50 ? ' (first 50)' : ''}` : `${saved.length} saved · ${running.length} running`}
+      subtitle={hits ? `Matches in conversations · ${hits.length}${hits.length >= 50 ? ' (first 50)' : ''}` : `${total} session${total === 1 ? '' : 's'} · ${running.length} running`}
       tools={(
         <SearchField
           ref={field}

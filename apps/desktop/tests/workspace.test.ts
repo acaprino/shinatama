@@ -115,7 +115,7 @@ test('every kind of tab is called by what it holds', async () => {
   assert.equal(app.threads.tabTitle(view(`chat-${WORKSET.id}`, 'chat')), 'Conversation · Billing');
   assert.equal(app.threads.tabTitle(view(`team-${WORKSET.id}`, 'team')), 'Team map · Billing');
   assert.equal(app.threads.tabTitle(view('chat-w_zzzzzzzzzzzz', 'chat')), 'Conversation · Thread');
-  assert.equal(app.threads.tabTitle(view('files-1', 'files')), 'Files');
+  assert.equal(app.threads.tabTitle(view('file-00000000', 'files')), 'File');
   const saved = app.layout.layout.views[0];
   assert.match(app.threads.tabTitle(saved), /not running/);
 });

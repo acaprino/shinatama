@@ -4,15 +4,15 @@
 // reversed and deleted with Undo, a template is used, and nothing runs off the page at 340px.
 //   npm run test:team
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { mkdirSync } from 'node:fs';
+import { launch, serve, watch } from './smoke-lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1473, strictPort: false, hmr: false, watch: null }, logLevel: 'error' });
-await server.listen();
+mkdirSync(`${here}out`, { recursive: true });
+const { server } = await serve(1473);
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch();
+const browser = await launch();
 const failures = [];
 let current = null;
 const check = (ok, message) => { if (!ok) failures.push(message); };
@@ -21,9 +21,7 @@ const check = (ok, message) => { if (!ok) failures.push(message); };
 async function open(name, { width = 1440, height = 900 } = {}) {
   const page = await browser.newPage({ viewport: { width, height } });
   current = page;
-  page.on('pageerror', error => failures.push(`${name}: ${error}`));
-  // A warning about another area's part (a `fill` passed to the page by the workspace's rows) is that area's to fix, not this smoke's.
-  page.on('console', message => { if (message.type() === 'error' && !/non-boolean attribute/.test(message.text())) failures.push(`${name}: ${message.text()}`); });
+  watch(page, name, failures);
   await page.goto(url);
   const tab = page.getByRole('tab', { name: /Team map/ }).first();
   // Under 620px one pane shows at a time, reached by its chip.
@@ -115,7 +113,7 @@ try {
   check(await overflow(narrow) <= 0, `team 340: the page is ${await overflow(narrow)}px too wide`);
   await narrow.close();
 } catch (error) {
-  if (current) { await current.screenshot({ path: `${here}out-team.png` }).catch(() => {}); console.error(await current.getByRole('button').allTextContents().catch(() => [])); }
+  if (current) { await current.screenshot({ path: `${here}out/team-failed.png` }).catch(() => {}); console.error(await current.getByRole('button').allTextContents().catch(() => [])); }
   failures.push(String(error?.stack ?? error));
 } finally {
   await browser.close();

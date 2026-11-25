@@ -42,6 +42,7 @@
     "test:team": "node apps/desktop/tests/team.smoke.mjs",
     "test:settings": "node apps/desktop/tests/settings.smoke.mjs",
     "test:dialogs": "node apps/desktop/tests/dialogs.smoke.mjs",
+    "test:app": "node apps/desktop/tests/app.smoke.mjs",
     "test:inspector": "node apps/desktop/tests/inspector.smoke.mjs",
     "test:sessions": "node apps/desktop/tests/sessions.smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",

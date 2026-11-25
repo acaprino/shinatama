@@ -99,6 +99,6 @@ export function layoutFromTree(
 
 /** The icon of a tab, by what it holds. */
 export const TAB_ICONS: Record<PanelView['resource']['kind'], IconName> = {
-  terminal: 'terminal', team: 'graph', chat: 'mail', browser: 'globe', files: 'folder', markdown: 'file', preview: 'file',
+  terminal: 'terminal', team: 'graph', chat: 'mail', browser: 'globe', files: 'file', markdown: 'file', preview: 'file',
   sessions: 'history', acp: 'terminal', companion: 'terminal', 'mini-app': 'layout',
 };

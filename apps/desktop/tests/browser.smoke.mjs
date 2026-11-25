@@ -7,23 +7,20 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { launch, serve, watch } from './smoke-lib.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = `${here}out/`;
 mkdirSync(out, { recursive: true });
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1434, strictPort: false }, logLevel: 'error' });
-await server.listen();
+const { server } = await serve(1434);
 const base = `${server.resolvedUrls.local[0]}tests/harness/browser.html`;
-const browser = await chromium.launch({ args: ['--disable-lcd-text'] });
+const browser = await launch({ args: ['--disable-lcd-text'] });
 const failures = [];
 
 async function open(scheme = 'dark', query = '', width = 900) {
   const page = await browser.newPage({ viewport: { width, height: 600 }, colorScheme: scheme, deviceScaleFactor: 1 });
   await page.addInitScript((value) => { try { localStorage.setItem('shinatama.theme', value); } catch { /* no storage */ } }, scheme);
-  page.on('pageerror', (error) => failures.push(`pageerror: ${error}`));
-  page.on('console', (message) => { if (message.type() === 'error' || message.type() === 'warning') failures.push(`console: ${message.text()}`); });
+  watch(page, 'browser', failures);
   await page.goto(base + query);
   await page.waitForFunction(() => window.__app !== undefined);
   return page;
@@ -80,7 +77,7 @@ try {
 
   // A tab the layout kept whose page is not open: its last address, and a button that opens it again.
   const again = await browser.newPage({ viewport: { width: 900, height: 600 }, colorScheme: 'dark' });
-  again.on('pageerror', (error) => failures.push(`pageerror: ${error}`));
+  watch(again, 'browser (closed page)', failures);
   await again.addInitScript(() => { try { localStorage.setItem('shinatama.browser.tabs', JSON.stringify({ 'browser-gone': { url: 'https://gone.example/a', title: 'Gone page' } })); } catch { /* no storage */ } });
   await again.goto(`${base}?closed=browser-gone`);
   await again.getByText('Gone page', { exact: true }).waitFor();

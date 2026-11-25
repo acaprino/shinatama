@@ -5,16 +5,14 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
+import { launch, serve, watch } from './smoke-lib.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = `${here}out/`;
 mkdirSync(out, { recursive: true });
-const server = await createServer({ configFile: `${here}../vite.config.ts`, server: { port: 1433, strictPort: false }, logLevel: 'error' });
-await server.listen();
+const { server } = await serve(1433);
 const url = `${server.resolvedUrls.local[0]}widget.html`;
-const browser = await chromium.launch({ args: ['--disable-lcd-text'] });
+const browser = await launch({ args: ['--disable-lcd-text'] });
 const failures = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
 
@@ -38,8 +36,7 @@ const mockState = (page) => page.evaluate(async () => { const { state } = await 
 async function open(scheme = 'dark') {
   const page = await browser.newPage({ viewport: { width: 440, height: 220 }, colorScheme: scheme, deviceScaleFactor: 1 });
   await page.addInitScript((value) => { try { localStorage.setItem('shinatama.theme', value); } catch { /* no storage */ } }, scheme);
-  page.on('pageerror', (error) => failures.push(`pageerror: ${error}`));
-  page.on('console', (message) => { if (message.type() === 'error' || message.type() === 'warning') failures.push(`console: ${message.text()}`); });
+  watch(page, 'widget', failures);
   await page.goto(url);
   await page.waitForLoadState('networkidle');
   return page;

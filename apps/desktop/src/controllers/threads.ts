@@ -202,6 +202,7 @@ export class ThreadsController extends Store {
     if (kind === 'chat') return `Conversation · ${thread(threadOfChatView(view.id))}`;
     if (kind === 'team') return `Team map · ${thread(threadOfTeamView(view.id))}`;
     if (kind === 'browser') return this.app.browser.label(view.id);
+    if (kind === 'files') return this.app.fileTabs.label(view.id);
     return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
 
@@ -219,6 +220,7 @@ export class ThreadsController extends Store {
       void this.closeSession(saved.id).then(() => this.sayClosed(saved.id));
     } else if (kind === 'team') team.close(threadOfTeamView(viewId) ?? '');
     else if (kind === 'browser') void browser.close(viewId);
+    else if (kind === 'files') void this.app.fileTabs.close(viewId);
     else layout.close(viewId);
   }
 
