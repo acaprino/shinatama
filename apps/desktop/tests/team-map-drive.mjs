@@ -138,7 +138,7 @@ export async function driveTeamMap(page, expect, log = console.log) {
   const box = map.locator('.team-box-link');
   const agentBox = map.locator('.team-box-agent');
   // Arrows may cross or overlap once tidied, so a test opens one the way the keyboard does.
-  const openLink = async (from, to) => { await link(from, to).focus(); await page.keyboard.press('Enter'); };
+  const openLink = async (from, to) => { await link(from, to).press('Enter'); };
   // A box that is open may lie over the card an arrow is pulled to, as it may for a user: it is closed first.
   const pull = async (from, to) => {
     if (await box.isVisible()) await box.getByRole('button', { name: 'Close the arrow box' }).click();
@@ -167,7 +167,7 @@ export async function driveTeamMap(page, expect, log = console.log) {
   const farRight = Math.min(640, Math.round(view.width) - 130);
   await chip('Builder').dragTo(canvas, { targetPosition: { x: farRight, y: 130 } });
   const builder = await idOf('Builder');
-  await chip('Local qwen').focus(); await page.keyboard.press('Enter');
+  await chip('Local qwen').press('Enter');
   const qwen = await idOf('Local qwen');
   await expect(map.locator('.team-card')).toHaveCount(3);
   await expect(map.locator('.team-session')).toHaveCount(0);
@@ -383,7 +383,7 @@ export async function driveTeamMap(page, expect, log = console.log) {
   log('ok a card dragged to the strip leaves the map');
 
   // Every action from the keyboard: Enter opens the box, Connect to… draws an arrow, an arrow takes focus and Enter.
-  await byId(builder).focus(); await page.keyboard.press('Enter');
+  await byId(builder).press('Enter');
   await expect(agentBox).toBeVisible();
   await expect(agentBox.locator('input').first()).toBeFocused();
   await agentBox.getByLabel('Connect to…').selectOption(planner);
@@ -453,7 +453,7 @@ const tools = (page, expect) => {
   const menu = map.locator('.team-templates');
   const chip = title => map.locator('.team-session', { hasText: title });
   const calls = command => page.evaluate(name => window.__teamStub.calls.filter(call => call.command === name), command);
-  const openLink = async (from, to) => { await link(from, to).focus(); await page.keyboard.press('Enter'); };
+  const openLink = async (from, to) => { await link(from, to).press('Enter'); };
   const pull = async (from, to) => {
     if (await box.isVisible()) await box.getByRole('button', { name: 'Close the arrow box' }).click();
     if (await agentBox.isVisible()) await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
@@ -718,7 +718,7 @@ export async function driveBoxesFit(page, expect, log = console.log, { widths = 
     const link = map.locator(`.team-link[data-from="${ids[0]}"][data-to="${ids[2]}"]`);
 
     // The arrow's box, opened the way the keyboard does, over the third card.
-    await link.focus(); await page.keyboard.press('Enter');
+    await link.press('Enter');
     const linkBox = map.locator('.team-box-link');
     await expect(linkBox.locator('.team-says')).toContainText('is told');
     await shot?.(`${width}-arrow`);
@@ -731,7 +731,7 @@ export async function driveBoxesFit(page, expect, log = console.log, { widths = 
     await expect(link).toBeFocused();
 
     // The card's box.
-    await card.focus(); await page.keyboard.press('Enter');
+    await card.press('Enter');
     const agentBox = map.locator('.team-box-agent');
     await expect(agentBox).toBeVisible();
     await shot?.(`${width}-card`);
