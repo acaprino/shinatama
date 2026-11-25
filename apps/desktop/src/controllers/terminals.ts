@@ -3,12 +3,14 @@
 // it connects to its session with `connect(id, pipe)` and sends what the person typed with `input(id, data)` and its size with
 // `resize(id, cols, rows)`. Which tab a terminal is in, and which session of which thread it is, is the layout's and the threads'.
 import { closeWindow, errorText, sleep } from '../api/core.ts';
+import { settingsApi } from '../api/settings.ts';
 import { terminalsApi, type SessionInfo } from '../api/terminals.ts';
 import { workspaceApi } from '../api/workspace.ts';
 import type { Shinatama } from '../app.ts';
 import { Store } from '../store.ts';
 import { holdOutput, splitOutput } from '../terminal-output.ts';
-import { startTerminalResources, type TerminalResourceStatus } from '../terminal-resources.ts';
+import { classifyTarget } from '../terminal-links.ts';
+import { parseResourceHealth, startTerminalResources, type ResourceHealth, type TerminalResourceStatus, type WindowTelemetry } from '../terminal-resources.ts';
 import { withoutInstance } from '../session-tabs.ts';
 import type { WorksetScope } from '../api/threads.ts';
 
@@ -40,6 +42,11 @@ export class TerminalController extends Store {
   /** The close of the window is confirmed: the terminals the shutdown ends stay saved in the layout as running, so the next start
    *  restores them with it (a terminal that ends by itself is saved as not running). */
   closing = false;
+  /** The terminal whose search (Find in terminal) is open, or none. */
+  finding: string | null = null;
+  /** What the backend last said of the machine's resources, after the window's last report; null before the first. */
+  health: ResourceHealth | null = null;
+  private reportedAt: number | null = null;
   private readonly pipes = new Map<string, TerminalPipe>();
   private readonly held = new Map<string, Uint8Array[]>();
   private readonly readers = new Map<string, () => string>();
@@ -89,6 +96,45 @@ export class TerminalController extends Store {
 
   hasLive(): boolean {
     return [...this.sessions.values()].some(session => !session.ended && !session.disposed);
+  }
+
+  // --- links, search and the machine -----------------------------------------------------------------------
+
+  /** A link in a terminal was pressed: a web address or a local HTML page opens in a browser tab; anything else says why it does not. */
+  openLink(id: string, target: string): void {
+    const session = this.sessions.get(id);
+    const link = classifyTarget(target, session?.info.cwd ?? '');
+    if (link.kind === 'web') void this.app.browser.open({ url: link.url });
+    else if (link.kind === 'file') void this.app.browser.open({ file: link.path });
+    else this.app.ui.info(link.reason);
+  }
+
+  /** Opens the search of a terminal's retained output (the one in the pane the person works in when none is named). */
+  openFind(id?: string): void {
+    const target = id ?? this.app.layout.activeView()?.id;
+    if (!target || !this.sessions.has(target)) { this.app.ui.info('Open or select a terminal to search its retained output.'); return; }
+    this.app.ui.leaveToWorkspace();
+    this.finding = target;
+    this.changed();
+  }
+
+  closeFind(): void {
+    if (this.finding === null) return;
+    this.finding = null;
+    this.changed();
+  }
+
+  /** The window reports what it measured of itself, and learns what the backend makes of it (a refusal leaves the last answer). Resolves
+   *  to how long the round trip took, in microseconds, or null when it failed. */
+  async reportTelemetry(sample: Omit<WindowTelemetry, 'ipc_roundtrip_us'>): Promise<number | null> {
+    const started = Date.now();
+    try {
+      const telemetry: WindowTelemetry = { ...sample, ipc_roundtrip_us: this.reportedAt };
+      const health = parseResourceHealth(await settingsApi.resourcesTelemetry(telemetry));
+      this.reportedAt = (Date.now() - started) * 1000;
+      if (health) { this.health = health; this.changed(); }
+      return this.reportedAt;
+    } catch { this.reportedAt = null; return null; }
   }
 
   // --- attaching ---------------------------------------------------------------------------------------
@@ -278,6 +324,7 @@ export class TerminalController extends Store {
     this.resizing.delete(id);
     this.metrics.delete(id);
     this.sessions.delete(id);
+    if (this.finding === id) this.finding = null;
     const { layout, threads } = this.app;
     threads.rememberSessions();
     if (layout.view(id)) {

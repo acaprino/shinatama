@@ -7,6 +7,7 @@
 //  - `collapsed`: a pane is either there or closed;
 //  - `lastUsableSize`: kept for a pane that stays, a default for one that is new.
 import type { WorkspaceNode, WorkspaceTab, WorkspaceTabs } from '@acaprino/sigrid/assemblies';
+import type { IconName } from '@acaprino/sigrid/primitives';
 import {
   parseWorkspaceLayout, tabGroups,
   type LayoutNode, type LayoutResult, type PanelView, type TabGroup, type WorkspaceLayout,
@@ -92,3 +93,9 @@ export function layoutFromTree(
   const maximizedGroupId = usable(keep.maximizedGroupId) ? keep.maximizedGroupId ?? null : null;
   return parseWorkspaceLayout({ version: 1, root, views: inTree, focusedGroupId, maximizedGroupId });
 }
+
+/** The icon of a tab, by what it holds. */
+export const TAB_ICONS: Record<PanelView['resource']['kind'], IconName> = {
+  terminal: 'terminal', team: 'graph', chat: 'mail', browser: 'globe', files: 'folder', markdown: 'file', preview: 'file',
+  sessions: 'history', acp: 'terminal', companion: 'terminal', 'mini-app': 'layout',
+};

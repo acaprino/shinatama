@@ -118,3 +118,57 @@ export function formatTerminalResources(status: TerminalResourceStatus): { summa
   if (status.phase === 'retired') details.push('Capacity remains reserved; no automatic restart');
   return { summary, detail: details.join('\n') };
 }
+
+// --- the window's own measures, and what the backend says of them ---------------------------------------------------------------
+
+/** What the page measures of itself and sends once a second: the worst input delay and frame time of the last second, and the round
+ *  trip of the last report. Window measurements only: no keys, no terminal bytes, no paths, no document contents. */
+export interface WindowTelemetry {
+  input_latency_us: number | null; frame_time_us: number | null; ipc_roundtrip_us: number | null;
+  pending_input_events: null; pending_output_bytes: null; queued_launches: null;
+}
+
+type Policy = { stage: 'normal' | 'reduce_optional' | 'defer_starts'; reason: string; reduce_optional: boolean; defer_new_starts: boolean };
+/** What the backend answers to a report: whether it took it, the policy it applies to optional work and new starts, and what it sees. */
+export interface ResourceHealth {
+  policy: Policy | null;
+  resources: { owned_private_commit_bytes: number | null; system_remaining_commit_bytes: number | null; observed_processes: number | null };
+}
+
+/** A measure: a number, or null when the backend has none; undefined when it is neither. */
+const measure = (value: unknown): number | null | undefined => value === null || value === undefined ? null : typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+/** The backend's answer, read strictly: anything else is `null`. */
+export function parseResourceHealth(value: unknown): ResourceHealth | null {
+  if (!record(value) || !record(value.resources)) return null;
+  const owned = measure(value.resources.owned_private_commit_bytes);
+  const remaining = measure(value.resources.system_remaining_commit_bytes);
+  const processes = measure(value.resources.observed_processes);
+  if (owned === undefined || remaining === undefined || processes === undefined) return null;
+  let policy: Policy | null = null;
+  if (value.policy !== null && value.policy !== undefined) {
+    const raw = value.policy;
+    if (!record(raw) || !['normal', 'reduce_optional', 'defer_starts'].includes(String(raw.stage)) || typeof raw.reason !== 'string'
+      || typeof raw.reduce_optional !== 'boolean' || typeof raw.defer_new_starts !== 'boolean') return null;
+    policy = { stage: raw.stage as Policy['stage'], reason: raw.reason, reduce_optional: raw.reduce_optional, defer_new_starts: raw.defer_new_starts };
+  }
+  return { policy, resources: { owned_private_commit_bytes: owned, system_remaining_commit_bytes: remaining, observed_processes: processes } };
+}
+
+const memory = (value: number | null) => value === null ? 'unavailable' : `${Math.round(value / 1024 / 1024)} MiB`;
+
+/** The strip's observation of the machine: a word, the tone of its badge, and the measures under it. Not a claim that the launches the
+ *  window does not run itself are safe. */
+export function describeResources(health: ResourceHealth | null): { label: string; tone: 'info' | 'success' | 'warning'; detail: string } {
+  const policy = health?.policy ?? null;
+  const checking = !policy || ['missing_telemetry', 'stale_telemetry', 'partial_cpu_coverage'].includes(policy.reason);
+  const label = checking ? 'Resources: checking' : policy.stage === 'normal' ? 'Resources: available' : 'Resources: reduced activity';
+  const detail = health ? [
+    `Observed process memory: ${memory(health.resources.owned_private_commit_bytes)}`,
+    `System commit headroom: ${memory(health.resources.system_remaining_commit_bytes)}`,
+    `Observed processes: ${health.resources.observed_processes ?? 'unavailable'}`,
+    `Optional background work: ${policy?.reduce_optional ? 'paused' : checking ? 'waiting for measurements' : 'available'}`,
+    `New sessions: ${checking ? 'waiting for measurements' : policy?.defer_new_starts ? 'waiting for resources' : 'checked individually against available limits'}`,
+  ].join('\n') : 'Waiting for the first measurement.';
+  return { label, tone: checking ? 'info' : policy.stage === 'normal' ? 'success' : 'warning', detail };
+}

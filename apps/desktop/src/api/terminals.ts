@@ -1,5 +1,5 @@
 // The terminals Rust holds (the pseudo-terminals live in the process, not in the page) and how a session is started in one.
-import { invoke } from './core.ts';
+import { invoke, invokeBytes, listen, type Unlisten } from './core.ts';
 
 export type SessionInfo = { id: string; cwd: string; shell: string };
 export type OutputBatch = { chunks: number[][]; eof: boolean; exit_code: number | null; error: string | null };
@@ -20,7 +20,7 @@ export const terminalsApi = {
   /** The measures of every terminal (memory, processes), as `terminal-resources.ts` reads them. */
   resources: () => invoke<unknown>('terminal_resources'),
   /** The image on the clipboard, saved to a file: its path. */
-  pasteImage: () => invoke<string>('terminal_paste_image'),
+  pasteImage: (image: Uint8Array) => invokeBytes<string>('terminal_paste_image', image),
   /** The files on the clipboard, as paths. */
   clipboardFiles: () => invoke<string[]>('terminal_clipboard_files'),
   /** A shell in a folder, saved as a session of its thread. */
@@ -31,5 +31,9 @@ export const terminalsApi = {
   /** Resumes a saved session through its agent's native resume. */
   threadResume: (request: { threadId: string; projectId: string; expectedRevision: number; rows: number; cols: number }) =>
     invoke<ThreadStarted>('thread_resume', { request }),
+  /** Files and folders dropped on the window from Explorer, as paths, with where the pointer was (physical pixels). The window's own drop
+   *  handler reports them; the page's `drop` event has no paths. */
+  onDrop: (handler: (drop: { paths: string[]; position: { x: number; y: number } }) => void): Promise<Unlisten> =>
+    listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', handler),
   harnessCatalog: () => invoke<unknown>('harness_catalog'),
 };

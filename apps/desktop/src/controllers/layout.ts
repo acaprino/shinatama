@@ -2,7 +2,7 @@
 // whichever threads are on). The model is `workspace-model.ts` (the saved format, unchanged); `tree()` and `applyTree()` are how
 // Sigrid's `Workspace` reads and changes it. Rust keeps the layout only: no process is restored from it.
 import type { WorkspaceNode } from '@acaprino/sigrid/assemblies';
-import { appLog, errorCode, inTauri, invoke, listen, sleep, type Unlisten } from '../api/core.ts';
+import { appLog, errorCode, hasHost, invoke, listen, sleep, type Unlisten } from '../api/core.ts';
 import { workspaceApi } from '../api/workspace.ts';
 import { layoutFromTree, layoutToTree, type DescribeView, type PaneTab } from '../layout-tree.ts';
 import type { Shinatama } from '../app.ts';
@@ -179,7 +179,7 @@ export class LayoutController extends Store {
    *  touched meanwhile. `recovered`: the layout was taken over from a window that is gone. `unchangedSince`: the layout the
    *  caller found on screen, for a retry. */
   async connect(adoptSaved = true, recovered = false, unchangedSince?: WorkspaceLayout): Promise<void> {
-    if (!inTauri) return;
+    if (!hasHost) return;
     const generation = ++this.generation;
     const previous = this.persistence;
     this.persistence = null;

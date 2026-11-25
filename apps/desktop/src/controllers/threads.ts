@@ -10,17 +10,17 @@ import { Store } from '../store.ts';
 import { folderName, samePath } from '../paths.ts';
 import { forgetRefusal, rowsToRecover, sessionTabLabel, sessionTabName, threadSessions, threadsOff, type ThreadSession } from '../session-tabs.ts';
 import { openCard } from '../session-opens.ts';
-import type { CurrentThreadProject, ThreadSidebarState, ThreadSummary } from '../thread-sidebar.ts';
+import { threadFailureText, threadTitle, type CurrentThreadProject, type ThreadSidebarState, type ThreadSummary } from '../thread-sidebar.ts';
 import { createToneKeeper } from '../thread-tone.ts';
 import { instanceRef } from './terminals.ts';
-import { teamViewId } from '../view-ids.ts';
+import { teamViewId, threadOfChatView, threadOfTeamView } from '../view-ids.ts';
 import { reduceWorkspaceLayout, tabGroups, type LayoutAction, type PanelView, type WorkspaceLayout } from '../workspace-model.ts';
 
 const THREADS_KEY = 'shinatama.threads';
 const SESSIONS_KEY = 'shinatama.sessions';
 
 /** The threads to turn on at this start, read before anything can overwrite them: reattaching a running terminal runs
- *  `rememberSessions` while none is on yet. */
+ *  `rememberSessions` while none is on yet, which is why it leaves the saved list alone until `reopenLast` has read it. */
 function threadsToReopen(): unknown {
   try {
     return JSON.parse(localStorage.getItem(THREADS_KEY) ?? `[${localStorage.getItem('shinatama.thread') ?? ''}]`);
@@ -47,9 +47,15 @@ export class ThreadsController extends Store {
   readonly lists = new Map<string, readonly WorksetSummary[]>();
   /** The name an agent gave a session, by session. */
   readonly names = new Map<string, string>();
+  /** The sidebar lists the archived threads, not the others. */
+  showArchived = false;
+  /** An operation on a thread or a session is under way: the sidebar's controls wait for it. */
+  busy = false;
+  private readonly namedAt = new Map<string, number>();
 
   private readonly tones = createToneKeeper();
-  private readonly reopen = threadsToReopen();
+  /** The threads that were on are not yet read (and so not yet turned on again): what is saved of them is not overwritten. */
+  private restoring = true;
   private switching = false;
   private sidebarRevision = 0;
   private namesInFlight: Promise<unknown> = Promise.resolve();
@@ -92,13 +98,10 @@ export class ThreadsController extends Store {
       ?? this.groupWorkset(this.app.layout.focusedGroup()) ?? this.openWorksets.at(-1) ?? null;
   }
 
-  /** The title of a thread, as the sidebar lists it. */
+  /** The title of a thread, as the sidebar lists it: its own, else its first session's, else the one its agent gave it; null when it has none. */
   title(worksetId: string): string | null {
-    for (const rows of this.lists.values()) {
-      const row = rows.find(candidate => candidate.id === worksetId);
-      if (row) return row.title ?? row.lead?.title ?? null;
-    }
-    return null;
+    const row = this.summary(worksetId);
+    return row ? threadTitle(row, row.lead ? this.names.get(row.lead.threadId) : undefined, id => this.harnessLabel(id)) : null;
   }
 
   /** A thread's record, as the sidebar lists it. */
@@ -190,6 +193,18 @@ export class ThreadsController extends Store {
     return `${where} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : mark}`;
   }
 
+  /** What a tab is called, whatever it holds: a session by `tabLabel`, a thread's conversation and team map by their thread, a page by its
+   *  title. */
+  tabTitle(view: PanelView): string {
+    const kind = view.resource.kind;
+    if (kind === 'terminal') return this.tabLabel(view.id);
+    const thread = (id: string | null) => (id && this.title(id)) || 'Thread';
+    if (kind === 'chat') return `Conversation · ${thread(threadOfChatView(view.id))}`;
+    if (kind === 'team') return `Team map · ${thread(threadOfTeamView(view.id))}`;
+    if (kind === 'browser') return this.app.browser.pages.get(view.id)?.title || this.app.browser.savedPage(view.id)?.title || 'Browser';
+    return kind.charAt(0).toUpperCase() + kind.slice(1);
+  }
+
   /** The colour of the thread a tab belongs to; none for terminals of no thread and for the other kinds of tab. */
   tabTone(viewId: string): string | null {
     const running = this.app.terminals.get(viewId);
@@ -258,8 +273,10 @@ export class ThreadsController extends Store {
   rememberSessions(): void {
     try {
       sessionStorage.setItem(SESSIONS_KEY, JSON.stringify(Object.fromEntries([...this.app.terminals.sessions.values()].map(view => [view.info.id, { threadId: view.threadId, workset: view.workset }]))));
-      localStorage.setItem(THREADS_KEY, JSON.stringify(this.openWorksets));
-      localStorage.removeItem('shinatama.thread');
+      if (!this.restoring) {
+        localStorage.setItem(THREADS_KEY, JSON.stringify(this.openWorksets));
+        localStorage.removeItem('shinatama.thread');
+      }
     } catch { /* remembering is a convenience */ }
   }
 
@@ -271,7 +288,8 @@ export class ThreadsController extends Store {
   /** Turns on the threads that were on at the last close, before the saved layout loads, so their tabs keep their panes. One that no
    *  longer exists is left out. */
   async reopenLast(): Promise<void> {
-    const last = this.reopen;
+    const last = threadsToReopen();
+    this.restoring = false;
     for (const item of Array.isArray(last) ? last.slice(0, 32) : []) {
       if (item && /^w_[a-z2-7]{12}$/.test(item.id) && /^p_[a-z2-7]{12}$/.test(item.projectId)) await this.showWorkset({ id: item.id, projectId: item.projectId });
     }
@@ -512,8 +530,32 @@ export class ThreadsController extends Store {
     return !listed;
   }
 
+  /** Does one operation of the sidebar (a rename, an archive, a delete): the controls wait for it, and a refusal is said in a notice that
+   *  names what the store refused. Resolves to whether it was done. */
+  async operate(doing: string, work: () => Promise<unknown>, what: 'thread' | 'session' = 'thread'): Promise<boolean> {
+    if (this.busy) return false;
+    this.busy = true;
+    this.changed();
+    try { await work(); return true; }
+    catch (error) { this.app.ui.error(threadFailureText(error, doing, what)); return false; }
+    finally { this.busy = false; this.changed(); }
+  }
+
+  /** The sidebar lists the archived threads (or the others again): every listed project is read again. */
+  async setShowArchived(on: boolean): Promise<void> {
+    if (this.showArchived === on) return;
+    this.showArchived = on;
+    this.changed();
+    await Promise.all(this.activeProjectIds().map(project => this.refreshList(project, on)));
+  }
+
+  /** How many sessions of a thread run in this window. */
+  runningIn(worksetId: string): number {
+    return this.app.terminals.runningIn(worksetId);
+  }
+
   /** Reads the threads of a project again. */
-  async refreshList(projectId: string, archived = false): Promise<void> {
+  async refreshList(projectId: string, archived: boolean = this.showArchived): Promise<void> {
     try {
       const page = await threadsApi.worksetList({ projectId, archived });
       this.lists.set(projectId, page.rows);
@@ -521,10 +563,50 @@ export class ThreadsController extends Store {
     } catch (error) { this.app.ui.error(`Threads could not be read: ${errorText(error)}`); }
   }
 
-  /** A new, empty thread in a project. */
+  /** A new, empty thread in a project, turned on at once so that its first session has a place. */
   async create(projectId: string): Promise<void> {
-    await threadsApi.worksetCreate({ projectId });
+    const made = await threadsApi.worksetCreate({ projectId }) as { id?: unknown } | null;
     await this.refreshList(projectId);
+    if (typeof made?.id === 'string' && /^w_[a-z2-7]{12}$/.test(made.id)) await this.showWorkset({ id: made.id, projectId });
+  }
+
+  /** A click on a thread's row: it is turned on (its tabs join the window), or off when it is on (after asking, when sessions run). */
+  async toggleOn(thread: { id: string; projectId: string }): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    this.changed();
+    try {
+      const done = this.isOn(thread.id) ? await this.hideWorkset(thread.id) : await this.showWorkset({ id: thread.id, projectId: thread.projectId });
+      if (!done) this.app.ui.error(this.isOn(thread.id) ? 'The thread could not be turned off.' : 'The thread could not be opened. The window stays as it is.');
+    } finally { this.busy = false; this.changed(); }
+  }
+
+  /** The + of a thread: it is turned on, then the new session asks for its agent (and its folder) in that thread. */
+  async addSession(thread: { id: string; projectId: string }): Promise<void> {
+    const scope = { id: thread.id, projectId: thread.projectId };
+    if (!await this.showWorkset(scope)) return;
+    await this.app.opens.newSession('thread', this.app.layout.focusedGroup(), undefined, undefined, scope);
+  }
+
+  /** Deletes a thread with its sessions, after asking (the confirming button carries the verb and the object). */
+  async deleteThread(thread: Readonly<WorksetSummary>): Promise<void> {
+    const sessions = `${thread.sessions} session${thread.sessions === 1 ? '' : 's'}`;
+    if (!await this.app.ui.ask({
+      title: `Delete the thread ${this.title(thread.id) ?? thread.title ?? 'New thread'}?`,
+      description: `It is deleted from Shinatama with its ${sessions}, closed ones included. The agents' own files stay. This cannot be undone.`,
+      confirm: 'Delete thread',
+    })) return;
+    await this.operate('deleted', () => this.forgetWorkset(thread));
+  }
+
+  /** Archives a thread (it leaves the list; nothing is deleted), or puts it back. */
+  async setArchived(thread: Readonly<WorksetSummary>, archived: boolean): Promise<void> {
+    await this.operate(archived ? 'archived' : 'unarchived', () => this.update(thread, { archived }));
+  }
+
+  /** Takes a project out of the sidebar: its threads turn off with it, after asking. */
+  async removeProject(projectId: string): Promise<void> {
+    await this.operate('removed', async () => { if (this.activeProjectIds().includes(projectId)) await this.toggleActive(projectId); });
   }
 
   /** Renames a thread, or archives it. */
@@ -543,6 +625,25 @@ export class ThreadsController extends Store {
       for (const entry of await call) if (entry.name) this.names.set(entry.threadId, entry.name);
       this.changed();
     } catch { /* the names keep their last state */ }
+  }
+
+  /** The names of the sessions that lead threads with no name, read again at most once a minute for each (the sidebar asks every few
+   *  seconds while it is shown). At most 16 at a time. */
+  async requestNames(now: number = Date.now()): Promise<void> {
+    const ids: string[] = [];
+    for (const rows of this.lists.values()) {
+      for (const row of rows) {
+        const lead = row.lead;
+        if (row.title || !lead?.harness || this.names.has(lead.threadId)) continue;
+        if (lead.title && lead.title !== this.harnessLabel(lead.harness)) continue;
+        const at = this.namedAt.get(lead.threadId);
+        if (at === undefined || now - at >= 60_000) ids.push(lead.threadId);
+      }
+    }
+    const asked = ids.slice(0, 16);
+    if (!asked.length || this.app.opens.queue.busy()) return;
+    for (const id of asked) this.namedAt.set(id, now);
+    await this.readNames(asked);
   }
 
   /** Resolves when the read of names that is under way has ended: a launch waits for it. */

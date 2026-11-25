@@ -1,16 +1,18 @@
 // ADR-0057: the threads whose sessions talk to each other through their room (Mukade), the marks that say so on rows and tabs, and
 // what the person has seen of each room. The conversation itself is a tab of a pane (`chat-<thread>`, kind `chat`), drawn by the
 // workspace screens; this controller reads the room's overview, which is cheap, and keeps the person's place in each room.
-import { inTauri } from '../api/core.ts';
+import { errorText, hasHost } from '../api/core.ts';
 import { chatApi, type ChatOverview, type ChatSeen, type WorksetScope } from '../api/threads.ts';
 import type { Shinatama } from '../app.ts';
 import { Store } from '../store.ts';
-import { laterEvent } from '../thread-chat-model.ts';
+import { laterEvent, MAX_MESSAGE_BYTES, mergeEvents, parseSnapshot, type ChatEvent, type ChatSnapshot, type RoomFilter } from '../thread-chat-model.ts';
 import { chatViewId } from '../view-ids.ts';
 import type { TerminalSession } from './terminals.ts';
 
 const SEEN_KEY = 'shinatama.threadChat.seen.v2';
 const OVERVIEW_MS = 10_000;
+/** How often the conversation that is on screen reads its room again. */
+export const ROOM_POLL_MS = 3000;
 const AGENTS = ['Claude Code', 'claude_code', 'Codex', 'codex', 'OpenCode', 'opencode', 'Pi', 'pi'];
 
 /** The last event the user saw per thread, with its time (the backend reads the room from there): a convenience of this window, kept
@@ -29,11 +31,35 @@ function keptSeen(): Map<string, ChatSeen> {
   return new Map();
 }
 
+/** What the conversation panel of one thread shows: its room as last read, and what the person is doing in it. */
+export interface Room {
+  snapshot: ChatSnapshot | null;
+  /** The lines of the room, oldest first, the ones of every read merged. */
+  events: ChatEvent[];
+  /** What the panel says under its title: that the room is being read, that a message went, what failed. */
+  status: { text: string; error: boolean };
+  /** The room could not be read and there is nothing to show yet: the panel says so, with Retry. */
+  failure: string | null;
+  /** The first read is under way and nothing is shown yet. */
+  loading: boolean;
+  sending: boolean;
+  /** The recipient the person chose; null until they do (the first of the members is shown meanwhile). */
+  to: string | null;
+  filter: RoomFilter;
+}
+
+const newRoom = (): Room => ({ snapshot: null, events: [], status: { text: '', error: false }, failure: null, loading: false, sending: false, to: null, filter: 'all' });
+
+interface Watcher { count: number; timer: ReturnType<typeof setInterval>; generation: number; reading: boolean; seenEvent: string | null }
+
 export class ChatController extends Store {
   /** The threads that talk. */
   threads: ReadonlySet<string> = new Set();
   /** The thread whose conversation is on screen, if any: its news is read as it comes, so it is never unread. */
   reading: string | null = null;
+  /** The rooms the conversation tabs show, by thread. */
+  private readonly rooms = new Map<string, Room>();
+  private readonly watchers = new Map<string, Watcher>();
   private readonly unreadIds = new Set<string>();
   private readonly connected = new Map<string, Set<string>>();
   private readonly launched = new Map<string, Set<string>>();
@@ -49,7 +75,7 @@ export class ChatController extends Store {
   }
 
   async start(): Promise<void> {
-    if (!inTauri) return;
+    if (!hasHost) return;
     // Which threads talk, and the marks of their rooms; read again while the window is shown.
     try { this.threads = new Set(await chatApi.list()); } catch { this.threads = new Set(); }
     void this.readOverview();
@@ -58,6 +84,8 @@ export class ChatController extends Store {
 
   dispose(): void {
     clearInterval(this.timer);
+    for (const watcher of this.watchers.values()) clearInterval(watcher.timer);
+    this.watchers.clear();
   }
 
   /** Whether a thread's sessions talk. */
@@ -119,9 +147,131 @@ export class ChatController extends Store {
     this.app.layout.open({ id, resource: { kind: 'chat', resourceId: id }, hidden: false }, other => other.resource.kind === 'chat');
   }
 
+  // --- the conversation of one thread -----------------------------------------------------------------------
+
+  /** The room of a thread as the conversation shows it (an empty one before the first read). */
+  room(threadId: string): Room {
+    let room = this.rooms.get(threadId);
+    if (!room) { room = newRoom(); this.rooms.set(threadId, room); }
+    return room;
+  }
+
+  /** The conversation of this thread is on screen: its room is read now and every few seconds until the returned function is called.
+   *  It is then read as it comes, so it is never unread. Several screens may watch one room. */
+  watch(threadId: string): () => void {
+    const room = this.room(threadId);
+    const known = this.watchers.get(threadId);
+    if (known) known.count += 1;
+    else {
+      const watcher: Watcher = { count: 1, generation: 0, reading: false, seenEvent: null, timer: setInterval(() => { void this.readRoom(threadId); }, ROOM_POLL_MS) };
+      this.watchers.set(threadId, watcher);
+      if (!room.snapshot) { room.status = { text: 'Reading the room…', error: false }; room.loading = true; }
+      this.setReading(threadId);
+      void this.readRoom(threadId);
+    }
+    let stopped = false;
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      const current = this.watchers.get(threadId);
+      if (!current || --current.count > 0) return;
+      clearInterval(current.timer);
+      current.generation += 1;
+      this.watchers.delete(threadId);
+      if (this.reading === threadId) this.setReading(null);
+    };
+  }
+
+  /** Reads the room once (the poll, and Retry). One read at a time for each room; a read that is no longer wanted is dropped. */
+  async readRoom(threadId: string): Promise<void> {
+    const watcher = this.watchers.get(threadId);
+    if (!watcher || watcher.reading || (typeof document !== 'undefined' && document.hidden)) return;
+    const room = this.room(threadId);
+    const generation = watcher.generation;
+    watcher.reading = true;
+    const stale = () => this.watchers.get(threadId) !== watcher || watcher.generation !== generation;
+    try {
+      const since = room.events.at(-1)?.timestamp ?? null;
+      const snapshot = parseSnapshot(await chatApi.snapshot({ worksetId: threadId, since }));
+      if (stale()) return;
+      room.loading = false;
+      if (!snapshot) { this.roomFailed(room, 'The conversation could not be read.'); return; }
+      room.snapshot = snapshot;
+      room.failure = null;
+      if (!snapshot.enabled) {
+        room.events = [];
+        room.status = { text: 'This thread\'s sessions do not talk to each other. Turn it on in the thread\'s settings (⋯).', error: false };
+        this.changed();
+        return;
+      }
+      room.events = mergeEvents(room.events, snapshot.events);
+      room.status = { text: '', error: false };
+      this.changed();
+      const latest = room.events.at(-1);
+      if (latest && latest.eventId !== watcher.seenEvent) {
+        watcher.seenEvent = latest.eventId;
+        this.markSeen(threadId, latest.eventId, latest.timestamp);
+      }
+    } catch (error) {
+      if (!stale()) { room.loading = false; this.roomFailed(room, errorText(error) || 'The conversation could not be read.'); }
+    } finally { watcher.reading = false; }
+  }
+
+  /** A read that failed: with nothing on screen the panel offers Retry; with a room on screen it stays a line of status. */
+  private roomFailed(room: Room, reason: string): void {
+    if (room.snapshot) room.status = { text: reason, error: true };
+    else { room.status = { text: '', error: false }; room.failure = reason; }
+    this.changed();
+  }
+
+  /** Retry of a room that could not be read. */
+  retryRoom(threadId: string): void {
+    const room = this.room(threadId);
+    room.failure = null;
+    room.loading = true;
+    this.changed();
+    void this.readRoom(threadId);
+  }
+
+  chooseRecipient(threadId: string, to: string): void {
+    this.room(threadId).to = to;
+    this.changed();
+  }
+
+  setFilter(threadId: string, filter: RoomFilter): void {
+    this.room(threadId).filter = filter;
+    this.changed();
+  }
+
+  /** Writes to the room as the person (the member `user`): to one session's member, or to the whole room (`recipient` empty). Resolves to
+   *  whether it went, so the field can be emptied. */
+  async send(threadId: string, recipient: string, text: string): Promise<boolean> {
+    const room = this.room(threadId);
+    if (room.sending || !text.trim()) return false;
+    if (new TextEncoder().encode(text).length > MAX_MESSAGE_BYTES) {
+      room.status = { text: 'Write a message of at most 16 KB.', error: true };
+      this.changed();
+      return false;
+    }
+    room.sending = true;
+    this.changed();
+    try {
+      await chatApi.send({ worksetId: threadId, recipients: recipient ? [recipient] : [], text });
+      room.sending = false;
+      await this.readRoom(threadId);
+      // After the read, which clears the status: the line stays until the next read.
+      room.status = { text: recipient ? `Sent to ${recipient}.` : 'Sent to the room.', error: false };
+      this.changed();
+      return true;
+    } catch (error) {
+      room.status = { text: errorText(error), error: true };
+      return false;
+    } finally { room.sending = false; this.changed(); }
+  }
+
   /** One cheap read for every talking thread: the marks on rows and tabs. */
   async readOverview(): Promise<void> {
-    if (!inTauri || this.reading_) return;
+    if (!hasHost || this.reading_) return;
     const ids = [...this.threads].slice(0, 64);
     if (!ids.length) { this.unreadIds.clear(); this.connected.clear(); this.launched.clear(); this.changed(); return; }
     this.reading_ = true;

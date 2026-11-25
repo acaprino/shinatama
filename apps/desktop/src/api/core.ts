@@ -8,6 +8,9 @@ import { listen as tauriListen } from '@tauri-apps/api/event';
 
 export const inTauri: boolean = isTauri();
 
+/** Whether the page has something to talk to: the window's Rust, or in development the browser's mock (`src/mock`). */
+export const hasHost: boolean = inTauri || !!import.meta.env?.DEV;
+
 /** What a command refuses with: a string, or `{ code, message }` (the store's refusals), or an `Error`. */
 export type CmdError = { code?: string; message?: string; issue?: string };
 
@@ -34,6 +37,15 @@ export async function invoke<T>(command: string, args?: Record<string, unknown>)
   if (inTauri) return tauriInvoke<T>(command, args);
   if (!import.meta.env?.DEV) throw 'Open the desktop app: Shinatama runs inside its window.';
   return (await (await mocked()).answer(command, args)) as T;
+}
+
+/** A command that takes raw bytes as its request (the image of the clipboard): the bytes are the request itself, not a field of it.
+ *  Outside the window it is the mock's answer, given the bytes as `{ bytes }`. */
+export async function invokeBytes<T>(command: string, bytes: Uint8Array): Promise<T> {
+  if (override) return (await override(command, { bytes })) as T;
+  if (inTauri) return tauriInvoke<T>(command, bytes);
+  if (!import.meta.env?.DEV) throw 'Open the desktop app: Shinatama runs inside its window.';
+  return (await (await mocked()).answer(command, { bytes })) as T;
 }
 
 /** What to listen to stops with the function this gives. Outside the window it is the mock's events. */
