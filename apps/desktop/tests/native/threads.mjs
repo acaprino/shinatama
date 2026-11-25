@@ -32,7 +32,7 @@ try {
   await name.getByRole('button', { name: 'Save' }).click();
   check('the name is the one Rust keeps', !!await until(async () => (await worksets(project.id))[0]?.title === 'Renamed by the probe', 10000, 'not renamed').catch(() => null));
   check('and the sidebar shows it', !!await until(() => threads.getByRole('button', { name: /^Renamed by the probe/ }).first().isVisible(), 10000, 'not shown').catch(() => null));
-  await page.getByRole('complementary', { name: 'Thread settings' }).getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('complementary', { name: /^Settings of / }).getByRole('button', { name: 'Close', exact: true }).click();
 
   // An empty thread is archived and comes back.
   await threads.getByRole('button', { name: /^New thread in / }).click();
