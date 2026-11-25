@@ -41,6 +41,15 @@ export class ProjectsController extends Store {
     this.changed();
   }
 
+  /** A project that Rust already chose (the picker's, a new one's): it becomes the folder new sessions start in, as the last used. */
+  adopt(project: ProjectEntry): void {
+    this.selectedPath = project.path;
+    this.available = project.available;
+    this.set(project.path);
+    this.recent = [project, ...this.recent.filter(entry => entry.id !== project.id)].slice(0, 10);
+    void this.refreshRecent();
+  }
+
   /** The project the window was started in, then the last one used: where new sessions start until the person chooses. */
   async restore(): Promise<void> {
     const revision = ++this.restoring;

@@ -5,12 +5,14 @@
 import { inTauri, listen, type Unlisten } from './api/core.ts';
 import { appLog } from './api/core.ts';
 import { BrowserController } from './controllers/browser.ts';
+import { CatalogController } from './controllers/catalog.ts';
 import { ChatController } from './controllers/chat.ts';
 import { FilesController } from './controllers/files.ts';
 import { HopController } from './controllers/hop.ts';
 import { LayoutController } from './controllers/layout.ts';
 import { LeftoversController } from './controllers/leftovers.ts';
 import { OpensController } from './controllers/opens.ts';
+import { OverviewController } from './controllers/overview.ts';
 import { ProjectsController } from './controllers/projects.ts';
 import { ServicesController } from './controllers/services.ts';
 import { SessionsController } from './controllers/sessions.ts';
@@ -27,6 +29,8 @@ export class Shinatama {
   readonly settings = new SettingsController(this);
   readonly services = new ServicesController(this);
   readonly projects = new ProjectsController(this);
+  readonly catalog = new CatalogController(this);
+  readonly overview = new OverviewController(this);
   readonly layout = new LayoutController(this);
   readonly terminals = new TerminalController(this);
   readonly threads = new ThreadsController(this);

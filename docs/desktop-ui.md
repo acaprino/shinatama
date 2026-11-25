@@ -28,9 +28,9 @@ is its screens, made of Sigrid's parts, and the controllers that hold its data. 
 saving, the tree for Sigrid's `Workspace`), `app.terminals` (sessions that run, their output and input, how they end, the window's close),
 `app.threads` (threads on and off, their sessions, tab names and colours, the sidebar's lists), `app.chat` (threads that talk, unread marks),
 `app.opens` (new sessions, resuming saved ones, the open queue, the agents), `app.hop`, `app.sessions`, `app.files`, `app.team`, `app.browser`,
-`app.settings` (terminal presentation), `app.services` (Muro, the model proxy, memory safety, models, alerts).
+`app.settings` (terminal presentation and the Settings page: what waits for Save, the switches that apply at once), `app.services` (Muro, the model proxy, memory safety, alerts), `app.catalog` (the project picker, the roots, the creation of a project: folder operations Rust can cancel, `project-mutation.ts`), `app.overview` (the projects at a glance, worktrees).
 `app.ui`, `layout`, `terminals`, `threads`, `chat`, `opens`, `projects`, `hop` and `settings` carry the logic of the old `main.ts`; `sessions`,
-`files`, `team`, `browser` and `services` hold the state and the calls their screens need and are completed by the area's agent.
+`files`, `browser` and `services` hold the state and the calls their screens need and are completed by the area's agent. `team` opens the team map of a thread and keeps one `TeamMap` (`controllers/team-map.ts`) for each: the formation being edited, what the engine says of it, Apply and Discard, the templates. The map that is on screen (`team.shown`) is what the window's inspector (`screens/team/inspector.tsx`: an agent, an arrow) and its actions row (Apply, Discard) show; Settings has the actions row too (Reload, Save).
 
 The inspector's controllers: `app.sessions` holds the library (the running sessions, the archives read one after the other, the text search,
 the index of session text) and, as small stores of their own (`controllers/session-*.ts`), `detail` (one conversation, a page at a time),

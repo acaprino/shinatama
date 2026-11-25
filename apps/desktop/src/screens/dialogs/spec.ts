@@ -11,7 +11,5 @@ export type DialogSpec =
   /** The projects of the window: the ones recent, the folders that could be projects, the roots that are scanned. */
   | { kind: 'project-picker'; filter?: boolean; browse?: boolean }
   | { kind: 'projects-overview' }
-  /** The hop of a session to another agent: the preview, then the run. `selection` is what the session detail gives. */
-  | { kind: 'hop'; selection: { root: string; nativeId: string } }
   /** Asks before what cannot be taken back. The confirming button carries the verb and the object; the description names the consequence. */
   | { kind: 'confirm'; title: string; description: string; confirm: string; danger: boolean; settle: (accepted: boolean) => void };

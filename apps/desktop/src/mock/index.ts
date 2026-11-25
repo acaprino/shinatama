@@ -10,13 +10,14 @@ import { answers as settings } from './settings.ts';
 import { answers as projects } from './projects.ts';
 import { answers as terminals } from './terminals.ts';
 import { answers as team } from './team.ts';
+import { answers as dialogs } from './dialogs.ts';
 import { answers as attention } from './attention.ts';
 import { answers as browser } from './browser.ts';
 
 export type Answer = ((args: Record<string, unknown> | undefined) => unknown | Promise<unknown>) | object | string | number | boolean | null;
 export type Answers = Record<string, Answer>;
 
-const all: Answers = { ...layout, ...threads, ...files, ...inspector, ...settings, ...sessions, ...projects, ...terminals, ...team, ...attention, ...browser };
+const all: Answers = { ...layout, ...threads, ...files, ...inspector, ...settings, ...sessions, ...projects, ...terminals, ...team, ...dialogs, ...attention, ...browser };
 
 export async function answer(command: string, args?: Record<string, unknown>): Promise<unknown> {
   if (!(command in all)) throw `The browser preview has no answer for ${command}.`;

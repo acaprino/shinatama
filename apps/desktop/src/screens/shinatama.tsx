@@ -15,13 +15,15 @@ import { Inspector } from './inspector/index.tsx';
 import { Sessions } from './sessions/index.tsx';
 import { SessionsSidebar } from './sessions/sidebar.tsx';
 import { Settings } from './settings/index.tsx';
+import { SettingsActions } from './settings/actions.tsx';
 import { SettingsSidebar } from './settings/sidebar.tsx';
+import { TeamActions, TeamInspector } from './team/inspector.tsx';
 import { Status } from './status.tsx';
 import { Workspace } from './workspace/index.tsx';
 import { WorkspaceSidebar } from './workspace/sidebar.tsx';
+import { WorkspaceTools } from './workspace/tools.tsx';
 
 const VIEWS: AppView<ViewId>[] = [
-import { WorkspaceTools } from './workspace/tools.tsx';
   { id: 'workspace', label: 'Workspace', icon: 'terminal', command: 'Go to the Workspace' },
   { id: 'sessions', label: 'Sessions', icon: 'history', command: 'Go to Sessions' },
   { id: 'settings', label: 'Settings', icon: 'settings', command: 'Go to Settings' },
@@ -31,6 +33,7 @@ function Window() {
   const app = useApp();
   const ui = useController(app.ui);
   useController(app.opens);
+  const team = useController(app.team);
   const notify = useNotify();
   const window_ = useWindow();
   // The notices and the focus are the shell's: the controllers ask for them through these.
@@ -58,12 +61,14 @@ function Window() {
       views={VIEWS}
       view={view}
       onView={next => ui.setView(next)}
-      status={<Status />}
-      sidebar={state => view === 'workspace' ? <WorkspaceSidebar state={state} /> : view === 'sessions' ? <SessionsSidebar state={state} /> : <SettingsSidebar state={state} />}
-      inspector={view !== 'settings' && ui.panel ? <ScreenBoundary of={ui.panel}><Inspector /></ScreenBoundary> : undefined}
       tools={view === 'workspace' ? <WorkspaceTools /> : undefined}
       // Ctrl+F in the Workspace is the search of the terminal in the pane the person works in (a terminal keeps its own Ctrl+F).
       search={view === 'workspace' ? () => app.terminals.openFind() : null}
+      status={<Status />}
+      sidebar={state => view === 'workspace' ? <WorkspaceSidebar state={state} /> : view === 'sessions' ? <SessionsSidebar state={state} /> : <SettingsSidebar state={state} />}
+      inspector={view === 'workspace' && team.inspecting ? <ScreenBoundary of={team.shownThread}><TeamInspector /></ScreenBoundary>
+        : view !== 'settings' && ui.panel ? <ScreenBoundary of={ui.panel}><Inspector /></ScreenBoundary> : undefined}
+      actions={view === 'settings' ? <SettingsActions /> : view === 'workspace' && team.acting ? <TeamActions /> : undefined}
       footer={app.opens.progress ? <Text truncate>{app.opens.progress}</Text> : undefined}
       hints={view === 'workspace' ? FOOTER : []}
     >

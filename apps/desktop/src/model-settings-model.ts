@@ -127,3 +127,77 @@ export function buildModelSave(form: Form): { request: Save } | { problem: strin
   }
   return { request: { revision: form.revision, connections, assignments: structuredClone(form.assignments) } };
 }
+
+// ---------------------------------------------------------------------------------------------- editing
+// The form is edited in place (the controller tells the screens after each change). Each function is one thing the person can do.
+
+/** The label a connection goes by: its name, or the one its endpoint suggests, or «New connection». */
+export function connectionLabel(edit: Edit): string {
+  return edit.connection.name.trim() || suggestedName(edit.connection.baseUrl) || 'New connection';
+}
+
+/** A new connection from a preset (or the custom endpoint, which is named after its endpoint until the person types a name). Null at the limit. */
+export function addConnection(form: Form, preset: { name: string; api: Api; baseUrl: string }, id: string): Edit | null {
+  if (form.connections.length >= MAX_CONNECTIONS) return null;
+  const custom = preset.name === 'Custom endpoint';
+  const edit: Edit = { connection: { id, name: custom ? '' : preset.name, api: preset.api, baseUrl: preset.baseUrl, models: [newModel()] }, hasApiKey: false, keyInput: '', removeKey: false };
+  form.connections.push(edit);
+  return edit;
+}
+
+/** Takes a connection away. The agents that used it keep their choice until it is changed, so that deleting one never changes the next model silently. */
+export function removeConnection(form: Form, id: string): void {
+  form.connections = form.connections.filter(edit => edit.connection.id !== id);
+}
+
+export function addModel(connection: Connection): boolean {
+  if (connection.models.length >= MAX_MODELS) return false;
+  connection.models.push(newModel());
+  return true;
+}
+
+export function removeModel(connection: Connection, index: number): boolean {
+  if (connection.models.length <= 1 || !connection.models[index]) return false;
+  connection.models.splice(index, 1);
+  return true;
+}
+
+/** A model's id is typed: an agent that used it under its old id follows the new one. */
+export function renameModel(form: Form, connection: Connection, index: number, id: string): void {
+  const model = connection.models[index];
+  if (!model) return;
+  const previous = model.id.trim();
+  model.id = id;
+  for (const harness of HARNESSES) {
+    const chosen = form.assignments[harness];
+    if (chosen?.connectionId === connection.id && chosen.modelId === previous) chosen.modelId = id.trim();
+  }
+}
+
+/** One agent starts with this connection's first model (the one-click assignment of an unused connection). Null when it has none yet. */
+export function useConnection(form: Form, connection: Connection, harness: Harness): string | null {
+  const modelId = firstModelId(connection);
+  if (!modelId) return null;
+  form.assignments[harness] = { connectionId: connection.id, modelId };
+  return modelId;
+}
+
+/** Whether the agent's chosen model still exists in the form (a removed one asks to be chosen again). */
+export function assignmentExists(form: Form, harness: Harness): boolean {
+  const chosen = form.assignments[harness];
+  return chosen === null || form.connections.some(edit => edit.connection.id === chosen.connectionId && edit.connection.models.some(model => model.id.trim() === chosen.modelId));
+}
+
+/** The options of one agent's model menu: its own sign-in, then every model of every connection (a connection without a model says so). */
+export function modelOptions(form: Form, harness: Harness): { value: string; label: string; disabled?: boolean }[] {
+  const name = HARNESS_NAMES[harness];
+  const options: { value: string; label: string; disabled?: boolean }[] = [{ value: '', label: `${name}'s own sign-in and model` }];
+  const chosen = form.assignments[harness];
+  if (chosen && !assignmentExists(form, harness)) options.push({ value: writeChoice(chosen), label: 'Removed model · choose again' });
+  for (const edit of form.connections) {
+    const ids = edit.connection.models.map(model => model.id.trim()).filter(Boolean);
+    if (!ids.length) options.push({ value: `none:${edit.connection.id}`, label: `${connectionLabel(edit)}: add a model ID first`, disabled: true });
+    for (const id of ids) options.push({ value: writeChoice({ connectionId: edit.connection.id, modelId: id }), label: `${id} · ${connectionLabel(edit)}` });
+  }
+  return options;
+}
