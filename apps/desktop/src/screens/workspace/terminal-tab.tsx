@@ -11,7 +11,7 @@ import type { WorkspaceTabState } from '@acaprino/sigrid/assemblies';
 import { useApp, useController } from '../../hooks.ts';
 import { terminalLeavesKey, commandOfKey } from '../../keys.ts';
 import { openCard } from '../../session-opens.ts';
-import { openStep } from '../../session-tabs.ts';
+import { openStep, savedCardText } from '../../session-tabs.ts';
 import { readerOf } from '../../terminal-input.ts';
 import { createTerminalHistory, LIVE_SCROLLBACK, type TerminalHistory } from '../../terminal-history.ts';
 import { classifyTarget, findLinks, hoverText } from '../../terminal-links.ts';
@@ -61,6 +61,8 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
   const [historyAt, setHistoryAt] = useState<number | null>(null);
   const [revision, bump] = useTick();
   const modal = ui.dialog !== null;
+  // The Workspace stays mounted behind Sessions and Settings: a terminal there takes no keyboard.
+  const shown = ui.view === 'workspace';
   const open = historyAt !== null;
   /** Whether the history is over the terminal: what the paste and the drop read, which are made once. */
   const historyOpen = useRef(false);
@@ -106,8 +108,8 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
   useEffect(() => {
     if (!state.visible) return;
     handle.current?.fit();
-    if (state.focused && state.active && !modal && !open) handle.current?.focus();
-  }, [state.visible, state.focused, state.active, modal, open]);
+    if (state.focused && state.active && shown && !modal && !open) handle.current?.focus();
+  }, [state.visible, state.focused, state.active, shown, modal, open]);
 
   const resources = terminals.metrics.get(id);
   const measured = resources ? formatTerminalResources(resources) : null;
@@ -119,9 +121,6 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
   void revision;
 
   const ended = session.ended;
-  const fresh = (harnessId: string) => {
-    void app.opens.newSession('project', state.groupId, cwd, harnessId, session.workset);
-  };
   return (
     <Column fill gap="xs">
       <FillRow fill align="stretch" wrap={false} gap="xs">
@@ -178,7 +177,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
         <Text variant="muted" truncate title={cwd}>{hover ?? cwd}</Text>
         {ended ? (
           <>
-            <Button size="sm" variant="outline" onClick={() => fresh(shell === 'PowerShell' ? 'powershell' : shell)}>New session</Button>
+            <Button size="sm" variant="outline" onClick={() => { void app.opens.newSessionLike(session, state.groupId); }}>New session</Button>
             <Button size="sm" variant="outline" onClick={() => { void terminals.stop(id); }}>Close terminal</Button>
           </>
         ) : null}
@@ -217,10 +216,7 @@ function SavedSession({ id }: { id: string }) {
     );
   }
   const step = openStep(saved, harness => opens.canResume(harness));
-  const said = step === 'resume' ? 'Not running. Its conversation is saved.'
-    : step === 'recover' ? 'Marked open by a session that is no longer here.'
-    : saved.status === 'unbound' ? 'Nothing was saved in this session.'
-    : saved.nativeAvailable !== true ? 'Its saved conversation cannot be reached now.' : `${threads.harnessLabel(saved.harness)} cannot reopen its sessions.`;
+  const said = savedCardText(saved, step, threads.harnessLabel(saved.harness));
   const issue = opens.openIssues.get(saved.id);
   return (
     <Empty

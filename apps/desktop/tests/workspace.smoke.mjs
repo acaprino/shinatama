@@ -131,6 +131,17 @@ try {
   await history.getByRole('button', { name: 'Back to live' }).click();
   await history.waitFor({ state: 'detached' });
 
+  // --- the Workspace stays mounted behind the other views: a terminal keeps what it printed ---------------------------------------
+  await page.getByRole('button', { name: 'Sessions', exact: true }).first().click();
+  await page.getByRole('region', { name: 'Pane 1' }).waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Workspace', exact: true }).first().click();
+  await page.getByRole('region', { name: 'Pane 1' }).waitFor({ state: 'visible' });
+  // It is where it was (scrolled to its top, with the archive of what fell out of its live buffer), and its end is still there.
+  await page.getByRole('button', { name: /^Earlier lines · / }).waitFor();
+  await page.getByRole('scrollbar', { name: 'Lines of the terminal' }).first().focus();
+  await page.keyboard.press('End');
+  await page.waitForFunction(() => document.body.textContent.includes('output line 2500'));
+
   // --- the search of a terminal ---------------------------------------------------------------------------------------------
   await tab(page, /^Claude Code · Migrate to Imago/).click();
   await tab(page, /^Claude Code · Migrate to Imago/).click({ button: 'right' });

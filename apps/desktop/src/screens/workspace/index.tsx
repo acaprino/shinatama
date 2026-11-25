@@ -23,6 +23,7 @@ const NARROW = '(width < 620px)';
 export function Workspace() {
   const app = useApp();
   const layout = useController(app.layout);
+  const ui = useController(app.ui);
   useController(app.threads);
   useController(app.terminals);
   useController(app.chat);
@@ -46,7 +47,7 @@ export function Workspace() {
       case 'terminal': return <TerminalTab id={tab.id} state={state} />;
       case 'chat': return <ThreadChat threadId={threadOfChatView(tab.id) ?? ''} state={state} />;
       // The map keeps drawing and reading its team only while its tab is shown.
-      case 'team': return state.visible ? <Team threadId={threadOfTeamView(tab.id) ?? ''} /> : null;
+      case 'team': return state.visible && ui.view === 'workspace' ? <Team threadId={threadOfTeamView(tab.id) ?? ''} /> : null;
       case 'browser': return <BrowserTab viewId={tab.id} visible={state.visible} />;
       default: return <Empty fill title={tab.title} description="This kind of tab has no screen in this window." />;
     }
@@ -59,20 +60,6 @@ export function Workspace() {
     if (tab.kind === 'terminal' && app.terminals.get(tab.id)) entries.push({ label: 'Find in terminal', icon: 'search', shortcut: 'Ctrl+Shift+F', onSelect: () => app.terminals.openFind(tab.id) });
     if (thread) entries.push({ label: 'Thread settings', icon: 'sliders', onSelect: () => app.ui.openPanel({ kind: 'thread', threadId: thread }) });
     return entries;
-  };
-
-  /** The close of a tab: a running session stops after asking and moves to Closed sessions; a tab that does not run moves there too (and
-   *  nothing is asked: it comes back with Resume); the other tabs just go. */
-  const closeTab = (tab: PaneTab) => {
-    if (tab.kind === 'terminal') {
-      if (app.terminals.get(tab.id)) { void app.terminals.stop(tab.id); return; }
-      const saved = app.threads.savedSession(tab.id);
-      if (!saved) { layout.close(tab.id); return; }
-      app.opens.cancelWant(saved.id);
-      void app.threads.closeSession(saved.id).then(() => app.threads.sayClosed(saved.id));
-    } else if (tab.kind === 'team') app.team.close(threadOfTeamView(tab.id) ?? '');
-    else if (tab.kind === 'browser') void app.browser.close(tab.id);
-    else layout.close(tab.id);
   };
 
   const panes = (
@@ -88,7 +75,7 @@ export function Workspace() {
       maximizedId={narrow ? layout.focusedGroup() : layout.maximizedId}
       onMaximizedChange={narrow ? undefined : groupId => layout.maximize(groupId)}
       onAddTab={groupId => { void app.opens.newSession('thread', groupId); }}
-      onCloseTab={closeTab}
+      onCloseTab={tab => app.threads.closeTab(tab.id)}
     />
   );
   return (

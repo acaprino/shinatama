@@ -274,3 +274,49 @@ test('a tab has the colour of its thread while the thread is on: a session\'s, i
   assert.equal(colour('saved-t_one'), colour(`chat-${WORKSET.id}`));
   assert.equal(colour('files-1'), null);
 });
+
+test('the close of a tab: a session that does not run moves to Closed sessions and says where, a conversation just goes', async () => {
+  const { app, calls, notices } = fakeHost({
+    workset_threads: () => [row('t_one'), row('t_two')],
+    thread_archive: null,
+  });
+  await app.threads.showWorkset(WORKSET);
+  assert.deepEqual(app.layout.layout.views.map(view => view.id), ['saved-t_one', 'saved-t_two']);
+  // A conversation is a view with nothing behind it: it goes.
+  app.layout.open({ id: `chat-${WORKSET.id}`, resource: { kind: 'chat', resourceId: `chat-${WORKSET.id}` }, hidden: false }, () => false);
+  app.threads.closeTab(`chat-${WORKSET.id}`);
+  assert.equal(app.layout.view(`chat-${WORKSET.id}`), undefined);
+  // A session that does not run is archived (kept), nothing is asked.
+  app.threads.closeTab('saved-t_one');
+  await tick(20);
+  const archive = calls.find(call => call.command === 'thread_archive');
+  assert.deepEqual((archive?.args as { request: { threadId: string; archived: boolean } }).request.threadId, 't_one');
+  assert.equal(app.ui.dialog, null, 'nothing runs, so nothing is asked');
+  assert.deepEqual(notices.filter(notice => notice.error), []);
+});
+
+test('the close of a running session asks first, naming the consequence', async () => {
+  const { app } = fakeHost({ workset_threads: [], terminal_read: () => new Promise(() => {}), terminal_stop: null });
+  await app.terminals.attach(info('i_aaaaaaaaaaaa'), app.layout.focusedGroup(), null, null);
+  app.threads.closeTab('i_aaaaaaaaaaaa');
+  assert.equal(app.ui.dialog?.kind, 'confirm');
+  if (app.ui.dialog?.kind === 'confirm') {
+    assert.equal(app.ui.dialog.confirm, 'Stop terminal');
+    assert.match(app.ui.dialog.description, /stops the shell and the programs it started/);
+  }
+  app.ui.answer(false);
+  await tick(5);
+  assert.ok(app.terminals.get('i_aaaaaaaaaaaa'), 'a no stops nothing');
+});
+
+test('a session like one that ended is opened in the same folder, pane and thread', async () => {
+  const { app } = fakeHost({ workset_threads: [], terminal_read: () => new Promise(() => {}), harness_catalog: [{ id: 'claude_code', label: 'Claude Code', nativeResume: true }] });
+  const asked: unknown[] = [];
+  app.opens.newSession = async (...args) => { asked.push(args); };
+  await app.opens.newSessionLike({ info: info('i_aaaaaaaaaaaa'), workset: WORKSET }, 'pane-1');
+  await app.opens.newSessionLike({ info: { id: 'i_bbbbbbbbbbbb', cwd: 'C:\\work\\xiox', shell: 'PowerShell' }, workset: null }, 'pane-2');
+  assert.deepEqual(asked, [
+    ['project', 'pane-1', 'C:\\work\\shinatama', 'claude_code', WORKSET],
+    ['project', 'pane-2', 'C:\\work\\xiox', 'powershell', null],
+  ]);
+});

@@ -236,6 +236,12 @@ export class OpensController extends Store {
     } finally { this.asking = false; }
   }
 
+  /** A session like one that ended: the same agent (or shell) in the same folder, in the same pane and thread. */
+  async newSessionLike(session: { info: SessionInfo; workset: WorksetScope | null }, group: string): Promise<void> {
+    const harness = session.info.shell === BUILTIN_HARNESS.label ? BUILTIN_HARNESS.id : session.info.shell;
+    await this.newSession('project', group, session.info.cwd, harness, session.workset);
+  }
+
   /** The projects a new session can start in, beside the one chosen: the ones the sidebar lists (a pane's + stays in its thread's). */
   newSessionChoices(scope: NewSessionScope, selectedPath: string): { label: string; path: string }[] {
     if (scope !== 'project') return [];

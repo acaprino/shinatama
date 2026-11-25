@@ -106,7 +106,7 @@ export function WorkspaceSidebar({ state }: { state: SidebarState }) {
                     current={row.id === active}
                     aria-pressed={on}
                     icon={tone ? <Dot color={tone} /> : <Dot />}
-                    description={`${threadStateLine(row, { on, running })}${ago ? ` · ${ago}` : ''}`}
+                    description={`${threadStateLine(row, { on, running })}${ago ? ` · ${ago}` : ''}${unread ? ' · new messages' : ''}`}
                     end={unread ? <Dot tone="accent" /> : undefined}
                     disabled={busy}
                     title={`${name} · ${nameOf(project)}\n${on ? 'Click to turn it off: its running sessions stop, after asking, and stay in the thread, not running.' : 'Click to show its tabs.'}`}

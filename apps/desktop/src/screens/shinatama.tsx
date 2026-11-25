@@ -4,7 +4,7 @@
 // draws what is its own (docs/desktop-ui.md says who owns which).
 import { useEffect, useMemo } from 'react';
 import { AppWindow, focusContent, ScreenBoundary, useNotify, useWindow, type AppView } from '@acaprino/imago';
-import { Text } from '@acaprino/sigrid/primitives';
+import { Column, Text } from '@acaprino/sigrid/primitives';
 import { Shinatama } from '../app.ts';
 import { AppContext, useApp, useController } from '../hooks.ts';
 import { FOOTER } from '../keys.ts';
@@ -45,7 +45,14 @@ function Window() {
   const { view } = ui;
   useEffect(() => { window_.setTitle(`${VIEWS.find(one => one.id === view)!.label} - Shinatama`); }, [window_, view]);
 
-  const screen = view === 'workspace' ? <Workspace /> : view === 'sessions' ? <Sessions /> : <Settings />;
+  // The Workspace stays mounted behind the other views: its terminals keep what they printed (and their history), the window keeps reading
+  // them. It is hidden, not thrown away, while Sessions or Settings is shown.
+  const screen = (
+    <>
+      <Column fill hidden={view !== 'workspace'}><Workspace /></Column>
+      {view === 'sessions' ? <Sessions /> : view === 'settings' ? <Settings /> : null}
+    </>
+  );
   return (
     <AppWindow
       views={VIEWS}

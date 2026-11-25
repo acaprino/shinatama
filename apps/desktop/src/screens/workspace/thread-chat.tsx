@@ -19,9 +19,10 @@ export function ThreadChat({ threadId, state }: { threadId: string; state: Works
   const app = useApp();
   const chat = useController(app.chat);
   const threads = useController(app.threads);
+  const shown = useController(app.ui).view === 'workspace';
   const [text, setText] = useState('');
   // The room is read while this tab is on screen, and not otherwise.
-  useEffect(() => (state.visible ? chat.watch(threadId) : undefined), [chat, threadId, state.visible]);
+  useEffect(() => (state.visible && shown ? chat.watch(threadId) : undefined), [chat, threadId, state.visible, shown]);
 
   const room = chat.room(threadId);
   const label = (harness: string) => threads.harnessLabel(harness);

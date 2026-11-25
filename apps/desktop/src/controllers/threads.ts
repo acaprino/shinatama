@@ -205,6 +205,23 @@ export class ThreadsController extends Store {
     return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
 
+  /** The close of a tab (its ×, Delete, a middle press, the menu). A running session stops after asking and moves to Closed sessions, where
+   *  it can come back; a tab whose session does not run moves there too and asks nothing (Resume brings it back); a conversation, a team map
+   *  or a page just goes. Nothing is ever deleted here. */
+  closeTab(viewId: string): void {
+    const { layout, terminals, opens, team, browser } = this.app;
+    const kind = layout.view(viewId)?.resource.kind;
+    if (kind === 'terminal') {
+      if (terminals.get(viewId)) { void terminals.stop(viewId); return; }
+      const saved = this.savedSession(viewId);
+      if (!saved) { layout.close(viewId); return; }
+      opens.cancelWant(saved.id);
+      void this.closeSession(saved.id).then(() => this.sayClosed(saved.id));
+    } else if (kind === 'team') team.close(threadOfTeamView(viewId) ?? '');
+    else if (kind === 'browser') void browser.close(viewId);
+    else layout.close(viewId);
+  }
+
   /** The colour of the thread a tab belongs to (its conversation and its team map included); none for terminals of no thread and for the
    *  other kinds of tab. */
   tabTone(viewId: string): string | null {

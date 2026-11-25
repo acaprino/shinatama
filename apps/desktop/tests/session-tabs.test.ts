@@ -137,3 +137,14 @@ test('a closed session that its agent can resume offers Resume; another one offe
   // A host that does not say whether a session can resume keeps the old Reopen.
   assert.equal(closedSessionAction(threadSessions(rows, () => 'Codex', new Set())[0]).label, 'Reopen');
 });
+
+import { savedCardText } from '../src/session-tabs.ts';
+
+test('the card of a tab that does not run says why, in the words of where its open stands', () => {
+  const saved = (status: 'inactive' | 'recorded_open' | 'unbound', nativeAvailable: boolean | null) => ({ status, nativeAvailable });
+  assert.equal(savedCardText(saved('inactive', true), 'resume', 'Codex'), 'Not running. Its conversation is saved.');
+  assert.match(savedCardText(saved('recorded_open', true), 'recover', 'Codex'), /no longer here/);
+  assert.match(savedCardText(saved('unbound', null), { nothing: 'unbound' }, 'Codex'), /Nothing was saved/);
+  assert.match(savedCardText(saved('inactive', false), { nothing: 'native_unreachable' }, 'Codex'), /cannot be reached now/);
+  assert.equal(savedCardText(saved('inactive', true), { nothing: 'unsupported_harness' }, 'OpenCode'), 'OpenCode cannot reopen its sessions.');
+});
