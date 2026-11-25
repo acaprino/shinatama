@@ -114,6 +114,13 @@ try {
     # (sigrid-check.config.json): no class, style or stylesheet of the app's own.
     Invoke-Verification 'imago-check' 'node' @('node_modules/@acaprino/imago/scripts/check/cli.mjs')
     Invoke-Verification 'sigrid-check' 'node' @('node_modules/@acaprino/sigrid/bin/sigrid-check.mjs', 'apps/desktop/src')
+    # The smokes of the page: the window's page on Vite with the commands of Rust answered by src/mock, driven by roles and names (no class) at
+    # the widths where the frame changes, in both schemes. The browser is the runner's Edge (tests/smoke-lib.mjs reads this variable): no step
+    # downloads one. They need no build, only the installed packages; each fails on any console error but the pending-Sigrid warning it names.
+    $env:SHINATAMA_BROWSER_CHANNEL = 'msedge'
+    foreach ($area in @('workspace', 'inspector', 'sessions', 'team', 'settings', 'dialogs', 'widget', 'browser', 'app')) {
+        Invoke-Verification "smoke-$area" 'npm.cmd' @('run', "test:$area") -TimeoutSeconds 600
+    }
     Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
@@ -128,8 +135,16 @@ try {
     # The contained session reader as it is released (build-release.bat): its reads have a time limit and a tenth
     # of the processor, which an unoptimised reader does not meet on a real home. Uploaded, to be tried on one.
     Invoke-Verification 'session-helper-release' 'cargo' @('build', '--release', '--locked', '-p', 'shinatama-engine', '--features', 'session-reader', '--bin', 'shinatama-session-helper') -TimeoutSeconds 3600
-    # The browser and desktop smokes (apps/desktop/legacy/tests) drove the interface of 0.4 and are rewritten for the new one
-    # (docs/desktop-ui.md, "Tests"): until each is back in apps/desktop/tests it is not run, and nothing here pretends it is.
+    # The native probes (apps/desktop/tests/native): the built exe on a private data folder, driven over the WebView2 debugging port by roles and
+    # names, inside the contained test job (P14). They prove what the mock smokes cannot: the caption buttons, the zoom and the glass of a window of
+    # Shinatama's own, the threads and the files through the real Rust, the project catalog, the saved settings, the terminals of ConPTY and the
+    # layout of a killed window. They use free ports, so a failing one leaves nothing for the next. The probes that start a real agent or open a
+    # native dialog (claude-*, codex-*, forced-crash-recovery, picker) or need the contained session reader built with its feature (sessions) are run by hand.
+    $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
+    $app = @('desktop-build', 'test-job-build')
+    foreach ($native in @('window', 'workspace', 'threads', 'files', 'projects', 'settings')) {
+        Invoke-Verification "native-$native" $probe @('wrap-run', 'node', "apps/desktop/tests/native/$native.mjs") -Needs $app
+    }
     if (-not $notPassed.Contains('desktop-build')) {
         $report.executable = [ordered]@{
             path = 'target/debug/shinatama-desktop.exe'

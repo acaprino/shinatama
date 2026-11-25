@@ -21,13 +21,13 @@ i test si collegano al WebView2 dell'app tramite una porta locale di test.
 
 Il runner controlla versioni e ambiente, usa `npm ci` senza audit/fund,
 valida piano e checkpoint, esegue i test Python e frontend, costruisce il frontend,
-controlla inventario/notice, formattazione, clippy e test Rust con i lockfile.
-Poi costruisce l'eseguibile embedded e prova PTY reale, controlli della finestra,
-cronologia, storage, SQLite, catalogo e manutenzione durante un terminale sano.
-La creazione progetti verifica nomi, cancellazione, duplicati, revisioni e schema
-futuro senza Git. La prova interattiva `npm run test:new-project -- --with-git`,
-sotto P14, qualifica separatamente il Git nativo installato, con percorso/hash
-registrati e ambiente del solo processo di test isolato.
+esegue i controlli di design (`imago-check`, `sigrid-check`) e le prove della pagina sui comandi
+simulati (uno smoke per area e `test:app`, per ruoli e nomi, nell'Edge del runner), controlla inventario/notice, formattazione, clippy e test Rust con i lockfile.
+Poi costruisce l'eseguibile embedded e lancia le sonde native (`apps/desktop/tests/native`: finestra, area di
+lavoro con PTY reale, thread, file, progetti, impostazioni). Storage, SQLite, manutenzione e creazione progetti
+(nomi, cancellazione, duplicati, revisioni, schema futuro) sono provati dai test Rust dei crate, non da sonde della
+pagina; le prove che avviano un agente vero o una finestra di sistema (`claude-*`, `codex-*`, `picker`, `sessions`) si
+lanciano a mano.
 La manutenzione usa il vero intervallo di 60 secondi. La compilazione usa un job
 per default, rispettando un eventuale `CARGO_BUILD_JOBS` gia impostato.
 

@@ -1,7 +1,7 @@
 // The attention widget in the real window, on Windows only: the program of the app is started with a debugging port and the two pages are
 // driven over it. It proves what the mock cannot: the widget window is real, is shown without taking the focus, stays on top, is hidden when
 // the alerts are off, is built again when it is gone, and goes with the main window. No agent or provider is called.
-//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/attention-native.mjs
+//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/attention.mjs
 // It has not been run in a cloud session (no Windows here): the Verify run on Windows is where it is proved (docs/desktop-ui.md, "Tests").
 import { chromium, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
@@ -23,7 +23,7 @@ const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shina
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
   },
 });
-const native = () => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', resolve(root, 'apps/desktop/tests/attention-window.ps1'), '-AppProcessId', String(app.pid)], { encoding: 'utf8', windowsHide: true }));
+const native = () => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', resolve(root, 'apps/desktop/tests/native/attention-window.ps1'), '-AppProcessId', String(app.pid)], { encoding: 'utf8', windowsHide: true }));
 const ipc = (page, command, args = {}) => page.evaluate(({ command, args }) => window.__TAURI_INTERNALS__.invoke(command, args), { command, args });
 const rejected = async (page, command, args) => { try { await ipc(page, command, args); return false; } catch { return true; } };
 const widgetWindow = () => native().windows.find(win => win.title === 'Shinatama — avvisi');

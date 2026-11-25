@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startSession } from './session-flow.mjs';
+import { lastError, paneOf, resumeClosed, startSession as startNewSession, stopSession, tabOf } from './lib.mjs';
 
 if (process.platform !== 'win32') throw new Error('windows-required');
 const workspace = process.cwd();
@@ -397,15 +397,16 @@ async function resourceSnapshot(id) {
   const { phase, reason, observed, applied, queues, sampleAgeMs } = resources;
   return { phase, reason, observed, applied, queues, sampleAgeMs };
 }
-const pane = id => page.locator(`.im-pane:has([data-view-id="${id}"])`);
+const pane = id => paneOf(page, id);
+const screenText = async id => { await tabOf(page, id).click(); return pane(id).innerText(); };
 const layout = async () => { const row = await ipc('global_workspace_load', { request: { workspaceId: 'main' } }); return row ? JSON.parse(row.layoutJson) : null; };
 async function screen(id) {
-  const value = await pane(id).locator('.xterm-accessibility-tree').innerText();
+  const value = await screenText(id);
   require(value.length <= 32768, 'bounded-visible-terminal'); return value;
 }
 async function input(id, text, key) {
   activeTerminal = id;
-  const field = pane(id).locator('.xterm-helper-textarea'); await field.focus();
+  await tabOf(page, id).click(); const field = pane(id).getByRole('textbox', { name: /^Terminal of / }); await field.focus();
   if (text) {
     require(text === PROMPT_A || text === PROMPT_B, 'fixed-synthetic-prompt-only');
     evidence.resources ??= {};
@@ -442,7 +443,7 @@ async function ready(id, operation) {
   evidence.onboardingShapes ??= {};
   await poll(async () => {
     const text = await screen(id);
-    require(await pane(id).locator('.exit-banner').count() === 0, 'native-process-exited-before-readiness');
+    require(await pane(id).getByText(/^Exited/).count() === 0, 'native-process-exited-before-readiness');
     const shape = {
       customKey: /Detected a custom API key in your environment/.test(text) && /Do you want to use this API key\?/.test(text),
       loginChoices: /Select login method:/.test(text),
@@ -554,14 +555,12 @@ function exited(milliseconds) {
   return within(new Promise(accept => app.once('exit', accept)), milliseconds, 'owned-app-exit-deadline');
 }
 async function stop(id) {
-  await page.locator(`.im-tile-tab[data-view-id="${id}"]`).click();
-  await page.locator(`.im-tile-tabwrap:has(.im-tile-tab[data-view-id="${id}"]) .im-tile-tab-close`).click();
-  await page.locator('#confirm-dialog').getByRole('button', { name: /^(Stop terminal|Close session)$/ }).click();
+  await stopSession(page, id);
   await poll(async () => !(await sessions()).some(session => session.id === id), 15000, 'owned-terminal-cleanup-deadline');
 }
 async function closeFrame() {
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), exited(15000)]); void closing.catch(() => {});
-  await page.getByRole('button', { name: 'Close window', exact: true }).click(); await closing; frameClosed = true;
+  await page.locator('[data-slot="title-bar"]').getByRole('button', { name: 'Close', exact: true }).click(); await closing; frameClosed = true;
 }
 try {
   await stage('app-start');
@@ -583,11 +582,11 @@ try {
     }); return !!page;
   }, 10000, 'main-workspace-webview-missing');
   page.setDefaultTimeout(15000); page.on('pageerror', () => { pageErrors++; });
-  await poll(async () => (await page.locator('#runtime-status').textContent()).includes('Local runtime'), 10000, 'runtime-unavailable');
+  await poll(async () => (await page.getByText(/^Local runtime/).count()) > 0, 10000, 'runtime-unavailable');
   require(pathKey((await ipc('storage_location')).directory) === pathKey(data), 'private-app-storage-mismatch'); owned = true;
   require((await sessions()).length === 0, 'no-session-before-user-action');
   await stage('new-session');
-  const flow = await startSession(page, { project: projectPath, harness: 'claude_code' });
+  const flow = await startNewSession({ page, ipc }, { project: projectPath, harness: 'claude_code' });
   await poll(async () => { require(!await flow.refusal(), 'open-session-inline-refusal'); return !await flow.pending(); }, 90000, 'new-session-deadline');
   const opened = await sessions(); require(opened.length === 1, 'one-new-terminal');
   const first = opened[0]; require(first?.shell === 'claude_code' && pathKey(first.cwd) === pathKey(projectPath), 'exact-synthetic-claude-session');
@@ -615,15 +614,16 @@ try {
   const stopped = await snapshot(threadId); require(stopped.activations[0].ended_at !== null, 'first-owner-history-not-ended');
   require(!stopped.cleanupOwners.some(entry => entry.instance_id === first.id), 'first-cleanup-receipt-consumed-after-stop');
   evidence.checks.newSessionSavedNativeConversationAndClosedOwner = true;
-  const shownName = page.locator(`.thread-sidebar button.thread-sidebar-anchor[data-thread-id="${threadId}"] .thread-sidebar-title`);
-  await poll(async () => (await shownName.textContent()) === AGENT_NAME && ((await shownName.getAttribute('class')) ?? '').includes('is-agent-name'), 20000, 'agent-name-not-shown');
+  // A thread the user has not renamed is listed in the thread sidebar under the name the agent gave its conversation.
+  const shownName = page.getByRole('navigation', { name: 'Threads' }).getByRole('button', { name: new RegExp(`^${AGENT_NAME}`) });
+  await poll(async () => (await shownName.count()) > 0, 20000, 'agent-name-not-shown');
   evidence.checks.unrenamedThreadListedUnderTheAgentGivenName = true;
   providerPhase = 'resume'; await stage('resume-button');
-  const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
-  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`);
-  await poll(async () => (await anchor.locator('.thread-sidebar-state').getAttribute('data-state')) === 'resumable', 10000, 'row-not-shown-as-resumable');
+  /* The list reloads itself on thread-changed. A closed session waits under Closed sessions of its thread's panel, where Resume brings it back. */
+  const resumeButton = await resumeClosed(page, { wait: 10000 }).catch(() => null);
+  require(resumeButton, 'row-not-shown-as-resumable');
   require((await sessions()).length === 0, 'thread-listing-autostarted');
-  await anchor.click(); /* a click on a closed thread resumes it */
+  await resumeButton.click();
   await poll(async () => (await sessions()).length === 1, 90000, 'resume-button-deadline');
   const resumed = (await sessions())[0]; require(resumed.id !== first.id && resumed.shell === 'claude_code' && pathKey(resumed.cwd) === pathKey(projectPath), 'new-resumed-owner-same-project');
   activeTerminal = resumed.id;
@@ -673,8 +673,8 @@ try {
       evidence.hostResources.discoveryDeadlineReached = resources.discovery_deadline_reached === true;
     } catch { evidence.hostResources = { unavailable: true }; }
     try {
-      const inline = page.locator('#new-session-error:visible, .im-notice[data-im-tone="err"] .im-notice-text').first();
-      if (await inline.isVisible()) evidence.openErrorFamilies = serviceErrorFamilies(await inline.innerText());
+      const inline = await lastError(page);
+      if (inline) evidence.openErrorFamilies = serviceErrorFamilies(inline);
     } catch { evidence.openErrorFamilies = ['unavailable']; }
     if (activeTerminal) {
       try {
@@ -690,9 +690,9 @@ try {
           enterToSendOrContinue: /enter to (?:send|submit|continue|confirm)|press enter/i.test(text),
           acceptSuggestion: /tab to accept|accept suggestion|enter to accept/i.test(text),
           rateLimited: /rate.limit|usage.limit|too many requests/i.test(text),
-          terminalExited: await pane(activeTerminal).locator('.exit-banner').count() > 0,
+          terminalExited: await pane(activeTerminal).getByText(/^Exited/).count() > 0,
         };
-        const banner = await pane(activeTerminal).locator('.exit-banner > span').allTextContents();
+        const banner = await pane(activeTerminal).getByText(/^Exited/).allTextContents();
         const code = banner.join('').match(/code (\d+)/)?.[1];
         evidence.terminalShape.exitCode = code === undefined ? null : Number(code);
         evidence.resources ??= {};
@@ -711,7 +711,7 @@ try {
   if (owned && page && !page.isClosed() && !frameClosed) {
     try {
       for (const session of await sessions()) await ipc('terminal_stop', { id: session.id });
-      const dialog = page.locator('#new-session-dialog');
+      const dialog = page.getByRole('dialog', { name: 'New session' });
       if (await dialog.isVisible() && await dialog.getByRole('button', { name: 'Cancel', exact: true }).isEnabled()) await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       await closeFrame();
     } catch { /* Only this fresh proof app may receive fallback termination. */ }

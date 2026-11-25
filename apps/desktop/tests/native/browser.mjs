@@ -5,7 +5,7 @@
 // Not here yet, because the screen waits for Sigrid's FrameSurface (src/screens/browser/surface.tsx) and the Files inspector's "Browser"
 // button is the inspector's to port: the pixels of the canvas (the CSS of the local page drawn, a typed form sent, the click-to-frame latency
 // of the legacy smoke). They are added to this file when those two exist; the browser tab's screen is proved by `npm run test:browser`.
-//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/browser-native.mjs
+//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/browser.mjs
 // It has not been run in a cloud session (no Windows here).
 import { chromium } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';

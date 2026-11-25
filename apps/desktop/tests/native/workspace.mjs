@@ -3,8 +3,8 @@
 // link that opens a browser tab (ADR-0056 v2), the resources badge gets its first answer from the backend, and the layout of a window that was killed
 // (a crash, Task Manager) is taken over at the next start without a notice (ADR-0055 v3). Driven over the debugging port, by roles and names only;
 // the session is started with the page's own `invoke` and the page is loaded again, which reconnects the terminals Rust holds.
-//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/workspace-native.mjs
-// It has not been run in a cloud session (no Windows here), and it stands for legacy/tests/{minimap,terminal-link,layout-takeover}-smoke.mjs.
+//   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/workspace.mjs
+// It has not been run in a cloud session (no Windows here), and it stands for the legacy minimap, terminal-link and layout-takeover smokes, and for the layout part of desktop-smoke.
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';

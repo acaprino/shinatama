@@ -152,15 +152,17 @@ touched. Set `SHINATAMA_MURO=off` to disable it.
 ## Development
 
 Shinatama uses **Rust** for the terminal engine, harness adapters, and local
-SQLite state, with a **Tauri** desktop shell and a **TypeScript/xterm.js** UI.
-See the [desktop app](apps/desktop) and [Rust crates](crates).
+SQLite state, with a **Tauri** desktop shell and a **React** UI made of [Sigrid](https://github.com/acaprino/sigrid)'s
+components in [Imago](https://github.com/acaprino/imago)'s shell (no class, style or component of the app's own).
+See the [desktop app](apps/desktop), its [interface guide](docs/desktop-ui.md) and [Rust crates](crates).
 
 ```powershell
 npm run verify
 ```
 
-The Windows verification runner builds the app and exercises real PTYs, desktop
-controls, project restart, and storage. See the [verification guide](docs/implementation/windows-verification.md)
+The Windows verification runner runs the design checks (`imago-check`, `sigrid-check`), the unit tests, the smokes of the
+page on the mocked commands (`npm run test:app` and one per area), builds the app and exercises it through native probes
+(`apps/desktop/tests/native`: real PTYs, the window's own controls, threads, files, projects and settings). See the [verification guide](docs/implementation/windows-verification.md)
 for prerequisites, individual checks, and CI artifacts.
 
 A release is the pull request develop → main, merged only when the Verify run on develop's tip is green: the release workflow builds and publishes, it does not run the tests again.

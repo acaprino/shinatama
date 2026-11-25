@@ -20,14 +20,14 @@ is its screens, made of Sigrid's parts, and the controllers that hold its data. 
 | `src/screens/<area>/index.tsx` | One folder per area; the area's agent owns the folder |
 | `src/*-model.ts`, `workspace-model.ts`, `session-*.ts`... | Pure models, with their tests in `tests/` |
 | `src/mock/` | What the browser answers instead of Rust (development only), one file per area |
-| `legacy/` | The interface of 0.4 (DOM modules, smokes): to be ported and then deleted; excluded from `tsc`, the checks and `npm test` |
+| `tests/` | The tests: the models and the controllers (`*.test.ts`, run by `npm test`), the smokes of the page on the mocked commands (`*.smoke.mjs`, one per area and `app.smoke.mjs`, with `smoke-lib.mjs`), and `native/`, the probes of the built exe (Windows only) |
 
 ## Controllers
 
 `app.ui` (view, dialog, inspector stack, notices, status line), `app.projects` (current and recent projects), `app.layout` (panes and tabs,
 saving, the tree for Sigrid's `Workspace`), `app.terminals` (sessions that run, their output and input, how they end, the window's close),
 `app.threads` (threads on and off, their sessions, tab names and colours, the sidebar's lists), `app.chat` (threads that talk, unread marks),
-`app.opens` (new sessions, resuming saved ones, the open queue, the agents), `app.hop`, `app.sessions`, `app.files`, `app.team`, `app.browser`,
+`app.opens` (new sessions, resuming saved ones, the open queue, the agents), `app.hop` (runs the hop the person confirmed in the inspector), `app.sessions`, `app.files`, `app.fileTabs` (the files open in a pane), `app.team`, `app.browser`,
 `app.settings` (terminal presentation and the Settings page: what waits for Save, the switches that apply at once), `app.services` (Muro, the model proxy, memory safety, alerts), `app.catalog` (the project picker, the roots, the creation of a project: folder operations Rust can cancel, `project-mutation.ts`), `app.overview` (the projects at a glance, worktrees).
 `app.ui`, `layout`, `terminals`, `threads`, `chat`, `opens`, `projects`, `hop` and `settings` carry the logic of the old `main.ts`; `sessions`,
 `files`, `browser` and `services` hold the state and the calls their screens need and are completed by the area's agent. `team` opens the team map of a thread and keeps one `TeamMap` (`controllers/team-map.ts`) for each: the formation being edited, what the engine says of it, Apply and Discard, the templates. The map that is on screen (`team.shown`) is what the window's inspector (`screens/team/inspector.tsx`: an agent, an arrow) and its actions row (Apply, Discard) show; Settings has the actions row too (Reload, Save).
@@ -56,7 +56,7 @@ without panels. A panel that holds work (the files) asks before it is closed.
 | team | `screens/team/`, `controllers/team.ts`, `team-map-*.ts` |
 | sessions | `screens/sessions/`, `controllers/sessions.ts` |
 | settings | `screens/settings/`, `controllers/{settings,services}.ts` |
-| dialogs | `screens/dialogs/` (and its `spec.ts`), `controllers/{ui,hop}.ts` for the dialog state |
+| dialogs | `screens/dialogs/` (and its `spec.ts`), `controllers/ui.ts` for the dialog state (the hop is a panel of the inspector, `screens/inspector/hop.tsx`, run by `controllers/hop.ts`) |
 | widget | `src/widget/`, `src-tauri/src/{widget_window,attention}.rs` |
 
 A change to a file of another area is a request to its owner. `src/api/<area>.ts` and `src/mock/<area>.ts` belong to the area named.
@@ -72,9 +72,19 @@ destroyed with it and built again the next time an alert needs it.
 
 ## Tests
 
-`npm test` runs the model tests and the controller tests (`tests/controllers.test.ts` drives the real controllers on `tests/fake-host.ts`, a
-table of answers in place of Rust). The browser and desktop smokes that drove the old DOM are in `legacy/tests/`; each is rewritten against
-roles and names (as Xiox's and Mukade's) and moved back to `tests/` by the area that owns the screen. `scripts/verify.ps1` runs what exists.
+- `npm test` runs the model tests and the controller tests (`tests/controllers.test.ts` and the others drive the real controllers on `tests/fake-host.ts`, a
+  table of answers in place of Rust).
+- The smokes of the page (`npm run test:workspace`, `:inspector`, `:sessions`, `:team`, `:settings`, `:dialogs`, `:widget`, `:browser` and `:app`) run the window's
+  page on Vite with `src/mock/` answering for Rust and drive it by roles and names, never a class. `tests/smoke-lib.mjs` is what they share: the browser (Playwright's
+  Chromium here; Edge on the Windows runner, by `SHINATAMA_BROWSER_CHANNEL=msedge`, so that no step downloads one), the dev server, and what a page may say: every
+  console error and warning is a failure but the pinned Cluster's `fill` warning (`// pending Sigrid terminal-fill`). `app.smoke.mjs` is the one between the areas: the
+  three views (title, status strip, Ctrl+F), the palette, a new session from the palette to its terminal, the terminals alive across the views, a file opened in a pane,
+  the theme, the zoom and the glass (which only a window of its own has), and the frame at 340, 620, 1000 and 1440 in both schemes.
+- `tests/native/` holds the probes of the built exe (Windows only, driven over the WebView2 debugging port; `native/lib.mjs` starts the app on a private data folder):
+  `window`, `workspace`, `threads`, `files`, `projects` and `settings` run in `scripts/verify.ps1` inside the contained test job; `sessions`, `picker`, `browser`,
+  `attention`, `interactive-limits`, `model-provider` and the agent proofs (`claude-resume*`, `codex-*`, `forced-crash-recovery`, which start a real agent against a
+  synthetic provider) are run by hand. They were written against roles in a cloud session without Windows and have not been run there.
+- `scripts/verify.ps1` runs all of it, after `imago-check` and `sigrid-check`.
 
 ## The attention widget
 
@@ -124,6 +134,7 @@ they show.
 | `terminal-io.ts` | The clipboard and the window's drop (`tauri://drag-drop`): paths of files and images, quoted for the reader (`src/terminal-input.ts`), pasted as one paste |
 | `thread-chat.tsx` | The conversation of a thread that talks (ADR-0057): `Conversation`, `Message`, `PromptInput` and the recipients' `Select`; the room is read by `app.chat.watch` while the tab is shown |
 | `sidebar.tsx` | The thread sidebar: a group per project, a row per thread (its colour dot, its state line, + and ⋯, a menu on the row), the filter (Sigrid's `Sidebar search`), Show archived threads |
+| `file-tab.tsx`, `controllers/file-tabs.ts` | A file open in a pane ("Open in a pane" of the Files panel; view `file-<hash>`, kind `files`): its text in `CodeView`, edited in place and written by Save against the version read (`writeBuffer`, shared with the panel), a dot on the tab while it has changes, a question before it is closed, read again after a restart |
 | `tools.tsx`, `telemetry.ts` | The tools of the title bar (New session, Files, Leftovers) and the window's report of its own measures, once a second, for the resources badge of the status strip |
 
 A terminal is in `ownKeysIn` (`main.tsx`): the shell runs no key of a command in it. The window's own chords (`src/keys.ts`) are run by the terminal's
@@ -138,3 +149,8 @@ frame changes). What only a real window proves: the native drop of files, WebVie
 Pending in Sigrid (branch `claude/terminal-fill` of acaprino/sigrid, after 6.11.0): a `Terminal` fills its box and `Cluster` takes `fill` (without them a terminal
 in a pane is 0 high: `terminal-tab.tsx` carries the one line to remove), and a `WorkspaceTab` takes `color` (the thread's dot on its tabs; `PaneTab.color` already
 carries it).
+
+Also pending in Sigrid: Settings keeps the terminal's font family and "Follow the interface theme in terminals" and Rust uses them (`presentation.rs` gives the agents their ANSI
+themes), but Sigrid's `Terminal` takes no font family and no palette, so the page draws the size and the line height only. Where the shell's keys and strip stand: Ctrl+F is the
+search of the view (the terminal's in the Workspace, the filter in Sessions, none in Settings, where the shell says so); the strip of Sessions says whether the archives were
+read, how many sessions there are and whether the search index is on.

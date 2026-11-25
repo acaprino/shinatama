@@ -11,7 +11,7 @@ import { freemem, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
-import { showProject, startSession } from './session-flow.mjs';
+import { lastError, paneOf, startSession as startNewSession, tabOf } from './lib.mjs';
 
 if (process.platform !== 'win32') throw new Error('windows-required');
 const workspace = process.cwd();
@@ -198,7 +198,7 @@ async function launchApp() {
     }); return !!page;
   }, 30000, 'main-workspace-webview-missing');
   page.setDefaultTimeout(25000); page.on('pageerror', () => { pageErrors++; });
-  await poll(async () => (await page.locator('#runtime-status').textContent()).includes('Local runtime'), 15000, 'runtime-unavailable');
+  await poll(async () => (await page.getByText(/^Local runtime/).count()) > 0, 15000, 'runtime-unavailable');
   if ((await ipc('sidecar_status')).phase !== 'ready') await ipc('sidecar_start').catch(() => {});
   await poll(async () => { const status = await ipc('sidecar_status'); return status.phase === 'ready' && status.healthy === true; }, 90000, 'sidecar-not-ready');
   require(pathKey((await ipc('storage_location')).directory) === pathKey(data), 'private-app-storage-mismatch');
@@ -222,12 +222,13 @@ async function ipc(command, args = {}) {
   }
 }
 const sessions = () => ipc('terminal_list');
-const pane = id => page.locator(`.im-pane:has([data-view-id="${id}"])`);
+const pane = id => paneOf(page, id);
+const screenText = async id => { await tabOf(page, id).click(); return pane(id).innerText(); };
 const layout = async () => { const row = await ipc('global_workspace_load', { request: { workspaceId: 'main' } }); return row ? JSON.parse(row.layoutJson) : null; };
-async function screen(id) { const value = await pane(id).locator('.xterm-accessibility-tree').innerText(); require(value.length <= 32768, 'bounded-visible-terminal'); return value; }
+async function screen(id) { const value = await screenText(id); require(value.length <= 32768, 'bounded-visible-terminal'); return value; }
 async function input(id, text, key) {
   activeTerminal = id;
-  const field = pane(id).locator('.xterm-helper-textarea'); await field.focus();
+  await tabOf(page, id).click(); const field = pane(id).getByRole('textbox', { name: /^Terminal of / }); await field.focus();
   if (text) { require(text === PROMPT, 'fixed-synthetic-prompt-only'); await field.pressSequentially(text, { delay: 5 }); await poll(async () => (await screen(id)).includes(text), 5000, 'synthetic-prompt-not-visible-before-submit'); }
   if (key) await page.keyboard.press(key);
 }
@@ -235,7 +236,7 @@ async function ready(id) {
   const handled = new Set();
   await poll(async () => {
     const text = await screen(id);
-    require(await pane(id).locator('.exit-banner').count() === 0, 'native-process-exited-before-readiness');
+    require(await pane(id).getByText(/^Exited/).count() === 0, 'native-process-exited-before-readiness');
     require(!/Review hooks|Trust all and continue|Continue without trusting/.test(text), 'hook-trust-review-screen-appeared');
     if (/Sign in with ChatGPT/.test(text) && /(Provide your own API key|Use an OpenAI API key)/.test(text) && !handled.has('auth')) { handled.add('auth'); await input(id, null, '3'); return false; }
     if (/Use your own OpenAI API key/.test(text) && !handled.has('key')) { handled.add('key'); if (!/Detected OPENAI_API_KEY environment variable/.test(text)) await input(id, DUMMY_KEY, null); await input(id, null, 'Enter'); return false; }
@@ -244,7 +245,7 @@ async function ready(id) {
   }, 60000, 'unrecognized-or-blocked-native-screen');
 }
 async function openSession() {
-  const flow = await startSession(page, { project: projectPath, harness: 'codex' });
+  const flow = await startNewSession({ page, ipc }, { project: projectPath, harness: 'codex' });
   await poll(async () => {
     const refused = await flow.refusal(); if (refused) { evidence.openError = refused.slice(0, 240); fail('open-session-inline-refusal'); }
     return !await flow.pending();
@@ -263,7 +264,7 @@ async function openSession() {
 }
 async function closeFrame() {
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), app.exited()]); void closing.catch(() => {});
-  await page.getByRole('button', { name: 'Close window', exact: true }).click(); await closing; frameClosed = true;
+  await page.locator('[data-slot="title-bar"]').getByRole('button', { name: 'Close', exact: true }).click(); await closing; frameClosed = true;
 }
 let projectId = null;
 try {
@@ -294,22 +295,26 @@ try {
   // ---- App #2: restart; ADR-0051 recovery closes it through the certificate ----
   await stage('app2-start'); await launchApp();
   require((await sessions()).length === 0, 'no-terminal-after-restart');
-  const sidebar = page.locator('.thread-sidebar');
-  await showProject(page, projectId);
-  await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${bound.threadId}"]`).click();
-  const recover = sidebar.getByRole('button', { name: 'Recover session', exact: true });
+  // The thread is listed again after the restart; its session is a tab that does not run, and its card offers Recover session. Recover verifies
+  // that the owner is gone (the certificate of ADR-0051), closes the activation and releases the ticket; the card then resumes the session.
+  const savedTab = tabOf(page, `saved-${bound.threadId}`);
+  await poll(async () => await savedTab.isVisible(), 15000, 'saved-session-tab-missing');
+  await savedTab.click();
+  const recover = paneOf(page, `saved-${bound.threadId}`).getByRole('button', { name: 'Recover session', exact: true });
   await poll(async () => await recover.isVisible(), 10000, 'recover-button-missing');
   await recover.click();
-  const statusText = async () => (await sidebar.locator('.thread-sidebar-status').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
-  await poll(async () => { const text = await statusText(); evidence.recoverStatus = text; return /Session recovered/i.test(text) || /not confirmed|still open|unavailable/i.test(text); }, 30000, 'recover-status-missing');
-  require(/Session recovered/i.test(evidence.recoverStatus), 'pre-receipt-recovery-refused');
+  await poll(async () => { const refused = await lastError(page); if (refused) evidence.recoverStatus = refused.slice(0, 160); return (dbQuery('SELECT ended_at FROM activation WHERE instance_id=?', bound.session.id)[0]?.ended_at ?? null) !== null || !!refused; }, 30000, 'recover-status-missing');
+  require(!evidence.recoverStatus, 'pre-receipt-recovery-refused');
   const after = dbQuery('SELECT ended_at,revision FROM activation WHERE instance_id=?', bound.session.id)[0];
   require(after.ended_at !== null && after.revision === crashed.revision + 1, 'activation-not-closed-exactly-once');
   require(journalFor().length === 0, 'association-not-consumed');
   require(!ledgerSlotIds().includes(ticketId), 'dead-host-ticket-not-released');
-  await poll(async () => (await sidebar.locator('.thread-sidebar-state[data-state="resumable"]').count()) > 0, 10000, 'resume-not-offered-after-recovery');
+  // Recover session resumes the session when it can: a terminal of its own opens, or the card offers Resume again.
+  await poll(async () => (await sessions()).length > 0 || await paneOf(page, `saved-${bound.threadId}`).getByRole('button', { name: 'Resume', exact: true }).isVisible(), 30000, 'resume-not-offered-after-recovery');
   evidence.checks.preReceiptCrashRecoveredByCertificateWithTicketReleased = true;
-  require(guardCounts.overflow === 0 && providerHits === 0 && pageErrors === 0, 'bounded-guard-and-ui-clean');
+  // Recover session also resumes the session in this window, so the provider may be reached by that new Codex: the page's guard counts stay the proof.
+  for (const session of await sessions()) await ipc('terminal_stop', { id: session.id });
+  require(guardCounts.overflow === 0 && pageErrors === 0, 'bounded-guard-and-ui-clean');
   evidence.guard = { ...guardCounts, scope: 'proxy-forwarding-only' };
   await stage('close'); await closeFrame(); require(app.exitCode === 0, 'owned-app-clean-exit');
   evidence.status = 'passed'; evidence.stage = 'complete'; await save();
