@@ -45,7 +45,9 @@ try {
   check('the archived list shows it, as archived', !!await until(async () => /Archived/.test(await threads.getByRole('button', { name: /^New thread(?! in )/ }).first().textContent()), 10000, 'not shown').catch(() => null));
   await threads.getByRole('button', { name: /^New thread(?! in )/ }).first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Unarchive' }).click();
-  await toggle(page, page.getByRole('checkbox', { name: 'Show archived threads' }));
+  // The checkbox waits while the sidebar works (it is disabled then): it is pressed again until the archived list is off.
+  const archived = page.getByRole('checkbox', { name: 'Show archived threads' });
+  await until(async () => { if (await archived.isChecked()) await toggle(page, archived); return !await archived.isChecked(); }, 15000, 'The archived list stayed on.');
   check('Unarchive brings it back', !!await until(async () => (await worksets(project.id, true)).length === 0, 10000, 'still archived').catch(() => null));
 
   // A thread with a running session asks before it is turned off.
