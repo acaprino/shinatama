@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './api/core.ts';
 
 export type LaunchAction = 'start' | 'resume';
 export type LaunchPlacement = { program: 'system'; home: 'box' | 'system' } | { program: 'own'; home: 'box' };

@@ -72,12 +72,14 @@ class DependencyPolicyTests(unittest.TestCase):
         self.write('apps/desktop/package.json', {})
         self.assertTrue(any('Second npm manifest' in error for error in dependencies.validate_npm(self.root)))
 
-    def test_desktop_and_native_shell_use_the_same_imago_revision(self):
+    def test_desktop_and_native_shell_use_the_same_imago_release(self):
         root = dependencies.ROOT
         cargo = tomllib.loads((root/'Cargo.toml').read_text(encoding='utf-8'))
         shell = cargo['workspace']['dependencies']['imago-shell']
         frontend = dependencies.read_json(root/'package.json')['dependencies']['@acaprino/imago']
-        self.assertEqual(frontend, f"git+{shell['git']}#{shell['rev']}")
+        release = dependencies.SUITE_RELEASE.fullmatch(frontend)
+        self.assertIsNotNone(release)
+        self.assertEqual(f"v{release.group(2)}", shell['tag'])
 
     def prepared_sidecar_fixture(self):
         self.npm_fixture()

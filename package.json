@@ -5,7 +5,9 @@
   "type": "module",
   "imago": {
     "src": [
-      "apps/desktop/src"
+      "apps/desktop/src",
+      "apps/desktop/index.html",
+      "apps/desktop/widget.html"
     ],
     "tests": [
       "apps/desktop/tests"
@@ -34,26 +36,10 @@
     "desktop:tl1": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -p shinatama-engine --bin shinatama-session-helper --bin shinatama-hook --features shinatama-engine/session-reader -j1 && cd apps/desktop && tauri build --debug --no-bundle --features tl1-proof,custom-protocol --config tests/tl1/tauri.tl1.conf.json",
     "test:tl1": "node apps/desktop/tests/tl1/proof.mjs",
     "test": "node --experimental-strip-types --test apps/desktop/tests/*.test.ts",
-    "test:imago": "node apps/desktop/tests/imago-desktop-smoke.mjs && node apps/desktop/tests/thread-chat-smoke.mjs && node --test apps/desktop/tests/files-tree.browser.mjs apps/desktop/tests/specialist-layout.browser.mjs apps/desktop/tests/new-project.browser.mjs",
-    "test:desktop": "node apps/desktop/tests/desktop-smoke.mjs",
-    "test:projects": "node apps/desktop/tests/projects-smoke.mjs",
-    "test:storage": "node apps/desktop/tests/storage-smoke.mjs",
-    "test:state": "node apps/desktop/tests/state-smoke.mjs",
-    "test:catalog": "node apps/desktop/tests/catalog-smoke.mjs",
-    "test:native-picker": "node apps/desktop/tests/native-picker-smoke.mjs",
-    "test:new-project": "node apps/desktop/tests/new-project-smoke.mjs",
-    "test:ui": "node apps/desktop/tests/ui-flow-smoke.mjs",
-    "test:palette": "node apps/desktop/tests/harness-palette-smoke.mjs",
-    "test:native": "node apps/desktop/tests/native-frame-smoke.mjs",
-    "test:browser": "node apps/desktop/tests/browser-smoke.mjs",
-    "test:drag": "node apps/desktop/tests/pane-drag-smoke.mjs",
-    "test:maintenance": "node apps/desktop/tests/maintenance-smoke.mjs",
-    "test:models": "node apps/desktop/tests/model-settings-smoke.mjs",
-    "test:team": "node apps/desktop/tests/team-map-smoke.mjs",
-    "test:model-providers": "node apps/desktop/tests/model-provider-smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
-    "verify": "pwsh -NoProfile -File scripts/verify.ps1"
+    "verify": "pwsh -NoProfile -File scripts/verify.ps1",
+    "check": "imago-check && sigrid-check apps/desktop/src"
   },
   "dependencies": {
     "@acaprino/imago": "https://github.com/acaprino/imago/releases/download/v1.3.0/acaprino-imago-1.3.0.tgz",
@@ -67,6 +53,8 @@
     "@tauri-apps/cli": "2.12.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "typescript": "7.0.2",
     "vite": "8.3.5"
   },

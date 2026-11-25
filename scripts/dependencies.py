@@ -23,6 +23,8 @@ NOTICE = 'THIRD_PARTY_NOTICES.md'
 POLICY = 'docs/implementation/dependency-policy.md'
 SKIP_DIRECTORIES = {'.git', '.agents', '.codex', '.daodan', '.jcode', '.prototype-evidence', '.verification', '__pycache__', 'node_modules', 'target', 'dist', 'verify'}
 EXACT_VERSION = re.compile(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z')
+# A release of the suite's own packages (Imago, Sigrid): the asset of a GitHub Release, whose version is in its name and in the lock.
+SUITE_RELEASE = re.compile(r'https://github\.com/acaprino/(imago|sigrid)/releases/download/v(\d+\.\d+\.\d+)/acaprino-\1-\2\.tgz\Z')
 PINNED_NPM_GIT = re.compile(r'git\+https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\.git#[0-9a-f]{40}\Z')
 KNOWN_LICENSES = {'MIT', 'MIT-0', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'CC0-1.0', 'Unlicense', 'Zlib', 'Unicode-3.0', 'BSL-1.0', 'MPL-2.0'}
 REVIEW_LICENSES = {'MPL-2.0'}
@@ -219,6 +221,12 @@ def validate_npm(root: Path) -> list[str]:
                 if locked.get('resolved') != version or not EXACT_VERSION.fullmatch(locked.get('version') or ''):
                     errors.append(f'package-lock.json: {name} must resolve the declared Git repository and full commit with an exact package version')
                 continue
+            release = SUITE_RELEASE.fullmatch(version) if isinstance(version, str) else None
+            if release:
+                # The lock records the tarball and its integrity; the version is the one of the release.
+                if locked.get('resolved') != version or locked.get('version') != release.group(2) or not locked.get('integrity'):
+                    errors.append(f'package-lock.json: {name} must resolve the release tarball it declares, with its integrity')
+                continue
             if not isinstance(version, str) or not EXACT_VERSION.fullmatch(version):
                 errors.append(f'package.json: {name} must use an exact version')
             if locked.get('version') != version:
@@ -251,7 +259,12 @@ def validate_cargo(root: Path, metadata: dict | None = None) -> list[str]:
     allowed = manifest['workspace'].get('dependencies', {})
     for name, dependency in allowed.items():
         if isinstance(dependency, dict) and 'git' in dependency:
-            if not re.fullmatch(r'[0-9a-fA-F]{40}', dependency.get('rev', '')) or 'branch' in dependency or 'tag' in dependency:
+            # A release tag of the suite's own crate is allowed: Cargo.lock records the commit it points to, and imago-check holds the tag
+            # equal to the npm release. Any other Git dependency needs a full immutable rev.
+            tagged = name == 'imago-shell' and re.fullmatch(r'v\d+\.\d+\.\d+', dependency.get('tag', '')) and 'rev' not in dependency
+            if not tagged and (not re.fullmatch(r'[0-9a-fA-F]{40}', dependency.get('rev', '')) or 'branch' in dependency or 'tag' in dependency):
+                errors.append(f'Cargo.toml: Git dependency {name} needs a full immutable rev, without tag/branch')
+            if 'branch' in dependency:
                 errors.append(f'Cargo.toml: Git dependency {name} needs a full immutable rev, without tag/branch')
     manifests = []
     if 'package' in manifest:

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './api/core.ts';
 
 export type TerminalResourcePhase = 'starting' | 'running' | 'closing' | 'ended' | 'retired' | 'released';
 export type TerminalResourceReason = 'awaiting_measurement' | 'observed' | 'partial_sample' | 'observation_unavailable'

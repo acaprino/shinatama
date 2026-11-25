@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createToneKeeper } from '../src/thread-tone.ts';
 
-const ids = Array.from({ length: 9 }, (_, index) => `w_${String.fromCharCode(97 + index).repeat(12)}`);
+const ids = Array.from({ length: 19 }, (_, index) => `w_${String.fromCharCode(97 + index).repeat(12)}`);
 
 test('threads that are on never share a colour while there are colours enough', () => {
-  const keeper = createToneKeeper(); const on = ids.slice(0, 8);
-  assert.equal(new Set(on.map(id => keeper.tone(on, id))).size, 8);
+  const keeper = createToneKeeper(); const on = ids.slice(0, 18);
+  assert.equal(new Set(on.map(id => keeper.tone(on, id))).size, 18, 'the eighteen colours of Sigrid');
 });
 
 test('a thread keeps its colour while others are turned on and off', () => {
@@ -20,5 +20,5 @@ test('a thread keeps its colour while others are turned on and off', () => {
 test('a thread that is off has no colour; more threads than colours share the least used one', () => {
   const keeper = createToneKeeper();
   assert.equal(keeper.tone([], ids[0]), null);
-  assert.match(keeper.tone(ids, ids[8]) ?? '', /^#[0-9a-f]{6}$/);
+  assert.match(keeper.tone(ids, ids[18]) ?? '', /^#[0-9a-f]{6}$/);
 });
