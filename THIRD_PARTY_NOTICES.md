@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory. Its complete publisher Node license bundle is verified by sidecar/prepare-runtime.ps1; that check does not close X3 or certify a product release.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | Rust | ident_case | 1.0.1 | build-tool | MIT/Apache-2.0 | recognized | LICENSE |
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | imago-shell | 0.4.1 | runtime | Apache-2.0 | recognized | LICENSE |
+| Rust | imago-shell | 1.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -339,7 +339,12 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
-| npm | @acaprino/imago | 0.4.1 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @acaprino/imago | 1.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @acaprino/sigrid | 6.11.0 | runtime | MIT | recognized | LICENSE |
+| npm | @ark-ui/react | 5.39.3 | runtime | MIT | recognized | LICENSE |
+| npm | @babel/runtime | 8.1.3 | runtime | MIT | recognized | LICENSE |
+| npm | @base-ui/react | 1.9.0 | runtime | MIT | recognized | LICENSE |
+| npm | @base-ui/utils | 0.5.0 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/autocomplete | 6.20.4 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/commands | 6.11.1 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-css | 6.3.1 | runtime | MIT | recognized | LICENSE |
@@ -349,16 +354,24 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | npm | @codemirror/lang-markdown | 6.5.2 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-python | 6.2.1 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-rust | 6.0.2 | runtime | MIT | recognized | LICENSE |
-| npm | @codemirror/lang-sql | 6.10.0 | runtime | MIT | recognized | LICENSE |
-| npm | @codemirror/lang-xml | 6.1.0 | runtime | MIT | recognized | LICENSE |
-| npm | @codemirror/lang-yaml | 6.1.3 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/language | 6.13.1 | runtime | MIT | recognized | LICENSE |
-| npm | @codemirror/legacy-modes | 6.5.5 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lint | 6.9.8 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/search | 6.7.2 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/state | 6.7.6 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/streamparser | 6.0.0 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/view | 6.43.15 | runtime | MIT | recognized | LICENSE |
+| npm | @dagrejs/dagre | 3.1.3 | runtime | MIT | recognized | LICENSE |
+| npm | @dagrejs/graphlib | 4.0.6 | runtime | MIT | recognized | LICENSE |
+| npm | @dnd-kit/accessibility | 3.1.1 | runtime | MIT | recognized | LICENSE |
+| npm | @dnd-kit/core | 6.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | @dnd-kit/sortable | 10.0.0 | runtime | MIT | recognized | LICENSE |
+| npm | @dnd-kit/utilities | 3.2.2 | runtime | MIT | recognized | LICENSE |
+| npm | @floating-ui/core | 1.8.0 | runtime | MIT | recognized | LICENSE |
+| npm | @floating-ui/dom | 1.8.0 | runtime | MIT | recognized | LICENSE |
+| npm | @floating-ui/react-dom | 2.1.9 | runtime | MIT | recognized | LICENSE |
+| npm | @floating-ui/utils | 0.2.12 | runtime | MIT | recognized | LICENSE |
+| npm | @internationalized/date | 3.12.4 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @internationalized/number | 3.6.7 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @lezer/common | 1.5.5 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/css | 1.3.9 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/highlight | 1.2.5 | runtime | MIT | recognized | LICENSE |
@@ -369,20 +382,147 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | npm | @lezer/markdown | 1.8.1 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/python | 1.1.19 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/rust | 1.0.3 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/xml | 1.0.6 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/yaml | 1.0.4 | runtime | MIT | recognized | LICENSE |
 | npm | @marijn/find-cluster-break | 1.0.4 | runtime | MIT | recognized | LICENSE |
+| npm | @material/material-color-utilities | 0.4.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @oxc-project/types | 0.156.0 | build-tool | MIT | recognized | LICENSE |
 | npm | @playwright/test | 1.64.1 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE |
 | npm | @rolldown/binding-win32-x64-msvc | 1.2.16 | build-tool | MIT | recognized | rolldown/LICENSE |
 | npm | @rolldown/pluginutils | 1.0.1 | build-tool | MIT | recognized | LICENSE |
+| npm | @swc/helpers | 0.5.24 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @tanstack/react-store | 0.11.4 | runtime | MIT | recognized | LICENSE |
+| npm | @tanstack/react-table | 9.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | @tanstack/react-virtual | 3.14.26 | runtime | MIT | recognized | LICENSE |
+| npm | @tanstack/store | 0.11.3 | runtime | MIT | recognized | LICENSE |
+| npm | @tanstack/table-core | 9.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | @tanstack/virtual-core | 3.19.11 | runtime | MIT | recognized | LICENSE |
 | npm | @tauri-apps/api | 2.12.4 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT; LICENSE.spdx |
 | npm | @tauri-apps/cli | 2.12.4 | build-tool | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
 | npm | @tauri-apps/cli-win32-x64-msvc | 2.12.4 | build-tool | Apache-2.0 OR MIT | recognized | @tauri-apps/cli/LICENSE-APACHE-2.0; @tauri-apps/cli/LICENSE-MIT |
+| npm | @tiptap/core | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-blockquote | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-bold | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-bubble-menu | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-bullet-list | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-code | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-code-block | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-document | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-dropcursor | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-floating-menu | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-gapcursor | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-hard-break | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-heading | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-horizontal-rule | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-italic | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-link | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-list | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-list-item | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-list-keymap | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-ordered-list | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-paragraph | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-strike | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-text | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extension-underline | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/extensions | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/pm | 3.33.0 | runtime | MIT | recognized | LICENSE |
+| npm | @tiptap/react | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @tiptap/starter-kit | 3.33.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | @types/d3-color | 3.1.3 | runtime | MIT | recognized | LICENSE |
+| npm | @types/d3-drag | 3.0.7 | runtime | MIT | recognized | LICENSE |
+| npm | @types/d3-interpolate | 3.0.4 | runtime | MIT | recognized | LICENSE |
+| npm | @types/d3-selection | 3.0.13 | runtime | MIT | recognized | LICENSE |
+| npm | @types/d3-transition | 3.0.9 | runtime | MIT | recognized | LICENSE |
+| npm | @types/d3-zoom | 3.0.9 | runtime | MIT | recognized | LICENSE |
+| npm | @types/react | 19.3.0 | runtime | MIT | recognized | LICENSE |
+| npm | @types/react-dom | 19.3.0 | runtime | MIT | recognized | LICENSE |
+| npm | @types/use-sync-external-store | 0.0.6 | runtime | MIT | recognized | LICENSE |
 | npm | @typescript/typescript-win32-x64 | 7.0.2 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE.txt |
 | npm | @xterm/addon-fit | 0.11.0 | runtime | MIT | recognized | LICENSE |
 | npm | @xterm/xterm | 6.0.0 | runtime | MIT | recognized | LICENSE |
+| npm | @xyflow/react | 13.0.2 | runtime | MIT | recognized | LICENSE |
+| npm | @xyflow/system | 1.0.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/accordion | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/anatomy | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/angle-slider | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/aria-hidden | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/async-list | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/auto-resize | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/avatar | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/carousel | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/cascade-select | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/checkbox | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/clipboard | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/collapsible | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/collection | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/color-picker | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/color-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/combobox | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/core | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/date-input | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/date-picker | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/date-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/dialog | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/dismissable | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/dom-query | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/drawer | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/editable | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/file-upload | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/file-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/floating-panel | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/focus-trap | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/focus-visible | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/highlight-word | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/hotkeys | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/hover-card | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/i18n-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/image-cropper | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/interact-outside | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/json-tree-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/listbox | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/live-region | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/marquee | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/menu | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/navigation-menu | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/number-input | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/pagination | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/password-input | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/pin-input | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/popover | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/popper | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/presence | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/progress | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/qr-code | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/radio-group | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/rating-group | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/react | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/rect-utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/remove-scroll | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/scroll-area | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/scroll-snap | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/select | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/signature-pad | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/slider | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/splitter | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/steps | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/store | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/switch | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/tabs | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/tags-input | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/timer | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/toast | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/toc | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/toggle | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/toggle-group | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/tooltip | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/tour | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/tree-view | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/types | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | @zag-js/utils | 1.45.0 | runtime | MIT | recognized | LICENSE |
+| npm | class-variance-authority | 0.7.1 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | classcat | 5.0.5 | runtime | MIT | recognized | LICENSE.md |
+| npm | clsx | 2.1.1 | runtime | MIT | recognized | license |
 | npm | crelt | 1.0.7 | runtime | MIT | recognized | LICENSE |
+| npm | csstype | 3.2.3 | runtime | MIT | recognized | LICENSE |
+| npm | csstype | 3.2.4 | runtime | MIT | recognized | LICENSE |
 | npm | d3-color | 3.1.1 | runtime | ISC | recognized | LICENSE |
 | npm | d3-dispatch | 3.0.2 | runtime | ISC | recognized | LICENSE |
 | npm | d3-drag | 3.0.1 | runtime | ISC | recognized | LICENSE |
@@ -393,22 +533,56 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 | npm | d3-transition | 3.0.2 | runtime | ISC | recognized | LICENSE |
 | npm | d3-zoom | 3.0.1 | runtime | ISC | recognized | LICENSE |
 | npm | detect-libc | 2.1.2 | build-tool | Apache-2.0 | recognized | LICENSE |
+| npm | fast-equals | 5.4.5 | runtime | MIT | recognized | LICENSE |
 | npm | fdir | 6.5.0 | build-tool | MIT | recognized | LICENSE |
+| npm | framer-motion | 14.6.0 | runtime | MIT | recognized | LICENSE.md |
 | npm | lightningcss | 1.33.0 | build-tool | MPL-2.0 | release-review-required | LICENSE |
 | npm | lightningcss-win32-x64-msvc | 1.33.0 | build-tool | MPL-2.0 | release-review-required | LICENSE |
+| npm | linkifyjs | 4.4.0 | runtime | MIT | recognized | LICENSE |
+| npm | motion | 14.6.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | motion-dom | 14.6.0 | runtime | MIT | recognized | LICENSE.md |
+| npm | motion-utils | 14.6.0 | runtime | MIT | recognized | LICENSE.md |
 | npm | nanoid | 3.3.20 | build-tool | MIT | recognized | LICENSE |
+| npm | orderedmap | 2.1.1 | runtime | MIT | recognized | LICENSE |
+| npm | perfect-freehand | 1.2.3 | runtime | MIT | recognized | LICENSE |
 | npm | picocolors | 1.1.1 | build-tool | ISC | recognized | LICENSE |
 | npm | picomatch | 4.0.7 | build-tool | MIT | recognized | LICENSE |
 | npm | playwright | 1.64.1 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE |
 | npm | playwright-core | 1.64.1 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE |
 | npm | postcss | 8.5.32 | build-tool | MIT | recognized | LICENSE |
+| npm | prosemirror-changeset | 2.4.6 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-commands | 1.7.2 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-dropcursor | 1.8.4 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-gapcursor | 1.4.1 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-history | 1.5.2 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-inputrules | 1.7.0 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-keymap | 1.2.3 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-model | 1.25.13 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-schema-list | 1.6.1 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-state | 1.4.4 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-tables | 1.8.5 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-transform | 1.12.7 | runtime | MIT | recognized | LICENSE |
+| npm | prosemirror-view | 1.44.0 | runtime | MIT | recognized | LICENSE |
+| npm | proxy-compare | 3.0.1 | runtime | MIT | recognized | LICENSE |
+| npm | proxy-memoize | 3.0.1 | runtime | MIT | recognized | LICENSE |
+| npm | react | 19.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | react-compiler-runtime | 1.0.0 | runtime | MIT | recognized | LICENSE (reviewed source supplement) |
+| npm | react-dom | 19.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | reselect | 5.3.0 | runtime | MIT | recognized | LICENSE |
 | npm | rolldown | 1.2.16 | build-tool | MIT | recognized | LICENSE |
+| npm | rope-sequence | 1.3.4 | runtime | MIT | recognized | LICENSE |
+| npm | scheduler | 0.28.0 | runtime | MIT | recognized | LICENSE |
 | npm | source-map-js | 1.2.2 | build-tool | BSD-3-Clause | recognized | LICENSE |
 | npm | style-mod | 4.1.4 | runtime | MIT | recognized | LICENSE |
+| npm | tailwind-merge | 3.7.0 | runtime | MIT | recognized | LICENSE.md |
 | npm | tinyglobby | 0.2.17 | build-tool | MIT | recognized | LICENSE |
+| npm | tslib | 2.9.1 | runtime | 0BSD | recognized | CopyrightNotice.txt; LICENSE.txt |
 | npm | typescript | 7.0.2 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE.txt |
+| npm | uqr | 0.1.3 | runtime | MIT | recognized | LICENSE |
+| npm | use-sync-external-store | 1.7.0 | runtime | MIT | recognized | LICENSE |
 | npm | vite | 8.3.5 | build-tool | MIT | recognized | LICENSE.md |
 | npm | w3c-keyname | 2.2.8 | runtime | MIT | recognized | LICENSE |
+| npm | zustand | 5.1.0 | runtime | MIT | recognized | LICENSE |
 
 ## Project-owned bundled assets
 
