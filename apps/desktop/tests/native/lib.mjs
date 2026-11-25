@@ -6,6 +6,7 @@
 // None of these has been run in a cloud session (there is no Windows there): they wait for the Windows runner and for a real window.
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -52,7 +53,8 @@ export function finish() {
 
 /** A folder of the probe that is removed at the end: the data folder, the web profile, and whatever the probe puts in it. */
 export async function fixtureFolder(name) {
-  const folder = await mkdtemp(resolve(tmpdir(), `shinatama-${name}-`));
+  // By its long name: a runner's temporary folder is C:\Users\RUNNER~1\..., and the app answers with the long one.
+  const folder = realpathSync.native(await mkdtemp(resolve(tmpdir(), `shinatama-${name}-`)));
   await mkdir(resolve(folder, 'project'), { recursive: true });
   return { folder, project: resolve(folder, 'project'), data: resolve(folder, 'data'), remove: () => rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }).catch(() => undefined) };
 }
@@ -104,6 +106,13 @@ export async function openApp(fixture, { env = {}, width, height } = {}) {
 
 /** The view of the title bar (a button from 860px, a tab in the row under it). */
 export const goTo = (page, name) => page.getByRole('button', { name, exact: true }).or(page.getByRole('tab', { name, exact: true })).first().click();
+
+/** Turns a switch or a checkbox of Sigrid as the keyboard does: the control that draws it lies over the input, so a pointer press cannot reach it
+ *  in a small window (it can be outside the viewport as well). */
+export async function toggle(page, locator) {
+  await locator.focus();
+  await page.keyboard.press('Space');
+}
 
 /** Runs a command by its name in the palette (Ctrl+K). */
 export async function command(page, name) {

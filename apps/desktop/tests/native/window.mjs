@@ -5,7 +5,7 @@
 // button, WebView2 recovery, the first frame. This probe checks that Shinatama wired them: the buttons are there, the commands exist.
 //   SHINATAMA_EXE=target\debug\shinatama-desktop.exe node apps/desktop/tests/native/window.mjs
 // It stands for legacy native-frame-smoke, desktop-smoke (frame and zoom), storage-smoke (window controls) and glass-capture.
-import { check, closeWindow, command, finish, fixtureFolder, goTo, openApp, until } from './lib.mjs';
+import { check, closeWindow, command, finish, fixtureFolder, goTo, openApp, toggle, until } from './lib.mjs';
 
 const fixture = await fixtureFolder('window');
 let handle;
@@ -33,13 +33,13 @@ try {
   const glass = page.getByRole('switch', { name: 'Glass window' });
   check('Settings draws the glass switch in a window of its own', await glass.isVisible());
   const was = await glass.isChecked();
-  await glass.click();
+  await toggle(page, glass);
   check('turning glass on or off changes the switch', !!await until(async () => await glass.isChecked() !== was, 5000, 'no change').catch(() => null));
   check('and does not reload the page', await page.evaluate(() => window.__probeNotReloaded === true));
   await page.getByRole('button', { name: /Commands/ }).first().click();
   check('the palette offers Glass, checked as the switch is', await page.getByRole('option', { name: /^Glass/ }).count() === 1);
   await page.keyboard.press('Escape');
-  await glass.click();
+  await toggle(page, glass);
 
   // The zoom is the shell's: the picker is enabled in a window and follows the keys.
   const zoom = page.getByRole('combobox', { name: 'Interface zoom' });

@@ -9,7 +9,7 @@
 // was saved, below).
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { check, clearNotices, finish, fixtureFolder, goTo, openApp, until } from './lib.mjs';
+import { check, clearNotices, finish, fixtureFolder, goTo, openApp, toggle, until } from './lib.mjs';
 
 const fixture = await fixtureFolder('settings');
 const TOKEN = 'ghp_smoketoken0123456789abcdefghijklmnopqrs';
@@ -36,7 +36,7 @@ try {
     await variables.getByRole('button', { name: 'Add variable' }).click();
     const row = variables.getByRole('group', { name: /^Variable / }).last();
     await row.getByRole('textbox', { name: 'Variable name' }).fill(name);
-    if (secret) await row.getByRole('checkbox', { name: 'Secret' }).check();
+    if (secret) await toggle(page, row.getByRole('checkbox', { name: 'Secret' }));
     await row.getByLabel(/^Value of /).fill(value);
   }
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -48,9 +48,9 @@ try {
   // The switches that apply at once reach the backend.
   const titles = page.getByRole('switch', { name: 'Activity titles' });
   const was = await titles.isChecked();
-  await titles.click();
+  await toggle(page, titles);
   check('Activity titles applies at once', !!await until(async () => (await handle.ipc('titles_enabled')) === !was, 10000, 'not applied').catch(() => null));
-  await titles.click();
+  await toggle(page, titles);
 
   // A restart keeps what was saved, and the page never gets a secret back.
   await handle.stop();
