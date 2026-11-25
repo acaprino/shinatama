@@ -72,7 +72,14 @@ The text stays Italian. It asks Rust for `attention_current`, `attention_open` a
 
 Imago's `startApp` is written for the one main window. In a second window it calls the shell's plugin (`kept_theme`, `kept_glass`,
 `ready`), which refuses a window that is not `imago-shell`'s (console warnings), and it paints an opaque ground over the transparent
-window. The page follows the scheme the main window keeps because both read `shinatama.theme` (same origin, the `storage` event).
+window. The page follows the scheme the main window keeps because both read `shinatama.theme` (same origin, the `storage` event). The fix is
+Imago's `startApp(..., { secondary: true })` (branch `claude/secondary-window`, which needs Sigrid's material `clear`, branch
+`claude/clear-material`): when both are released the entry passes the option, and the window's page asks the plugin nothing and paints no ground.
+
+Rust side (`widget_window.rs`, `attention.rs`; Windows is where it is proved): the widget is built hidden at start and again by `ensure` when an alert
+needs it and the shell rebuilt the main window; a lock keeps two alerts that arrive together from building it twice; it is destroyed with the main
+window and hides instead of closing; it is placed at the bottom right of the work area of the main window's monitor (the primary one when the main
+window has none), from its own size, shown with `SWP_NOACTIVATE` so it never takes the focus, and its webview gives its memory back while hidden.
 
 ## The browser tab
 
