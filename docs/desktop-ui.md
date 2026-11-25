@@ -32,6 +32,21 @@ saving, the tree for Sigrid's `Workspace`), `app.terminals` (sessions that run, 
 `app.ui`, `layout`, `terminals`, `threads`, `chat`, `opens`, `projects`, `hop` and `settings` carry the logic of the old `main.ts`; `sessions`,
 `files`, `team`, `browser` and `services` hold the state and the calls their screens need and are completed by the area's agent.
 
+The inspector's controllers: `app.sessions` holds the library (the running sessions, the archives read one after the other, the text search,
+the index of session text) and, as small stores of their own (`controllers/session-*.ts`), `detail` (one conversation, a page at a time),
+`find`, `raw`, `exporter`, `hopPreview` and `archiveBrowser`; `app.files` the project files (tree, search by name, buffers, saving against the
+version read); `app.leftovers` what agents left on disk; `app.threadSettings` the settings of one thread. Their pure parts are
+`session-library-model.ts`, `session-detail-model.ts`, `session-export-model.ts`, `session-index-model.ts`, `instances-model.ts`, `files-model.ts`,
+`thread-settings-model.ts` and `sessions-model.ts`.
+
+## The inspector
+
+`ui.panels` is a stack of `PanelSpec` (`screens/inspector/spec.ts`) and the panel on top is drawn by `screens/inspector/index.tsx` in Sigrid's
+`Inspector` through `Frame`, which gives the title, the actions at the foot and a way back to the panel it covers. A panel opened from inside
+another (`covers` in the spec: a conversation from its facts, a search in it, a raw entry, an export, a hop) covers it and the way back gives
+it back as it was; any other panel opened while one is shown (a toolbar button, a command) takes the inspector, and another view starts
+without panels. A panel that holds work (the files) asks before it is closed.
+
 ## Who owns which file
 
 | Area | Folder and files |

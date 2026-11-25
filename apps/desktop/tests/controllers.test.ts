@@ -84,15 +84,22 @@ test('what asks for the page while a dialog is open waits until the person has a
   assert.equal(order.at(-1), 'at once');
 });
 
-test('the inspector is one stack: a panel of the same kind is replaced, another covers the one before and gives it back', () => {
+test('the inspector is one stack: a panel opened from inside another covers it and gives it back, one of the same kind replaces, any other takes the inspector', () => {
   const { app } = fakeHost();
-  app.ui.openPanel({ kind: 'files' });
-  app.ui.openPanel({ kind: 'session', root: 'r', nativeId: 'one' });
-  app.ui.openPanel({ kind: 'session', root: 'r', nativeId: 'two' });
-  assert.deepEqual(app.ui.panels.map(panel => panel.kind), ['files', 'session']);
+  const root = { storeRootId: 'r', configurationRevision: 1 };
+  app.ui.openPanel({ kind: 'summary', root, nativeId: 'one' });
+  app.ui.openPanel({ kind: 'session', root, nativeId: 'one' });
+  app.ui.openPanel({ kind: 'session', root, nativeId: 'two' });
+  assert.deepEqual(app.ui.panels.map(panel => panel.kind), ['summary', 'session']);
   assert.equal(app.ui.panel?.kind === 'session' && app.ui.panel.nativeId, 'two');
   app.ui.closePanel();
-  assert.equal(app.ui.panel?.kind, 'files');
+  assert.equal(app.ui.panel?.kind, 'summary');
+  // A panel a toolbar button or a command opens is not opened from inside the one shown: it replaces the stack.
+  app.ui.openPanel({ kind: 'files' });
+  assert.deepEqual(app.ui.panels.map(panel => panel.kind), ['files']);
+  // The inspector holds what the view it was opened in showed: another view starts without it.
+  app.ui.setView('sessions');
+  assert.deepEqual(app.ui.panels, []);
 });
 
 test('a screen that reads a controller is told when it changes, and only then', () => {

@@ -1,7 +1,7 @@
 // What the window itself remembers: the view that is shown, the dialog that is open, the stack of panels of the inspector, the
 // notices, the line of the status strip. No process, no layout, no data of the person's work: those are the other controllers'.
 import type { DialogSpec } from '../screens/dialogs/spec.ts';
-import type { PanelSpec } from '../screens/inspector/spec.ts';
+import { covers, type PanelSpec } from '../screens/inspector/spec.ts';
 import { Store } from '../store.ts';
 
 export type ViewId = 'workspace' | 'sessions' | 'settings';
@@ -32,6 +32,8 @@ export class UiController extends Store {
   setView(view: ViewId): void {
     if (this.view === view) return;
     this.view = view;
+    // The inspector holds what the view it was opened in showed: another view starts without it.
+    this.panels = [];
     this.changed();
   }
 
@@ -125,10 +127,12 @@ export class UiController extends Store {
     return this.panels.at(-1) ?? null;
   }
 
-  /** Shows a panel. One of the same kind that is already on top is replaced (another file, another session), not stacked. */
+  /** Shows a panel. One opened from inside another (a session's conversation from its facts, a search in it) covers it and gives it back;
+   *  one of the same kind that is already on top is replaced (another file, another session); any other takes the inspector for itself. */
   openPanel(panel: PanelSpec): void {
     const top = this.panels.at(-1);
-    this.panels = top?.kind === panel.kind ? [...this.panels.slice(0, -1), panel] : [...this.panels, panel];
+    this.panels = top?.kind === panel.kind ? [...this.panels.slice(0, -1), panel]
+      : covers(panel.kind, top?.kind) ? [...this.panels, panel] : [panel];
     this.changed();
   }
 

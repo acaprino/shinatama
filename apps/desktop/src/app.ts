@@ -9,6 +9,7 @@ import { ChatController } from './controllers/chat.ts';
 import { FilesController } from './controllers/files.ts';
 import { HopController } from './controllers/hop.ts';
 import { LayoutController } from './controllers/layout.ts';
+import { LeftoversController } from './controllers/leftovers.ts';
 import { OpensController } from './controllers/opens.ts';
 import { ProjectsController } from './controllers/projects.ts';
 import { ServicesController } from './controllers/services.ts';
@@ -16,6 +17,7 @@ import { SessionsController } from './controllers/sessions.ts';
 import { SettingsController } from './controllers/settings.ts';
 import { TeamController } from './controllers/team.ts';
 import { TerminalController } from './controllers/terminals.ts';
+import { ThreadSettingsController } from './controllers/thread-settings.ts';
 import { ThreadsController } from './controllers/threads.ts';
 import { UiController } from './controllers/ui.ts';
 import type { Store } from './store.ts';
@@ -33,6 +35,8 @@ export class Shinatama {
   readonly hop = new HopController(this);
   readonly sessions = new SessionsController(this);
   readonly files = new FilesController(this);
+  readonly leftovers = new LeftoversController(this);
+  readonly threadSettings = new ThreadSettingsController(this);
   readonly team = new TeamController(this);
   readonly browser = new BrowserController(this);
 
@@ -41,7 +45,7 @@ export class Shinatama {
 
   /** The controllers that listen to something, in the order they start. */
   private get listening(): Store[] {
-    return [this.settings, this.services, this.layout, this.terminals, this.chat, this.opens, this.browser];
+    return [this.settings, this.services, this.layout, this.terminals, this.chat, this.opens, this.browser, this.leftovers, this.sessions, this.files];
   }
 
   /** The start of the window, once its first frame is drawn: what the page reads from Rust, the terminals that survived a reload of the

@@ -5,6 +5,7 @@ import { answers as layout } from './workspace.ts';
 import { answers as threads } from './threads.ts';
 import { answers as sessions } from './sessions.ts';
 import { answers as files } from './files.ts';
+import { answers as inspector } from './inspector.ts';
 import { answers as settings } from './settings.ts';
 import { answers as projects } from './projects.ts';
 import { answers as terminals } from './terminals.ts';
@@ -15,7 +16,7 @@ import { answers as browser } from './browser.ts';
 export type Answer = ((args: Record<string, unknown> | undefined) => unknown | Promise<unknown>) | object | string | number | boolean | null;
 export type Answers = Record<string, Answer>;
 
-const all: Answers = { ...layout, ...threads, ...sessions, ...files, ...settings, ...projects, ...terminals, ...team, ...attention, ...browser };
+const all: Answers = { ...layout, ...threads, ...files, ...inspector, ...settings, ...sessions, ...projects, ...terminals, ...team, ...attention, ...browser };
 
 export async function answer(command: string, args?: Record<string, unknown>): Promise<unknown> {
   if (!(command in all)) throw `The browser preview has no answer for ${command}.`;

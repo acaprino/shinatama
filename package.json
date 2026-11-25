@@ -39,6 +39,8 @@
     "test:widget": "node apps/desktop/tests/widget.smoke.mjs",
     "test:browser": "node apps/desktop/tests/browser.smoke.mjs",
     "test:workspace": "node apps/desktop/tests/workspace.smoke.mjs",
+    "test:inspector": "node apps/desktop/tests/inspector.smoke.mjs",
+    "test:sessions": "node apps/desktop/tests/sessions.smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
     "verify": "pwsh -NoProfile -File scripts/verify.ps1",
