@@ -78,8 +78,3 @@ pub fn main_resized(window: &WebviewWindow) {
         set_memory_target(window, !minimized);
     }
 }
-
-/// A rebuilt main window starts shown with WebView2's normal target.
-pub fn main_rebuilt() {
-    MAIN_MINIMIZED.store(false, Ordering::Release);
-}

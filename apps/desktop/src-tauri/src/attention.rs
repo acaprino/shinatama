@@ -387,7 +387,8 @@ fn present(app: &tauri::AppHandle, controller: &Controller, sound: bool) {
         feed.last_sound = Some(Instant::now());
     }
     drop(feed);
-    if let Some(widget) = app.get_webview_window("attention") {
+    // Built here when the shell built the main window again and the widget went with it (widget_window.rs).
+    if let Some(widget) = crate::widget_window::ensure(app) {
         let mut position = None;
         if visible {
             // Position in the main window's monitor work area, including negative
