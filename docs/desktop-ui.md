@@ -10,7 +10,7 @@ is its screens, made of Sigrid's parts, and the controllers that hold its data. 
 | Path | What it is |
 |---|---|
 | `index.html`, `src/main.tsx` | The window's page: `defineApp` (id `shinatama`, the hue of the design file, storage keys `shinatama.theme`, `.zoom`, `.sidebar`, `ownKeysIn` for the terminal and the code view) and `startApp` |
-| `widget.html`, `src/widget/` | The attention widget: its own page and its own window (see below) |
+| `widget.html`, `src/widget/` | The attention widget: its own page and its own window (see "The attention widget") |
 | `src/store.ts` | `Store`, and the contract every controller and screen follows (read its header) |
 | `src/app.ts` | `Shinatama`: the controllers, one field each, and `start()` (what the old `initialize()` did, in the same order) |
 | `src/hooks.ts` | `useApp()`, `useController(store)` (a render when the controller changes), `useAfter` |
@@ -60,3 +60,16 @@ destroyed with it and built again the next time an alert needs it.
 `npm test` runs the model tests and the controller tests (`tests/controllers.test.ts` drives the real controllers on `tests/fake-host.ts`, a
 table of answers in place of Rust). The browser and desktop smokes that drove the old DOM are in `legacy/tests/`; each is rewritten against
 roles and names (as Xiox's and Mukade's) and moved back to `tests/` by the area that owns the screen. `scripts/verify.ps1` runs what exists.
+
+## The attention widget
+
+`widget.html` is the page of a small window that floats over the desktop (always on top, never focused, transparent, built hidden by
+`widget_window.rs` and shown by `attention.rs` when a notice arrives). `src/widget/widget.tsx` is its entry, `src/widget/index.tsx` its one
+screen (a Sigrid `Card`: portrait in an `Avatar`, the kind in a `Text` tone, the title, the words, "Apri sessione" or "Apri Shinatama" and
+"Chiudi avviso"), `src/widget/attention.ts` its store and `src/attention-model.ts` the pure part (kinds, words, the portrait's expression).
+The text stays Italian. It asks Rust for `attention_current`, `attention_open` and `attention_dismiss` through `settingsApi` and listens to
+`attention-changed`; Escape closes the notice. Proved by `npm run test:widget` (mock, roles) and `tests/attention-native.mjs` (Windows).
+
+Imago's `startApp` is written for the one main window. In a second window it calls the shell's plugin (`kept_theme`, `kept_glass`,
+`ready`), which refuses a window that is not `imago-shell`'s (console warnings), and it paints an opaque ground over the transparent
+window. The page follows the scheme the main window keeps because both read `shinatama.theme` (same origin, the `storage` event).

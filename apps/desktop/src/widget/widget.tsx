@@ -12,4 +12,6 @@ const WIDGET = defineApp({
   storage: { scheme: 'shinatama.theme', zoom: 'shinatama.widget.zoom', sidebar: 'shinatama.widget.sidebar' },
 });
 
+// pending Imago secondary-window: this page is not the app's window, and the shell's calls to its plugin (kept_theme, kept_glass, ready)
+// are refused for it; see docs/desktop-ui.md, "The attention widget".
 startApp(WIDGET, document.getElementById('app')!, <Widget />);

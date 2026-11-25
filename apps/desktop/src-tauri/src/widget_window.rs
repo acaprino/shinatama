@@ -5,6 +5,7 @@
 //! refuses a second webview on the same data folder with other arguments) and with the same navigation policy: it shows its own
 //! page and nothing else. The shell rebuilds only the main window when WebView2 loses its browser process, and that takes the
 //! widget's page with it, so the widget is destroyed with the main window and built again where it is needed (`ensure`).
+use std::sync::{Mutex, PoisonError};
 use tauri::{
     AppHandle, Manager, Url, WebviewWindow, WebviewWindowBuilder, webview::NewWindowResponse,
 };
@@ -57,13 +58,46 @@ pub fn build(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     Ok(window)
 }
 
+/// Held while the widget is built: two alerts that arrive together would both find it missing, and the second build would fail
+/// on the label of the first and leave its alert without a window.
+static BUILDING: Mutex<()> = Mutex::new(());
+
 /// The widget, built when it is not there and the main window is (not while the application closes).
 pub fn ensure(app: &AppHandle) -> Option<WebviewWindow> {
     if let Some(widget) = app.get_webview_window(LABEL) {
         return Some(widget);
     }
+    let _building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(widget) = app.get_webview_window(LABEL) {
+        return Some(widget);
+    }
     app.get_webview_window("main")?;
     build(app).ok()
+}
+
+/// Where the widget goes: the bottom right corner of the work area (the screen without the taskbar) of the monitor the main window
+/// is on, or the primary one when the main window has none (it is minimized), in physical pixels, negative coordinates and
+/// scaling included. Its size is the window's own, from `tauri.conf.json`, read as it is now.
+pub fn corner(app: &AppHandle, widget: &WebviewWindow) -> Option<(i32, i32)> {
+    let monitor = app
+        .get_webview_window("main")
+        .and_then(|main| main.current_monitor().ok().flatten())
+        .or_else(|| widget.primary_monitor().ok().flatten())?;
+    let area = monitor.work_area();
+    let scale = monitor.scale_factor();
+    let (width, height) = widget
+        .outer_size()
+        .ok()
+        .filter(|size| size.width > 0 && size.height > 0)
+        .map_or(
+            ((440.0 * scale).ceil() as i32, (190.0 * scale).ceil() as i32),
+            |size| (size.width as i32, size.height as i32),
+        );
+    let margin = (16.0 * scale).ceil() as i32;
+    Some((
+        area.position.x + (area.size.width as i32 - width - margin).max(0),
+        area.position.y + (area.size.height as i32 - height - margin).max(0),
+    ))
 }
 
 #[cfg(test)]
