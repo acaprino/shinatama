@@ -88,9 +88,20 @@ try {
   // text is, as a person's does, and the screen's link provider answers.
   const box = await link.boundingBox();
   if (!box) throw new Error('The printed path has no box.');
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(at.x, at.y);
   await delay(300);
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  // What a failure needs to be understood: what stands under the pointer, and what the page says of the link.
+  console.log('DIAG pointer', JSON.stringify(await page.evaluate(({ x, y }) => {
+    const hit = document.elementFromPoint(x, y);
+    return { hit: hit ? `${hit.tagName}.${String(hit.className).slice(0, 60)}` : null, cursor: hit ? getComputedStyle(hit).cursor : null, texts: [...document.querySelectorAll('[role="status"]')].map(node => node.textContent?.slice(0, 120)) };
+  }, at)));
+  await page.mouse.click(at.x, at.y);
+  await delay(1500);
+  console.log('DIAG after the press', JSON.stringify({
+    tabs: await page.getByRole('tab').allTextContents(),
+    notices: await page.getByRole('status', { name: 'Notices' }).allTextContents(),
+  }));
   check('a press on a path of a local .html page opens a browser tab', !!await until(() => page.getByRole('tab', { name: /a\.html|Local page/ }).first().isVisible(), 20000, 'no browser tab').catch(() => null));
 
   // Killed, as a crash or Task Manager would: nothing releases the layout. The next start takes it over, says nothing, and brings the tabs back.
@@ -102,6 +113,12 @@ try {
   await gone;
   await launch();
   check('the layout of the killed window is taken over', !!await until(async () => await ownership() === 'ours', 20000, 'not taken over').catch(() => null));
+  await delay(3000);
+  console.log('DIAG after the restart', JSON.stringify({
+    tabs: await page.getByRole('tab').allTextContents(),
+    notices: await page.getByRole('status', { name: 'Notices' }).allTextContents(),
+    textboxes: await page.getByRole('textbox').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))),
+  }));
   await page.getByRole('tab', { name: /PowerShell/ }).first().waitFor({ timeout: 20000 });
   await delay(1500);
   const notices = await page.getByRole('status', { name: 'Notices' }).allTextContents();
