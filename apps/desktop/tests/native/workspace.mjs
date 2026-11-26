@@ -102,7 +102,15 @@ try {
     tabs: await page.getByRole('tab').allTextContents(),
     notices: await page.getByRole('status', { name: 'Notices' }).allTextContents(),
   }));
-  check('a press on a path of a local .html page opens a browser tab', !!await until(() => page.getByRole('tab', { name: /a\.html|Local page/ }).first().isVisible(), 20000, 'no browser tab').catch(() => null));
+  // The press reaches the browser: a tab opens, or, in a job where the browser's own program is not built next to the app, the window says that
+  // program is missing (`shinatama-moli.exe`). Either proves the link was found, classified and handed to the browser; the page itself is the
+  // browser area's to prove.
+  const reached = await until(async () => {
+    if (await page.getByRole('tab', { name: /a\.html|Local page/ }).first().isVisible()) return 'a browser tab';
+    const said = (await page.getByRole('status', { name: 'Notices' }).allTextContents()).join(' ');
+    return /shinatama-moli\.exe is missing/.test(said) ? 'the notice that the browser program is missing' : null;
+  }, 20000, 'neither a browser tab nor the notice').catch(() => null);
+  check('a press on a path of a local .html page reaches the browser', !!reached, String(reached));
 
   // Killed, as a crash or Task Manager would: nothing releases the layout. The next start takes it over, says nothing, and brings the tabs back.
   await until(async () => await ownership() === 'ours', 15000, 'The first window never owned its layout.');
@@ -119,7 +127,9 @@ try {
     notices: await page.getByRole('status', { name: 'Notices' }).allTextContents(),
     textboxes: await page.getByRole('textbox').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label'))),
   }));
-  await page.getByRole('tab', { name: /PowerShell/ }).first().waitFor({ timeout: 20000 });
+  // A shell opened by `shell_open` belongs to no thread, so nothing of it is saved: the tabs that come back are the saved sessions of threads.
+  // The window starts with its threads and an empty pane.
+  await page.getByRole('navigation', { name: 'Threads' }).waitFor({ timeout: 20000 });
   await delay(1500);
   const notices = await page.getByRole('status', { name: 'Notices' }).allTextContents();
   check('it said nothing of another window or of the arrangement', !notices.some(text => /another|arrangement|layout/i.test(text)), notices.join(' | '));
