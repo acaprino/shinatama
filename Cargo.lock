@@ -3277,7 +3277,7 @@ checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
 
 [[package]]
 name = "shinatama-adapter"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3286,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-browser"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
@@ -3301,7 +3301,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-cli"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "embed-resource",
  "rusqlite",
@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-companion"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3325,7 +3325,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-desktop"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-engine"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "getrandom 0.4.3",
@@ -3378,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-export"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3389,7 +3389,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-files"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3400,7 +3400,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-hop"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3412,7 +3412,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-messaging"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3425,7 +3425,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-mukade"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "mukade",
  "serde_json",
@@ -3433,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-projects"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3445,7 +3445,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-roundtable"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3454,7 +3454,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-state"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -3466,7 +3466,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-terminal"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "libc",
@@ -3480,7 +3480,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-token-economy"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3488,7 +3488,7 @@ dependencies = [
 
 [[package]]
 name = "shinatama-xiox"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
