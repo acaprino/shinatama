@@ -10,7 +10,7 @@ import { Panel } from '@acaprino/sigrid/layout';
 import { Button, Checkbox, Cluster, Column, Icon, Input, Popover, PopoverContent, PopoverTrigger, Text, ToggleGroup, ToggleGroupItem } from '@acaprino/sigrid/primitives';
 import { useApp, useController } from '../../hooks.ts';
 import { CARD } from '../../team-map-model.ts';
-import { KIND_NAME, SHAPES, type ShapeId, type TeamMap } from '../../controllers/team-map.ts';
+import { KIND_NAME, SHAPES, TeamMap, type ShapeId } from '../../controllers/team-map.ts';
 
 /** The cards and the arrows as the canvas takes them. */
 export function graphOf(map: TeamMap): Graph {
@@ -29,7 +29,7 @@ export function graphOf(map: TeamMap): Graph {
     const said = l.kind === 'work' ? (l.report === 'strict' ? 'gives work · only done / blocked' : l.report === 'steps' ? 'gives work · every step' : 'gives work to') : 'observes';
     const short = l.words.length > 26 ? `${l.words.slice(0, 25)}…` : l.words;
     return {
-      id: `${l.from}>${l.to}`, from: l.from, to: l.to, kind: 'link', directed: true,
+      id: TeamMap.arrowId(l.from, l.to), from: l.from, to: l.to, kind: 'link', directed: true,
       label: `${said}${short ? ` · “${short}”` : ''}`,
       style: l.kind === 'observes' ? 'dotted' : pending.has(i) ? 'dashed' : 'solid',
       tone: badLinks.has(i) ? 'destructive' : 'default',
@@ -150,7 +150,9 @@ function Canvas({ map }: { map: TeamMap }) {
       edges={graph.edges}
       layoutKey={`${map.thread.id}:${map.layoutRevision}`}
       selected={selected}
-      onSelect={id => map.selectAgent(id)}
+      onSelect={id => map.chooseAgent(id)}
+      selectedEdge={map.selectedArrowId()}
+      onSelectEdge={id => map.chooseArrow(id)}
       movable
       onMove={(id, place) => map.moveAgent(id, place)}
       editable

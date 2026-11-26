@@ -44,6 +44,8 @@ export class TerminalController extends Store {
   closing = false;
   /** The terminal whose search (Find in terminal) is open, or none. */
   finding: string | null = null;
+  /** The lines of the terminal being searched that hold the text, for the strip of its lines to mark (empty when none, or no search). */
+  findHits: readonly number[] = [];
   /** What the backend last said of the machine's resources, after the window's last report; null before the first. */
   health: ResourceHealth | null = null;
   private reportedAt: number | null = null;
@@ -121,6 +123,15 @@ export class TerminalController extends Store {
   closeFind(): void {
     if (this.finding === null) return;
     this.finding = null;
+    this.findHits = [];
+    this.changed();
+  }
+
+  /** The lines that hold what is searched in the terminal `id`: the strip marks them while the search is open. Ignored for another terminal. */
+  setFindHits(id: string, rows: readonly number[]): void {
+    if (this.finding !== id) return;
+    if (rows.length === this.findHits.length && rows.every((row, at) => row === this.findHits[at])) return;
+    this.findHits = rows;
     this.changed();
   }
 
@@ -324,7 +335,7 @@ export class TerminalController extends Store {
     this.resizing.delete(id);
     this.metrics.delete(id);
     this.sessions.delete(id);
-    if (this.finding === id) this.finding = null;
+    if (this.finding === id) { this.finding = null; this.findHits = []; }
     const { layout, threads } = this.app;
     threads.rememberSessions();
     if (layout.view(id)) {

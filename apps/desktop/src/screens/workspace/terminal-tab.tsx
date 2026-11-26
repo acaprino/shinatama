@@ -2,7 +2,7 @@
 // says what runs and how much it uses, and, for a tab whose session does not run, the card that says why and how to bring it back.
 // What a terminal does (the pseudo-terminal, its output, its end) is `app.terminals`; what a thread is, is `app.threads`; this file is the
 // screen that draws them and the keys and the paste that reach the program through it.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGlass } from '@acaprino/imago';
 import { Empty } from '@acaprino/sigrid/components';
 import { Badge, Button, Cluster, Column, Cell, Icon, Text } from '@acaprino/sigrid/primitives';
@@ -114,6 +114,9 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
   const archived = archive?.archive.lines() ?? 0;
   const atTop = !!buffer && archived > 0 && buffer.viewportY === 0 && buffer.length > buffer.rows;
   void revision;
+  // The lines that hold what the person searches (Find in terminal) are ticks across the strip while the search is open.
+  const found = terminals.finding === id ? terminals.findHits : null;
+  const marks = useMemo(() => found?.map(line => ({ line })), [found]);
 
   const ended = session.ended;
   return (
@@ -150,6 +153,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
             extent={index => textExtent(buffer.line(index))}
             viewport={{ start: buffer.viewportY, size: buffer.rows }}
             archive={archived > 0 ? { count: archived, extent: index => { const cells = archive!.archive.width(index); return cells ? [0, cells] : null; } } : undefined}
+            marks={marks}
             revision={revision}
             onSeek={line => handle.current?.scrollToLine(line)}
             onArchiveSeek={line => setHistoryAt(line)}

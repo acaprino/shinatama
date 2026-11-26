@@ -189,3 +189,33 @@ test('the toldState of a card says whether its session was told, when it joins, 
   assert.equal(map.toldState(two).state, 'failed');
   assert.match(map.toldState(two).text, /Mukade is stopped/);
 });
+
+test('the canvas chooses an arrow by its id, one choice at a time: an arrow gives up an agent, an agent gives up an arrow, and the nulls the canvas says along do not undo the choice', async () => {
+  const { map } = fixture();
+  await map.refresh();
+  assert.ok(map.draft.links.length > 0 && map.draft.agents.length > 1);
+  const link = map.draft.links[0];
+  const id = TeamMap.arrowId(link.from, link.to);
+  // Nothing is chosen: no arrow is named.
+  assert.equal(map.selectedArrowId(), null);
+  // An agent is chosen, then an arrow: the canvas says the arrow, then gives the agent up (null) and the arrow stays.
+  map.chooseAgent(link.from);
+  assert.equal(map.selectedAgent()?.id, link.from);
+  map.chooseArrow(id);
+  map.chooseAgent(null);
+  assert.equal(map.selectedArrowId(), id);
+  assert.equal(map.selectedAgent(), null);
+  // An agent is chosen: the canvas says it, then gives the arrow up (null); the agent stays.
+  map.chooseAgent(link.to);
+  map.chooseArrow(null);
+  assert.equal(map.selectedAgent()?.id, link.to);
+  assert.equal(map.selectedArrowId(), null);
+  // A press on the ground says both nulls: nothing is chosen.
+  map.chooseArrow(id);
+  map.chooseAgent(null);
+  map.chooseArrow(null);
+  assert.equal(map.selection, null);
+  // An arrow that is not on the map is not chosen.
+  map.chooseArrow('nobody>nowhere');
+  assert.equal(map.selection, null);
+});
