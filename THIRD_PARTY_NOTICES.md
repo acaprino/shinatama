@@ -340,7 +340,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
 | npm | @acaprino/imago | 1.4.0 | runtime | Apache-2.0 | recognized | LICENSE |
-| npm | @acaprino/sigrid | 6.13.0 | runtime | MIT | recognized | LICENSE |
+| npm | @acaprino/sigrid | 6.14.0 | runtime | MIT | recognized | LICENSE |
 | npm | @ark-ui/react | 5.39.3 | runtime | MIT | recognized | LICENSE |
 | npm | @babel/runtime | 8.1.3 | runtime | MIT | recognized | LICENSE |
 | npm | @base-ui/react | 1.9.0 | runtime | MIT | recognized | LICENSE |

@@ -30,6 +30,8 @@ export function TerminalFind() {
   // A new search starts at its first line.
   useEffect(() => { setChosen(-1); if (hits.rows.length) select(0); }, [hits]);
   useEffect(() => { if (id === null) { setQuery(''); setChosen(-1); } }, [id]);
+  // The strip of the lines marks the lines that hold the text.
+  useEffect(() => { if (id) terminals.setFindHits(id, hits.rows); }, [id, hits, terminals]);
 
   return (
     <Dialog

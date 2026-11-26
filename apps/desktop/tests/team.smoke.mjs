@@ -93,6 +93,21 @@ try {
   await notice(page, /no longer observes/).locator('..').getByRole('button', { name: 'Undo' }).click();
   await page.getByRole('button', { name: /Open 1 session/ }).waitFor();
 
+  // The arrow on the map is itself a button, named by its two agents: the keyboard chooses it, Escape gives the choice up, and a press on
+  // it chooses it again; the box at the end follows.
+  const arrow = page.getByRole('button', { name: /^(Agent|architect) to (Agent|architect)/ });
+  await arrow.first().waitFor();
+  await arrow.first().focus();
+  await page.keyboard.press('Escape');
+  await page.getByRole('heading', { name: /(Agent → architect|architect → Agent)/ }).waitFor({ state: 'detached' });
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', { name: /(Agent → architect|architect → Agent)/ }).waitFor();
+  check(await arrow.first().getAttribute('aria-current') === 'true', 'team: the chosen arrow is not marked current');
+  await page.keyboard.press('Escape');
+  await page.getByRole('heading', { name: /(Agent → architect|architect → Agent)/ }).waitFor({ state: 'detached' });
+  await arrow.first().click({ force: true });
+  await page.getByRole('heading', { name: /(Agent → architect|architect → Agent)/ }).waitFor();
+
   // Discard throws the draft away and reads the stored team again.
   await clearNotices(page);
   await page.getByRole('button', { name: 'Discard' }).click();
@@ -103,9 +118,9 @@ try {
   await clearNotices(page);
   await page.getByRole('button', { name: 'Templates' }).click();
   await page.getByRole('button', { name: /^Star of four 4 agents/ }).click();
-  await page.getByRole('button', { name: /hub,/ }).waitFor();
+  await page.getByRole('button', { name: /^(✕ )?hub,/ }).waitFor();
   await notice(page, /Star of four/).waitFor();
-  check(await page.getByRole('button', { name: /one,/ }).count() === 1, 'team: the template did not put its agents on the map');
+  check(await page.getByRole('button', { name: /^(✕ )?one,/ }).count() === 1, 'team: the template did not put its agents on the map');
   await page.close();
 
   // At the narrowest width nothing runs off the page.

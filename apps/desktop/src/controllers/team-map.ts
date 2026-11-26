@@ -367,6 +367,30 @@ export class TeamMap extends Store {
   }
 
   /** A problem of the list: the arrow or the agent it is about is chosen. */
+  /** The name the canvas knows an arrow by: the id of its edge. */
+  static arrowId(from: string, to: string): string { return `${from}>${to}`; }
+
+  /** The arrow chosen, as the canvas names it, or null (an agent is chosen, or nothing). */
+  selectedArrowId(): string | null {
+    return this.selectedLink() >= 0 && this.selection && 'link' in this.selection ? TeamMap.arrowId(this.selection.link.from, this.selection.link.to) : null;
+  }
+
+  /** The canvas says an arrow was chosen (its id) or given up (null; also said when an agent is chosen: that choice stays). */
+  chooseArrow(id: string | null): void {
+    if (id === null) {
+      if (this.selection && 'link' in this.selection) this.select(null);
+      return;
+    }
+    const link = this.draft.links.find(l => TeamMap.arrowId(l.from, l.to) === id);
+    if (link) this.selectLink(link.from, link.to);
+  }
+
+  /** The canvas says an agent was chosen or given up (null). A null is also said when an arrow is chosen: that choice stays. */
+  chooseAgent(id: string | null): void {
+    if (id === null && this.selection && 'link' in this.selection) return;
+    this.selectAgent(id);
+  }
+
   selectIssue(issue: Issue): void {
     const l = this.draft.links[issue.links[0]];
     this.select(l ? { link: { from: l.from, to: l.to } } : issue.agents[0] && this.agentOf(issue.agents[0]) ? { agent: issue.agents[0] } : null);

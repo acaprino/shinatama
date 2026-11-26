@@ -224,6 +224,31 @@ test('the search of a terminal opens on the one in the pane the person works in,
   assert.equal(app.terminals.finding, null);
 });
 
+test('the lines that hold the searched text are kept while the search is open, for the strip to mark, and go with the search', async () => {
+  const { app } = fakeHost({ workset_threads: [], terminal_read: () => new Promise(() => {}) });
+  await app.terminals.attach(info('i_aaaaaaaaaaaa'), app.layout.focusedGroup(), null, null);
+  // No search open: nothing is kept.
+  app.terminals.setFindHits('i_aaaaaaaaaaaa', [3, 9]);
+  assert.deepEqual(app.terminals.findHits, []);
+  app.terminals.openFind('i_aaaaaaaaaaaa');
+  app.terminals.setFindHits('i_aaaaaaaaaaaa', [3, 9]);
+  assert.deepEqual(app.terminals.findHits, [3, 9]);
+  // The same lines again are not a change; another terminal's hits are not taken.
+  let changes = 0;
+  const stop = app.terminals.subscribe(() => { changes += 1; });
+  app.terminals.setFindHits('i_aaaaaaaaaaaa', [3, 9]);
+  app.terminals.setFindHits('i_other', [1]);
+  assert.equal(changes, 0);
+  assert.deepEqual(app.terminals.findHits, [3, 9]);
+  stop();
+  app.terminals.closeFind();
+  assert.deepEqual(app.terminals.findHits, []);
+  app.terminals.openFind('i_aaaaaaaaaaaa');
+  app.terminals.setFindHits('i_aaaaaaaaaaaa', [5]);
+  app.terminals.discard('i_aaaaaaaaaaaa');
+  assert.deepEqual(app.terminals.findHits, []);
+});
+
 test('the window reports its measures, learns what the backend makes of them, and keeps the last answer when a report fails', async () => {
   let fail = false;
   const { app, calls } = fakeHost({
