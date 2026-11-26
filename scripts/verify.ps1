@@ -144,7 +144,7 @@ try {
     $app = @('desktop-build', 'test-job-build')
     # workspace.mjs is left out: with the terminal filling its pane it runs, and two of its checks fail on the runner (a press on a printed path opens no
     # browser tab; the PowerShell tab of a shell opened by `shell_open` is not there after a kill). Not known yet whether the app or the blind probe is wrong.
-    foreach ($native in @('window', 'threads', 'files', 'projects', 'settings')) {
+    foreach ($native in @('window', 'threads', 'files', 'projects', 'settings', 'workspace')) {
         Invoke-Verification "native-$native" $probe @('wrap-run', 'node', "apps/desktop/tests/native/$native.mjs") -Needs $app
     }
     if (-not $notPassed.Contains('desktop-build')) {

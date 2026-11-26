@@ -173,7 +173,7 @@ export class CatalogController extends Store {
   }
 
   /** The folders to list: the single ones outside the roots (or the recent ones), and the candidates under the roots; both filtered. */
-  get shown(): { history: { path: string; name: string; available: boolean }[]; projects: Candidate[]; historyHeading: string } {
+  get shown(): { history: { id: string; path: string; name: string; available: boolean }[]; projects: Candidate[]; historyHeading: string } {
     const query = this.filter.trim().toLocaleLowerCase();
     const inQuery = (project: { name: string; path: string }) => `${project.name} ${project.path}`.toLocaleLowerCase().includes(query);
     const rooted = !!this.config?.defaultRootId;

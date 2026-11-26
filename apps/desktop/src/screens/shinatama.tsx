@@ -69,6 +69,8 @@ function Window() {
       sidebar={state => view === 'workspace' ? <WorkspaceSidebar state={state} /> : view === 'sessions' ? <SessionsSidebar state={state} /> : <SettingsSidebar state={state} />}
       inspector={view === 'workspace' && team.inspecting ? <ScreenBoundary of={team.shownThread}><TeamInspector /></ScreenBoundary>
         : view !== 'settings' && ui.panel ? <ScreenBoundary of={ui.panel}><Inspector /></ScreenBoundary> : undefined}
+      // The details of a project, a thread or a session open next to the sidebar they were chosen in (the owner, 2026-11-26).
+      inspectorAt="sidebar"
       actions={view === 'settings' ? <SettingsActions /> : view === 'workspace' && team.acting ? <TeamActions /> : undefined}
       footer={app.opens.progress ? <Text truncate>{app.opens.progress}</Text> : undefined}
       hints={view === 'workspace' ? FOOTER : []}

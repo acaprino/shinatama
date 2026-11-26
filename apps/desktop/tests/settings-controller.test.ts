@@ -137,3 +137,10 @@ test('the switches of Sessions apply at once through their commands, and a refus
   assert.equal(app.settings.indexing, false);
   assert.deepEqual(app.settings.switchesLine, { text: 'Indexing is busy.', error: true });
 });
+
+test('the terminals ask Sigrid for the font the person chose, and for none when it is the default', () => {
+  assert.equal(SettingsController.terminalFont('profile'), undefined);
+  assert.equal(SettingsController.terminalFont('  '), undefined);
+  assert.equal(SettingsController.terminalFont('Cascadia Mono'), 'Cascadia Mono');
+  assert.equal(SettingsController.terminalFont('monospace'), 'monospace');
+});
