@@ -29,7 +29,7 @@ license = "Apache-2.0"
 [workspace.dependencies]
 # The window the apps of the suite share, as a Tauri plugin. The tag is the one @acaprino/imago has in package.json; the crate pins
 # tauri to =2.12.5, and with it serde, serde_json, webview2-com, windows-core and windows-sys.
-imago-shell = { git = "https://github.com/acaprino/imago", tag = "v1.4.0" }
+imago-shell = { git = "https://github.com/acaprino/imago", tag = "v1.4.1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
