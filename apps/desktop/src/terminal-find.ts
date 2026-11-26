@@ -1,83 +1,36 @@
-import { componentElement, textFieldHtml, uiButton, uiPart } from '@acaprino/imago/ui';
-import { closeControl } from './controls.ts';
-import type { Terminal } from '@xterm/xterm';
-import { openModal, openSheet } from './modal.ts';
+// The search of a terminal's retained output: which lines of its buffer hold the text. Pure; the dialog (screens/workspace/terminal-find.tsx)
+// reads the lines through the terminal's handle and selects the one the person is at.
 
-/** Searches the existing bounded emulator buffer. It never pauses its parser. */
-export function createTerminalFind(options: {
-  current(): { id: string; terminal: Terminal } | null;
-  returnFocus(id: string): void;
-  notify(message: string): void;
-}) {
-  const dialog = uiPart('dialog'); dialog.id = 'terminal-find-dialog';
-  dialog.setAttribute('aria-labelledby', 'terminal-find-title');
-  const form = uiPart('form');
-  const heading = uiPart('header');
-  const title = uiPart('title', 'Find in terminal'); title.id = 'terminal-find-title';
-  const close = closeControl('Close search');
-  heading.append(title, close);
-  const field = componentElement(textFieldHtml('Text in this terminal', 'terminal-find', '', {
-    id: 'terminal-find-query', type: 'search', error: false, attrs: { autocomplete: 'off', maxlength: '128' },
-  }));
-  const query = field.querySelector('input')!;
-  const status = uiPart('status');
-  const actions = uiPart('actions');
-  const previous = uiButton('Previous');
-  const next = uiButton('Next', { primary: true }); next.type = 'submit';
-  actions.append(previous, next);
-  form.append(heading, field, status, actions);
-  dialog.append(form);
-  (document.querySelector('#app') ?? document.body).append(dialog);
-  let origin: ReturnType<typeof options.current> = null;
-  let generation = 0; let frame = 0; let hits: number[] = []; let selected = -1; let overflow = false;
-  function select(direction: number) {
-    if (!origin || !hits.length) return;
-    selected = (selected + direction + hits.length) % hits.length;
-    const row = hits[selected];
-    try { origin.terminal.select(0, row, origin.terminal.cols); origin.terminal.scrollToLine(row); }
-    catch { return; }
-    status.textContent = `${selected + 1} of ${hits.length}${overflow ? '+' : ''} matching lines`;
+/** How many lines from the end of the buffer are searched (the retained screen and scrollback). */
+export const SEARCH_LINES = 5500;
+/** How many matching lines are kept; more is said as «200+». */
+export const MAX_HITS = 200;
+
+export interface Hits { rows: number[]; overflow: boolean }
+
+/** The lines (by index) of `length` lines that hold `query`, ignoring case, the last `SEARCH_LINES` of them, at most `MAX_HITS`. */
+export function findLines(lineAt: (index: number) => string, length: number, query: string): Hits {
+  const text = query.toLocaleLowerCase();
+  const rows: number[] = [];
+  if (!text) return { rows, overflow: false };
+  for (let row = Math.max(0, length - SEARCH_LINES); row < length; row++) {
+    if (lineAt(row).toLocaleLowerCase().includes(text)) {
+      rows.push(row);
+      if (rows.length === MAX_HITS) return { rows, overflow: row + 1 < length };
+    }
   }
-  function search() {
-    const token = ++generation; cancelAnimationFrame(frame);
-    hits = []; selected = -1; overflow = false; previous.disabled = next.disabled = true;
-    const text = query.value.toLocaleLowerCase();
-    if (!origin || !text) { status.textContent = 'Search the terminal’s retained screen and scrollback.'; return; }
-    const buffer = origin.terminal.buffer.active;
-    let row = Math.max(0, buffer.length - 5500);
-    const end = buffer.length;
-    status.textContent = 'Searching…';
-    const scan = () => {
-      if (token !== generation || !dialog.open) return;
-      const until = Math.min(end, row + 32);
-      for (; row < until; row++) {
-        const line = buffer.getLine(row)?.translateToString(true).toLocaleLowerCase();
-        if (line?.includes(text)) { hits.push(row); if (hits.length === 200) { overflow = row + 1 < end; break; } }
-      }
-      if (row < end && hits.length < 200) { frame = requestAnimationFrame(scan); return; }
-      previous.disabled = next.disabled = !hits.length;
-      if (hits.length) select(1); else status.textContent = 'No matching lines in the retained buffer.';
-    };
-    frame = requestAnimationFrame(scan);
-  }
-  query.addEventListener('input', search);
-  form.onsubmit = event => { event.preventDefault(); select(1); };
-  previous.onclick = () => select(-1);
-  close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => {
-    if (dialog.open) return;
-    ++generation; cancelAnimationFrame(frame);
-    const id = origin?.id; origin = null; hits = [];
-    if (id) queueMicrotask(() => options.returnFocus(id));
-  });
-  return {
-    open() {
-      if (dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
-      origin = options.current();
-      if (!origin) { options.notify('Open or select a terminal to search its retained output.'); return; }
-      const pane = origin.terminal.element?.closest('.im-tile-body') ?? null;
-      if (!openSheet(dialog, { anchor: () => pane?.isConnected ? pane : null, placement: 'pane-top' })) openModal(dialog);
-      query.focus(); query.select(); search();
-    },
-  };
+  return { rows, overflow: false };
+}
+
+/** The hit after (`direction` 1) or before (-1) the one chosen, round the list; the first when none is chosen yet. */
+export function stepHit(count: number, chosen: number, direction: 1 | -1): number {
+  if (count === 0) return -1;
+  return chosen < 0 ? (direction === 1 ? 0 : count - 1) : (chosen + direction + count) % count;
+}
+
+/** What the dialog says under its field. */
+export function findStatus(query: string, hits: Hits, chosen: number): string {
+  if (!query) return 'Search the terminal’s retained screen and scrollback.';
+  if (!hits.rows.length) return 'No matching lines in the retained buffer.';
+  return `${chosen + 1} of ${hits.rows.length}${hits.overflow ? '+' : ''} matching lines`;
 }

@@ -73,3 +73,56 @@ export function eventLine(event: ChatEvent): { who: string; what: string; kind: 
   return { who, what: said[event.kind] ?? event.kind, kind: 'presence' };
 }
 
+
+// --- what the conversation panel shows of a room (pure) --------------------------------------------------------------------------------
+
+/** The most a message may weigh, in bytes of UTF-8: the backend refuses more. */
+export const MAX_MESSAGE_BYTES = 16 * 1024;
+/** What the filter above the messages keeps: every line, or the messages alone. */
+export type RoomFilter = 'all' | 'messages';
+/** Where a message can go: a member of the room by name, or the whole room (`''`, which wakes no one). */
+export interface Recipient { value: string; label: string }
+
+export const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
+  in_room: 'in the room',
+  launched: 'launched with the room\'s kit: it joins as it starts, under the name Mukade gives it (see the room\'s members)',
+  not_connected: 'not in the room yet: it joins at its first turn when opened or resumed after the thread started talking',
+  unsupported: 'cannot take part: Shinatama gives this agent no Mukade tools',
+};
+
+/** The lines the filter keeps. */
+export const visibleEvents = (events: readonly ChatEvent[], filter: RoomFilter): readonly ChatEvent[] =>
+  filter === 'messages' ? events.filter(event => event.kind === 'message') : events;
+
+/** The recipients of a message: the members that sessions of the thread are, then any other active member that is not the person, then the
+ *  whole room. */
+export function recipientChoices(snapshot: ChatSnapshot | null, harnessLabel: (harness: string) => string): Recipient[] {
+  const names = new Map<string, string>();
+  for (const session of snapshot?.sessions ?? []) {
+    if (session.memberName) names.set(session.memberName, `${session.memberName} · ${session.harness ? harnessLabel(session.harness) : 'session'}`);
+  }
+  for (const member of snapshot?.members ?? []) if (member.active && !member.user && !names.has(member.name)) names.set(member.name, member.name);
+  return [...[...names].map(([value, label]) => ({ value, label })), { value: '', label: 'Whole room (wakes no one)' }];
+}
+
+/** The recipient shown: the person's choice while it is still offered, else the first of the members. */
+export function chosenRecipient(choices: readonly Recipient[], chosen: string | null): string {
+  return chosen !== null && choices.some(choice => choice.value === chosen) ? chosen : choices[0]?.value ?? '';
+}
+
+/** How a session of the thread is told in the list above the messages. */
+export function sessionLine(session: ChatSession, harnessLabel: (harness: string) => string): { name: string; member: string; state: string } {
+  const agent = session.harness ? harnessLabel(session.harness) : 'Session';
+  const wakes = session.wakes ? ` · woken ${session.wakes}×` : '';
+  return {
+    name: session.title && session.title !== agent ? `${session.title} · ${agent}` : agent,
+    member: session.memberName ? `@${session.memberName}` : '',
+    state: `${session.state.replace('_', ' ')} · ${CONNECTION_TEXT[session.connection]}${wakes}`,
+  };
+}
+
+/** The time of a line as the person reads it; empty when the time cannot be read. */
+export function clockText(timestamp: string): string {
+  const at = new Date(timestamp);
+  return Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}

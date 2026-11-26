@@ -72,12 +72,14 @@ class DependencyPolicyTests(unittest.TestCase):
         self.write('apps/desktop/package.json', {})
         self.assertTrue(any('Second npm manifest' in error for error in dependencies.validate_npm(self.root)))
 
-    def test_desktop_and_native_shell_use_the_same_imago_revision(self):
+    def test_desktop_and_native_shell_use_the_same_imago_release(self):
         root = dependencies.ROOT
         cargo = tomllib.loads((root/'Cargo.toml').read_text(encoding='utf-8'))
         shell = cargo['workspace']['dependencies']['imago-shell']
         frontend = dependencies.read_json(root/'package.json')['dependencies']['@acaprino/imago']
-        self.assertEqual(frontend, f"git+{shell['git']}#{shell['rev']}")
+        release = dependencies.SUITE_RELEASE.fullmatch(frontend)
+        self.assertIsNotNone(release)
+        self.assertEqual(f"v{release.group(2)}", shell['tag'])
 
     def prepared_sidecar_fixture(self):
         self.npm_fixture()
@@ -215,6 +217,28 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(entries[0]['license_texts'][0]['source'], 'reviewed-wrapper')
         self.write('node_modules/rolldown/package.json', {**common,'optionalDependencies':{child:'2.0.0'}})
         self.assertTrue(dependencies.npm_inventory(self.root)[1])
+
+    def test_reviewed_npm_text_requires_exact_integrity_license_and_repository(self):
+        body = 'MIT supplement fixture\n'
+        repository = 'https://example.test/owner/repo'
+        info = {'ecosystem':'npm', 'license':'MIT', 'repository':repository, 'sha256':dependencies.sha256(body), 'source':repository,
+                'packages':{'example':{'version':'1.2.3', 'integrity':'sha512-pinned'}}}
+        self.write(dependencies.POLICY, f"<!-- supplement {json.dumps(info)} -->\n```text\n{body}```\n")
+        self.write('package.json', {'dependencies':{'example':'1.2.3'}})
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-pinned'}}})
+        self.write('node_modules/example/package.json', {'version':'1.2.3', 'license':'MIT', 'repository':{'type':'git', 'url':f'git+{repository}.git'}})
+        entries, errors = dependencies.npm_inventory(self.root)
+        self.assertEqual(errors, [])
+        self.assertEqual(entries[0]['license_texts'][0]['source'], 'reviewed-supplement')
+        self.assertTrue(dependencies.has_license_text(entries[0]['license_texts']))
+        # another tarball, another license or another repository is not the reviewed one
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-other'}}})
+        self.assertTrue(any('provenance mismatch' in error for error in dependencies.npm_inventory(self.root)[1]))
+        self.write('package-lock.json', {'packages':{'':{}, 'node_modules/example':{'version':'1.2.3', 'license':'MIT', 'integrity':'sha512-pinned'}}})
+        self.write('node_modules/example/package.json', {'version':'1.2.3', 'license':'MIT', 'repository':'https://example.test/other/repo'})
+        self.assertTrue(any('provenance mismatch' in error for error in dependencies.npm_inventory(self.root)[1]))
+        # a crate supplement is not an npm supplement
+        self.assertEqual(dependencies.supplements(self.root), {})
 
     def test_notice_render_is_deterministic_and_escapes_table_content(self):
         entry={'ecosystem':'npm','name':'bad|<script>\nname','version':'1.0.0','roles':['runtime'],'license':'MIT','policy':'recognized','license_texts':[{'file':'LICENSE'}]}

@@ -24,8 +24,6 @@ mod marionette;
 mod memory_settings;
 mod model_settings;
 mod muro;
-#[cfg(windows)]
-mod native_frame;
 mod new_project;
 #[cfg(windows)]
 mod opening;
@@ -33,6 +31,7 @@ mod presentation;
 mod project_overview;
 mod projects;
 mod relaunch;
+mod reload_gate;
 mod resource_governor;
 mod resources;
 #[cfg(windows)]
@@ -59,9 +58,10 @@ mod threads;
 mod titles;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
-#[cfg(windows)]
-mod webview_recovery;
+mod webview_args;
+mod widget_window;
 mod workspace;
+use imago_shell::{DARK_GROUND, LIGHT_GROUND, Material, Options, on_run_event, open_main, plugin};
 use shinatama_state::database::{DatabaseAccess, ProjectRecord as ProjectEntry};
 use shinatama_terminal::{OutputBatch, SessionInfo, TerminalHost};
 use std::{
@@ -737,6 +737,7 @@ fn main() {
     #[cfg(windows)]
     responsiveness::prioritize_control_thread();
     let builder = tauri::Builder::default()
+        .plugin(plugin())
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
         .manage(ExitIntent::default())
@@ -887,15 +888,13 @@ fn main() {
             app.manage(services);
             // Tauri builds configured windows before this hook runs, so a page could call a
             // command whose state is not managed yet ("Agent choices could not be loaded").
-            // The windows are declared with "create": false and built only now.
+            // The windows are declared with "create": false and built only now: the main one by
+            // the shell (hidden until its page has drawn, where it was, in the theme and the glass
+            // it had), the attention widget by this app.
             #[cfg(windows)]
             collaboration::start(app.handle()).map_err(std::io::Error::other)?;
-            for config in app.config().app.windows.clone() {
-                #[cfg(windows)]
-                webview_recovery::build(app.handle(), &config)?;
-                #[cfg(not(windows))]
-                tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
-            }
+            open_main(app.handle(), main_options(app)?)?;
+            widget_window::build(app.handle())?;
             attention::start_memory_warnings(app.handle());
             Ok(())
         });
@@ -921,7 +920,6 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
-        presentation::presentation_window_theme,
         muro::muro_status,
         muro::muro_sync_now,
         muro::muro_open,
@@ -1092,10 +1090,7 @@ fn main() {
         browser::browser_close,
         #[cfg(windows)]
         browser::browser_external,
-        #[cfg(windows)]
-        native_frame::window_caption_maximize,
-        #[cfg(windows)]
-        native_frame::interface_reload_ready,
+        reload_gate::interface_reload_ready,
         terminal_shutdown
     ]);
     #[cfg(feature = "tl1-proof")]
@@ -1120,7 +1115,6 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
-        presentation::presentation_window_theme,
         muro::muro_status,
         muro::muro_sync_now,
         muro::muro_open,
@@ -1277,16 +1271,11 @@ fn main() {
     ]);
     builder
         .on_window_event(|window, event| {
-            if window.label() == "attention" {
+            if window.label() == widget_window::LABEL {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window.hide();
                 }
-                return;
-            }
-            // Windows destroyed to be built again after a WebView2 loss are not a close.
-            #[cfg(windows)]
-            if webview_recovery::recovering() {
                 return;
             }
             #[cfg(windows)]
@@ -1296,8 +1285,10 @@ fn main() {
             {
                 responsiveness::main_resized(&main);
             }
+            // The widget goes with the main window, also when the shell builds the main window again after
+            // WebView2 lost its browser process (the widget's page is lost with it): `widget_window::ensure` builds it anew.
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
-                if let Some(widget) = window.app_handle().get_webview_window("attention") {
+                if let Some(widget) = window.app_handle().get_webview_window(widget_window::LABEL) {
                     let _ = widget.destroy();
                 }
                 return;
@@ -1314,24 +1305,41 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("Cannot run Shinatama desktop")
-        .run(|_app, _event| {
-            #[cfg(windows)]
-            if let tauri::RunEvent::ExitRequested {
-                api, code: None, ..
-            } = &_event
-                && webview_recovery::recovering()
-            {
-                api.prevent_exit();
-            }
-            #[cfg(windows)]
-            if matches!(_event, tauri::RunEvent::Exit) {
-                collaboration::stop(_app);
-            }
-            if matches!(_event, tauri::RunEvent::Exit) {
-                _app.state::<leftovers::Leftovers>().stop_all();
-                if let Some(muro) = _app.try_state::<Arc<muro::Muro>>() {
-                    muro.at_exit();
-                }
-            }
-        });
+        // Without the shell's handler a window that is built again, after its browser process was lost, ends the app.
+        .run(run_event);
+}
+
+/// The run loop: what Shinatama closes at its end, and the shell's recovery of the window.
+fn run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
+    #[cfg(windows)]
+    if matches!(event, tauri::RunEvent::Exit) {
+        collaboration::stop(app);
+    }
+    if matches!(event, tauri::RunEvent::Exit) {
+        app.state::<leftovers::Leftovers>().stop_all();
+        if let Some(muro) = app.try_state::<Arc<muro::Muro>>() {
+            muro.at_exit();
+        }
+    }
+    on_run_event(app, event);
+}
+
+/// How the shell opens the main window: Imago's grounds, glass only when the person chooses it, the data folder of the app (a
+/// portable install keeps its window's theme, glass and place beside its data), and what to do before a reload.
+fn main_options(app: &tauri::App) -> tauri::Result<Options> {
+    let options = Options::for_app(app)?;
+    let handle = app.handle().clone();
+    Ok(Options {
+        window: webview_args::with_test_arguments(options.window),
+        data_dir: data_home(app.handle()).ok(),
+        material: Material::Opaque {
+            dark: DARK_GROUND,
+            light: LIGHT_GROUND,
+        },
+        reload_label: "Reload interface".into(),
+        stopped_message: "The Shinatama interface stopped responding. Your terminals and agents are still running.\n\nReload the interface?".into(),
+        lost_message: "The Shinatama window could not be restored. Your terminals and agents will stop when Shinatama closes.".into(),
+        before_reload: Box::new(move |failure| reload_gate::before_reload(&handle, failure)),
+        ..options
+    })
 }

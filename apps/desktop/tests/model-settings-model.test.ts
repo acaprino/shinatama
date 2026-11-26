@@ -62,3 +62,33 @@ test('malformed responses cannot reset the form to defaults', () => {
   assert.equal(parseModelView(null), null);
   const invalid = view(); invalid.assignments.pi = { connectionId: 'missing', modelId: 'x' }; assert.equal(parseModelView(invalid), null);
 });
+
+test('a connection is added from a preset up to the limit, a custom one starts unnamed, and a removed one leaves the choice of its agents to be made again', async () => {
+  const { addConnection, removeConnection, assignmentExists, modelOptions, emptyForm, PRESETS, MAX_CONNECTIONS } = await import('../src/model-settings-model.ts');
+  const form = emptyForm();
+  const custom = addConnection(form, PRESETS.find(p => p.name === 'Custom endpoint')!, 'c1')!;
+  assert.equal(custom.connection.name, '');
+  custom.connection.models[0].id = 'm1';
+  form.assignments.pi = { connectionId: 'c1', modelId: 'm1' };
+  assert.equal(assignmentExists(form, 'pi'), true);
+  removeConnection(form, 'c1');
+  assert.equal(assignmentExists(form, 'pi'), false);
+  assert.match(modelOptions(form, 'pi').map(o => o.label).join('|'), /Removed model/);
+  for (let i = 0; i < MAX_CONNECTIONS; i++) addConnection(form, PRESETS[0], `x${i}`);
+  assert.equal(addConnection(form, PRESETS[0], 'one-too-many'), null);
+});
+
+test('typing a model id moves the agents that used it, models are added and removed within their limits, and a connection says which agent uses it first', async () => {
+  const { addConnection, addModel, removeModel, renameModel, useConnection, modelOptions, emptyForm, PRESETS } = await import('../src/model-settings-model.ts');
+  const form = emptyForm();
+  const edit = addConnection(form, PRESETS[0], 'c1')!;
+  assert.equal(useConnection(form, edit.connection, 'pi'), null, 'no model id yet');
+  assert.ok(modelOptions(form, 'pi').some(o => o.disabled), 'a connection without a model says to add one');
+  renameModel(form, edit.connection, 0, 'gpt-a');
+  assert.equal(useConnection(form, edit.connection, 'pi'), 'gpt-a');
+  renameModel(form, edit.connection, 0, 'gpt-b');
+  assert.deepEqual(form.assignments.pi, { connectionId: 'c1', modelId: 'gpt-b' });
+  assert.equal(removeModel(edit.connection, 0), false, 'the last model stays');
+  assert.equal(addModel(edit.connection), true);
+  assert.equal(removeModel(edit.connection, 1), true);
+});

@@ -11,13 +11,45 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "create": false, "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 500, "minHeight": 500, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "windowEffects": { "effects": ["acrylic"], "color": [7, 14, 34, 84] } },
-      { "label": "attention", "create": false, "url": "widget.html", "title": "Shinatama — avvisi", "width": 440, "height": 190, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "shadow": false, "alwaysOnTop": true, "skipTaskbar": true, "resizable": false, "focus": false, "focusable": false, "visible": false }
+      {
+        "label": "main",
+        "create": false,
+        "title": "Shinatama",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 500,
+        "minHeight": 500,
+        "decorations": false
+      },
+      {
+        "label": "attention",
+        "create": false,
+        "url": "widget.html",
+        "title": "Shinatama — avvisi",
+        "width": 440,
+        "height": 190,
+        "decorations": false,
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "focusable": false,
+        "visible": false
+      }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
-      "capabilities": ["main", "attention"]
+      "capabilities": [
+        "main",
+        "shell",
+        "attention"
+      ]
     }
   },
-  "bundle": { "active": false }
+  "bundle": {
+    "active": false
+  }
 }
