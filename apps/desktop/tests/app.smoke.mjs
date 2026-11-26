@@ -268,6 +268,22 @@ try {
   check(await zoom.isDisabled(), 'a browser cannot change its zoom: the picker is there and says so by being disabled');
   assert.equal(await zoom.textContent().then((text) => text?.trim()), '100%');
   await page.screenshot({ path: `${out}app-settings.png`, animations: 'disabled' });
+
+  // --- the font chosen in Settings is the terminals' ------------------------------------------------------------------------------------------------
+  const family = () => page.evaluate(() => getComputedStyle(document.querySelector('.xterm-rows')).fontFamily);
+  await page.getByRole('combobox', { name: 'Terminal font' }).click();
+  await page.getByRole('option', { name: 'Cascadia Code' }).click();
+  await goTo(page, 'Workspace');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.xterm-rows')).fontFamily.includes('Cascadia Code'), null, { timeout: 5000 }).catch(() => {});
+  const chosen = await family();
+  check(chosen.startsWith('"Cascadia Code"'), `the terminals draw in the font chosen in Settings, and the toolkit's stack stays behind it: ${chosen}`);
+  await goTo(page, 'Settings');
+  await page.getByRole('combobox', { name: 'Terminal font' }).click();
+  await page.getByRole('option', { name: 'Default' }).click();
+  await goTo(page, 'Workspace');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.xterm-rows')).fontFamily.startsWith('"Cascadia Mono"'), null, { timeout: 5000 }).catch(() => {});
+  // The toolkit's own stack (it names Cascadia Mono first, and Cascadia Code after it).
+  check((await family()).startsWith('"Cascadia Mono"'), 'the default font gives the terminals back the toolkit\'s own');
   await page.close();
 } catch (error) {
   failures.push(`the smoke stopped: ${error?.stack ?? error}`);

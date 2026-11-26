@@ -146,7 +146,6 @@ frame changes). What only a real window proves: the native drop of files, WebVie
 
 `Terminal` fills its box and `Cluster` takes `fill` (Sigrid 6.13.0).
 
-Also pending in Sigrid: Settings keeps the terminal's font family and "Follow the interface theme in terminals" and Rust uses them (`presentation.rs` gives the agents their ANSI
-themes), but Sigrid's `Terminal` takes no font family and no palette, so the page draws the size and the line height only. Where the shell's keys and strip stand: Ctrl+F is the
+The font family, size and line height of Settings are the terminals' (`fontFamily` of Sigrid's `Terminal`, 6.16.0: the family goes first and the toolkit's monospace stays behind it; `SettingsController.terminalFont`). "Follow the interface theme in terminals" is stored and used by Rust (`presentation.rs` gives the agents their ANSI themes); the page's terminal always draws in the interface's own colours, as Sigrid's `Terminal` has no palette of its own to give. Where the shell's keys and strip stand: Ctrl+F is the
 search of the view (the terminal's in the Workspace, the filter in Sessions, none in Settings, where the shell says so); the strip of Sessions says whether the archives were
 read, how many sessions there are and whether the search index is on.

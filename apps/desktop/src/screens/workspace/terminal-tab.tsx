@@ -9,6 +9,7 @@ import { Badge, Button, Cluster, Column, Cell, Icon, Text } from '@acaprino/sigr
 import { OverviewStrip, Terminal, textExtent, type TerminalBufferView, type TerminalHandle } from '@acaprino/sigrid/terminal';
 import type { WorkspaceTabState } from '@acaprino/sigrid/assemblies';
 import { useApp, useController } from '../../hooks.ts';
+import { SettingsController } from '../../controllers/settings.ts';
 import { terminalLeavesKey, commandOfKey } from '../../keys.ts';
 import { openCard } from '../../session-opens.ts';
 import { openStep, savedCardText } from '../../session-tabs.ts';
@@ -127,6 +128,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
             ref={handle}
             aria-label={`Terminal of ${harness}`}
             scrollback={LIVE_SCROLLBACK}
+            fontFamily={SettingsController.terminalFont(settings.presentation.fontFamily)}
             fontSize={settings.presentation.fontSize}
             lineHeight={settings.presentation.lineHeight / 100}
             transparent={glass}
