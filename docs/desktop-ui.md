@@ -81,7 +81,7 @@ destroyed with it and built again the next time an alert needs it.
   three views (title, status strip, Ctrl+F), the palette, a new session from the palette to its terminal, the terminals alive across the views, a file opened in a pane,
   the theme, the zoom and the glass (which only a window of its own has), and the frame at 340, 620, 1000 and 1440 in both schemes.
 - `tests/native/` holds the probes of the built exe (Windows only, driven over the WebView2 debugging port; `native/lib.mjs` starts the app on a private data folder):
-  `window`, `threads`, `files`, `projects` and `settings` run in `scripts/verify.ps1` inside the contained test job (`workspace` is to join them: see Sigrid's `Terminal` fill, released in 6.13.0, and run it first on the runner); `sessions`, `picker`, `browser`,
+  `window`, `threads`, `files`, `projects` and `settings` run in `scripts/verify.ps1` inside the contained test job (`workspace` is left out: the terminal fills its pane now and it runs, but on the runner a press on a printed path opens no browser tab and the PowerShell tab of a `shell_open` shell is not back after a kill; whether the app or the probe is wrong is not known); `sessions`, `picker`, `browser`,
   `attention`, `interactive-limits`, `model-provider` and the agent proofs (`claude-resume*`, `codex-*`, `forced-crash-recovery`, which start a real agent against a
   synthetic provider) are run by hand. They were written against roles in a cloud session without Windows and have not been run there.
 - `scripts/verify.ps1` runs all of it, after `imago-check` and `sigrid-check`.
