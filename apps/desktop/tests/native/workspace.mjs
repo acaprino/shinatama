@@ -84,8 +84,13 @@ try {
   await page.keyboard.type('echo docs\\a.html');
   await page.keyboard.press('Enter');
   const link = page.getByRole('tabpanel').first().getByText('docs\\a.html').last();
-  await link.hover();
-  await link.click();
+  // The text of the link is in the layer of the screen readers, under xterm's screen that takes the pointer: the mouse goes to where the
+  // text is, as a person's does, and the screen's link provider answers.
+  const box = await link.boundingBox();
+  if (!box) throw new Error('The printed path has no box.');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await delay(300);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   check('a press on a path of a local .html page opens a browser tab', !!await until(() => page.getByRole('tab', { name: /a\.html|Local page/ }).first().isVisible(), 20000, 'no browser tab').catch(() => null));
 
   // Killed, as a crash or Task Manager would: nothing releases the layout. The next start takes it over, says nothing, and brings the tabs back.
