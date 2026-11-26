@@ -152,6 +152,11 @@ export class SettingsController extends Store {
 
   // --- the terminal ----------------------------------------------------------------------------------------
 
+  /** The font the terminals ask Sigrid's `Terminal` for: `profile` (the default) asks for none, so the toolkit's own monospace stays. */
+  static terminalFont(family: string): string | undefined {
+    return family === 'profile' || family.trim() === '' ? undefined : family;
+  }
+
   /** The size is typed: a whole number in range changes it; anything else leaves it as it was (the field says why). */
   static sizeProblem(text: string): string {
     const n = Number(text);
