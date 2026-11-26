@@ -123,7 +123,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 | Rust | ident_case | 1.0.1 | build-tool | MIT/Apache-2.0 | recognized | LICENSE |
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | imago-shell | 1.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
+| Rust | imago-shell | 1.4.0 | runtime | Apache-2.0 | recognized | LICENSE |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -339,8 +339,8 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
-| npm | @acaprino/imago | 1.3.0 | runtime | Apache-2.0 | recognized | LICENSE |
-| npm | @acaprino/sigrid | 6.11.0 | runtime | MIT | recognized | LICENSE |
+| npm | @acaprino/imago | 1.4.0 | runtime | Apache-2.0 | recognized | LICENSE |
+| npm | @acaprino/sigrid | 6.13.0 | runtime | MIT | recognized | LICENSE |
 | npm | @ark-ui/react | 5.39.3 | runtime | MIT | recognized | LICENSE |
 | npm | @babel/runtime | 8.1.3 | runtime | MIT | recognized | LICENSE |
 | npm | @base-ui/react | 1.9.0 | runtime | MIT | recognized | LICENSE |
@@ -372,15 +372,15 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 | npm | @floating-ui/utils | 0.2.12 | runtime | MIT | recognized | LICENSE |
 | npm | @internationalized/date | 3.12.4 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @internationalized/number | 3.6.7 | runtime | Apache-2.0 | recognized | LICENSE |
-| npm | @lezer/common | 1.5.5 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/common | 1.5.7 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/css | 1.3.9 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/highlight | 1.2.5 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/html | 1.3.13 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/javascript | 1.5.6 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/javascript | 1.5.7 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/json | 1.0.3 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/lr | 1.4.12 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/markdown | 1.8.1 | runtime | MIT | recognized | LICENSE |
-| npm | @lezer/python | 1.1.19 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/lr | 1.4.13 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/markdown | 1.8.2 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/python | 1.1.20 | runtime | MIT | recognized | LICENSE |
 | npm | @lezer/rust | 1.0.3 | runtime | MIT | recognized | LICENSE |
 | npm | @marijn/find-cluster-break | 1.0.4 | runtime | MIT | recognized | LICENSE |
 | npm | @material/material-color-utilities | 0.4.0 | runtime | Apache-2.0 | recognized | LICENSE |
@@ -573,7 +573,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 573.
 | npm | rope-sequence | 1.3.4 | runtime | MIT | recognized | LICENSE |
 | npm | scheduler | 0.28.0 | runtime | MIT | recognized | LICENSE |
 | npm | source-map-js | 1.2.2 | build-tool | BSD-3-Clause | recognized | LICENSE |
-| npm | style-mod | 4.1.4 | runtime | MIT | recognized | LICENSE |
+| npm | style-mod | 4.1.5 | runtime | MIT | recognized | LICENSE |
 | npm | tailwind-merge | 3.7.0 | runtime | MIT | recognized | LICENSE.md |
 | npm | tinyglobby | 0.2.17 | build-tool | MIT | recognized | LICENSE |
 | npm | tslib | 2.9.1 | runtime | 0BSD | recognized | CopyrightNotice.txt; LICENSE.txt |

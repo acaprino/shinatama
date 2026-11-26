@@ -12,9 +12,6 @@ const WIDGET = defineApp({
   storage: { scheme: 'shinatama.theme', zoom: 'shinatama.widget.zoom', sidebar: 'shinatama.widget.sidebar' },
 });
 
-// pending Imago secondary-window (branch `claude/secondary-window` of acaprino/imago, on Sigrid's `claude/clear-material`): this page is not the
-// app's window. Started as the main window's page, the shell asks the plugin for what only the main window has (kept_theme, kept_glass and ready are
-// refused: three warnings in the console) and the page paints an opaque ground over the transparent window. With the release, the call is
-//   startApp(WIDGET, document.getElementById('app')!, <Widget />, { secondary: true });
-// and `capabilities/attention.json` stays as it is (the events only). See docs/desktop-ui.md, "The attention widget".
-startApp(WIDGET, document.getElementById('app')!, <Widget />);
+// This page is not the app's window: `secondary` keeps the shell from asking the plugin for what only the main window has, and draws the
+// transparent window's ground. `capabilities/attention.json` stays as it is (the events only). See docs/desktop-ui.md, "The attention widget".
+startApp(WIDGET, document.getElementById('app')!, <Widget />, { secondary: true });

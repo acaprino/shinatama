@@ -2,7 +2,7 @@
 // says what runs and how much it uses, and, for a tab whose session does not run, the card that says why and how to bring it back.
 // What a terminal does (the pseudo-terminal, its output, its end) is `app.terminals`; what a thread is, is `app.threads`; this file is the
 // screen that draws them and the keys and the paste that reach the program through it.
-import { useEffect, useRef, useState, type ComponentProps, type ReactElement } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGlass } from '@acaprino/imago';
 import { Empty } from '@acaprino/sigrid/components';
 import { Badge, Button, Cluster, Column, Cell, Icon, Text } from '@acaprino/sigrid/primitives';
@@ -21,11 +21,6 @@ import { runners } from '../commands.tsx';
 import { forgetHandle, rememberHandle } from './handles.ts';
 import { TerminalHistoryView } from './terminal-history.tsx';
 import { acceptDrops, attachTerminalPaste } from './terminal-io.ts';
-
-// pending Sigrid terminal-fill (branch claude/terminal-fill of acaprino/sigrid): a Terminal that fills its box and a `Cluster` that takes
-// `fill` come with the release after 6.11.0. Until the pin moves, `fill` is not in the types of the pinned Cluster, and a terminal has no
-// height of its own: this line and the one at the row of the terminal go when the release is taken.
-const FillRow = Cluster as (props: ComponentProps<typeof Cluster> & { fill?: boolean }) => ReactElement;
 
 /** How often the strip and the foot follow the output: the parser can write many times a second, the eye needs a few. */
 const REDRAW_MS = 150;
@@ -123,7 +118,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
   const ended = session.ended;
   return (
     <Column fill gap="xs">
-      <FillRow fill align="stretch" wrap={false} gap="xs">
+      <Cluster fill align="stretch" wrap={false} gap="xs">
         <Cell grow>
           <Terminal
             ref={handle}
@@ -160,7 +155,7 @@ function LiveTerminal({ session, state }: { session: TerminalSession; state: Wor
             onArchiveSeek={line => setHistoryAt(line)}
           />
         ) : null}
-      </FillRow>
+      </Cluster>
       {atTop ? (
         <Cluster>
           <Button variant="ghost" size="xs" onClick={() => setHistoryAt(Math.max(0, archived - 1))}>

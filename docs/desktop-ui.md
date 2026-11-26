@@ -77,11 +77,11 @@ destroyed with it and built again the next time an alert needs it.
 - The smokes of the page (`npm run test:workspace`, `:inspector`, `:sessions`, `:team`, `:settings`, `:dialogs`, `:widget`, `:browser` and `:app`) run the window's
   page on Vite with `src/mock/` answering for Rust and drive it by roles and names, never a class. `tests/smoke-lib.mjs` is what they share: the browser (Playwright's
   Chromium here; Edge on the Windows runner, by `SHINATAMA_BROWSER_CHANNEL=msedge`, so that no step downloads one), the dev server, and what a page may say: every
-  console error and warning is a failure but the pinned Cluster's `fill` warning (`// pending Sigrid terminal-fill`). `app.smoke.mjs` is the one between the areas: the
+  console error and warning is a failure (but Chromium's own scheduler noise). `app.smoke.mjs` is the one between the areas: the
   three views (title, status strip, Ctrl+F), the palette, a new session from the palette to its terminal, the terminals alive across the views, a file opened in a pane,
   the theme, the zoom and the glass (which only a window of its own has), and the frame at 340, 620, 1000 and 1440 in both schemes.
 - `tests/native/` holds the probes of the built exe (Windows only, driven over the WebView2 debugging port; `native/lib.mjs` starts the app on a private data folder):
-  `window`, `threads`, `files`, `projects` and `settings` run in `scripts/verify.ps1` inside the contained test job (`workspace` joins them with Sigrid's terminal-fill: a terminal in a pane is 0 high until then); `sessions`, `picker`, `browser`,
+  `window`, `threads`, `files`, `projects` and `settings` run in `scripts/verify.ps1` inside the contained test job (`workspace` is to join them: see Sigrid's `Terminal` fill, released in 6.13.0, and run it first on the runner); `sessions`, `picker`, `browser`,
   `attention`, `interactive-limits`, `model-provider` and the agent proofs (`claude-resume*`, `codex-*`, `forced-crash-recovery`, which start a real agent against a
   synthetic provider) are run by hand. They were written against roles in a cloud session without Windows and have not been run there.
 - `scripts/verify.ps1` runs all of it, after `imago-check` and `sigrid-check`.
@@ -98,8 +98,7 @@ The text stays Italian. It asks Rust for `attention_current`, `attention_open` a
 Imago's `startApp` is written for the one main window. In a second window it calls the shell's plugin (`kept_theme`, `kept_glass`,
 `ready`), which refuses a window that is not `imago-shell`'s (console warnings), and it paints an opaque ground over the transparent
 window. The page follows the scheme the main window keeps because both read `shinatama.theme` (same origin, the `storage` event). The fix is
-Imago's `startApp(..., { secondary: true })` (branch `claude/secondary-window`, which needs Sigrid's material `clear`, branch
-`claude/clear-material`): when both are released the entry passes the option, and the window's page asks the plugin nothing and paints no ground.
+Imago's `startApp(..., { secondary: true })` (Imago 1.4.0, with Sigrid's material `clear`, 6.12.0): the entry passes the option, and the window's page asks the plugin nothing and paints no ground.
 
 Rust side (`widget_window.rs`, `attention.rs`; Windows is where it is proved): the widget is built hidden at start and again by `ensure` when an alert
 needs it and the shell rebuilt the main window; a lock keeps two alerts that arrive together from building it twice; it is destroyed with the main
@@ -116,8 +115,7 @@ person's input in batches (`browser-input.ts` maps it), the size and whether the
 channel, `api/browser.ts`) to the surface. The tab renderer names the tab with `app.browser.label(viewId)` and closes it with
 `app.browser.close(viewId)`; the Files inspector opens a document with `app.browser.open({ file })`.
 
-The page is drawn by Sigrid's `FrameSurface`, which is built (branch `claude/frame-surface` of acaprino/sigrid) and not released: until the app
-pins that release `surface.tsx` shows the page's place, with the exact swap in its header. Proved by `npm run test:browser` (mock, roles, in
+The page is drawn by Sigrid's `FrameSurface` (6.13.0), which `surface.tsx` wires to `app.browser`. Proved by `npm run test:browser` (mock, roles, in
 `tests/harness/browser.html`) and `tests/browser-native.mjs` (Windows).
 
 ## The workspace
@@ -146,9 +144,7 @@ talks. The page storage starts with the threads that were on. Proved by `npm tes
 `terminal-*.test.ts`, `workspace-keys.test.ts`, `thread-chat-model.test.ts`) and `npm run test:workspace` (roles, both schemes, the widths where the
 frame changes). What only a real window proves: the native drop of files, WebView2's paste of images, Snap Layouts, the first frame.
 
-Pending in Sigrid (branch `claude/terminal-fill` of acaprino/sigrid, after 6.11.0): a `Terminal` fills its box and `Cluster` takes `fill` (without them a terminal
-in a pane is 0 high: `terminal-tab.tsx` carries the one line to remove), and a `WorkspaceTab` takes `color` (the thread's dot on its tabs; `PaneTab.color` already
-carries it).
+`Terminal` fills its box and `Cluster` takes `fill` (Sigrid 6.13.0).
 
 Also pending in Sigrid: Settings keeps the terminal's font family and "Follow the interface theme in terminals" and Rust uses them (`presentation.rs` gives the agents their ANSI
 themes), but Sigrid's `Terminal` takes no font family and no palette, so the page draws the size and the line height only. Where the shell's keys and strip stand: Ctrl+F is the

@@ -142,8 +142,7 @@ try {
     # native dialog (claude-*, codex-*, forced-crash-recovery, picker) or need the contained session reader built with its feature (sessions) are run by hand.
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     $app = @('desktop-build', 'test-job-build')
-    # workspace.mjs waits for Sigrid's terminal-fill (a terminal in a pane is 0 high until the pinned release has it): add it back with that release.
-    foreach ($native in @('window', 'threads', 'files', 'projects', 'settings')) {
+    foreach ($native in @('window', 'threads', 'files', 'projects', 'settings', 'workspace')) {
         Invoke-Verification "native-$native" $probe @('wrap-run', 'node', "apps/desktop/tests/native/$native.mjs") -Needs $app
     }
     if (-not $notPassed.Contains('desktop-build')) {

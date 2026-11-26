@@ -3,9 +3,7 @@
 // The browser is Playwright's own Chromium on a developer's machine, and Edge on the Windows runner (`SHINATAMA_BROWSER_CHANNEL=msedge`,
 // set by scripts/verify.ps1): the runner has Edge, and no step of the CI downloads a browser.
 //
-// A page may say nothing: an uncaught error, a console error and a console warning are failures. The one exception is the warning of a
-// pinned Cluster that does not know `fill` yet (pending Sigrid terminal-fill: the workspace's terminal tab hands it to the page), and it
-// is that warning and no other.
+// A page may say nothing: an uncaught error, a console error and a console warning are failures (but Chromium's own noise, below).
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -33,9 +31,6 @@ export async function serve(port) {
   return { server, url: server.resolvedUrls.local[0] };
 }
 
-/** pending Sigrid terminal-fill: a pinned Cluster that does not know `fill` hands it to the page, and React says so once per render. */
-export const PENDING_FILL = /^Received `true` for a non-boolean attribute `fill`\./;
-
 /** Chromium's own warning (not the page's) when its scheduler is late on a loaded machine; it says nothing of the app. */
 export const BROWSER_NOISE = /^task queue exceeded allotted deadline/;
 
@@ -46,9 +41,9 @@ async function said(message) {
   return typeof format === 'string' ? format.replace(/%[sdifoO]/g, () => String(rest.shift())) : message.text();
 }
 
-/** Whether a message of the console is a failure: every error and warning is, but the one of PENDING_FILL and the browser's own noise. */
+/** Whether a message of the console is a failure: every error and warning is, but the browser's own noise. */
 export function isFailure(type, text) {
-  return (type === 'error' || type === 'warning') && !PENDING_FILL.test(text) && !BROWSER_NOISE.test(text);
+  return (type === 'error' || type === 'warning') && !BROWSER_NOISE.test(text);
 }
 
 /** Counts what a page says as failures of the smoke, named by `name`. */
