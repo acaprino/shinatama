@@ -1,12 +1,12 @@
 // The projects of the window: the recent folders, the folders found under the roots that are scanned, the roots themselves, and the creation
 // of a new project. Choosing is a folder operation Rust can cancel (`CatalogController`); roots are saved at once, and a removed root comes
 // back with Undo. F3 (the command Open a folder as a project) opens the native picker at once.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, FormField, ItemList, ItemRow, Note, SearchField } from '@acaprino/sigrid/components';
 import { Badge, Button, Cluster, Column, Icon, Input, Section, Spacer, Text } from '@acaprino/sigrid/primitives';
 import { useApp, useController } from '../../hooks.ts';
 import { MAX_ROOTS } from '../../controllers/catalog.ts';
-import type { CatalogRoot } from '../../project-catalog.ts';
+import { keepOrder, type CatalogRoot } from '../../project-catalog.ts';
 import { folderName } from '../../paths.ts';
 
 const STATE_WORDS = { ready: 'Ready', scanning: 'Scanning…', missing: 'Folder unavailable', unavailable: 'Cannot read this root', timed_out: 'Scan timed out; waiting for the drive', truncated: 'Folder limit reached' } as const;
@@ -22,11 +22,15 @@ export function ProjectPicker({ browse, listing }: { browse?: boolean; listing?:
   const app = useApp();
   const catalog = useController(app.catalog);
   const threads = useController(app.threads);
-  const listed = new Set(threads.activeProjectIds().map(id => app.projects.pathOf(id)?.replace(/[\\/]+$/, '').toLowerCase()));
+  const listedIds = new Set(threads.activeProjectIds());
+  // A folder not recorded yet has no id in the catalogue: its path is matched, through the recent projects that know it.
+  const listedPaths = new Set(threads.activeProjectIds().map(id => app.projects.pathOf(id)?.replace(/[\\/]+$/, '').toLowerCase()));
   const press = (path: string) => {
     if (listing) void app.threads.toggleProjectAt(path); else void catalog.select(path);
   };
-  const marked = (path: string) => listing && listed.has(path.replace(/[\\/]+$/, '').toLowerCase());
+  const marked = (project: { id: string | null; path: string }) =>
+    !!listing && (project.id ? listedIds.has(project.id) : listedPaths.has(project.path.replace(/[\\/]+$/, '').toLowerCase()));
+  const seen = useRef(new Map<string, number>()).current;
   const [folder, setFolder] = useState('');
   const [root, setRoot] = useState('');
   useEffect(() => {
@@ -36,6 +40,8 @@ export function ProjectPicker({ browse, listing }: { browse?: boolean; listing?:
     return () => catalog.closePicker();
   }, [catalog]); // eslint-disable-line react-hooks/exhaustive-deps
   const { shown, config } = catalog;
+  const history = listing ? keepOrder(shown.history, seen) : shown.history;
+  const candidates = listing ? keepOrder(shown.projects, seen) : shown.projects;
   const blocked = catalog.saving || !config || !catalog.configFresh;
   const roots = config?.roots ?? [];
   const defaultRoot = roots.find(entry => entry.id === config?.defaultRootId);
@@ -58,28 +64,28 @@ export function ProjectPicker({ browse, listing }: { browse?: boolean; listing?:
         </>
       )}
     >
-      <Column gap="lg" aria-busy={catalog.saving || catalog.loading}>
+      <Column gap="lg" aria-busy={catalog.saving || catalog.loading || threads.toggling}>
         {catalog.error ? <Note tone="error" title={catalog.error} /> : null}
         <SearchField aria-label="Filter projects" placeholder="Filter projects" value={catalog.filter} onValueChange={text => catalog.setFilter(text)} />
         <Text variant="muted" role="status">{catalog.state}</Text>
-        {shown.history.length || catalog.filter ? (
+        {history.length || catalog.filter ? (
           <Section title={shown.historyHeading} level={3}>
-            {shown.history.length ? (
+            {history.length ? (
               <ItemList aria-label={shown.historyHeading}>
-                {shown.history.map(project => (
+                {history.map(project => (
                   <ItemRow key={project.path} title={project.name || folderName(project.path)} description={project.available ? project.path : `${project.path} · folder unavailable`} leading={<Icon name="folder" />}
-                    disabled={!project.available || catalog.saving} current={marked(project.path)} onClick={() => press(project.path)} />
+                    disabled={!project.available || catalog.saving} current={marked(project)} onClick={() => press(project.path)} />
                 ))}
               </ItemList>
             ) : <Text variant="muted">No matching folders.</Text>}
           </Section>
         ) : null}
-        {shown.projects.length ? (
+        {candidates.length ? (
           <Section title="Projects" level={3}>
             <ItemList aria-label="Projects under the roots">
-              {shown.projects.map(project => (
+              {candidates.map(project => (
                 <ItemRow key={project.path} title={project.name} description={project.path} leading={<Icon name="folder" />}
-                  disabled={!project.available || catalog.saving} current={marked(project.path)} onClick={() => press(project.path)} />
+                  disabled={!project.available || catalog.saving} current={marked(project)} onClick={() => press(project.path)} />
               ))}
             </ItemList>
             {catalog.catalog && (catalog.catalog.total > catalog.catalog.limit || catalog.catalog.offset > 0) ? (

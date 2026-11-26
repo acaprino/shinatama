@@ -19,6 +19,13 @@ export function orderedCandidates(catalog: Catalog) {
   return catalog.projects.slice(0, 100);
 }
 
+/** The rows in the order they were first shown, the new ones after them. Rust orders projects by their last use and a press of "Choose
+ *  projects" records the one pressed as used: without this the rows would move under the pointer, and the next press would hit another. */
+export function keepOrder<Row extends { path: string }>(rows: readonly Row[], seen: Map<string, number>): Row[] {
+  for (const row of rows) if (!seen.has(row.path)) seen.set(row.path, seen.size);
+  return [...rows].sort((a, b) => (seen.get(a.path) ?? 0) - (seen.get(b.path) ?? 0));
+}
+
 export const saveRoots = (expectedRevision: number, roots: RootDraft[], defaultRootIndex: number | null, requestId: string) =>
   invoke<RootConfig>('catalog_roots_set', { request: { expectedRevision, roots, defaultRootIndex }, requestId });
 export const browseFolder = (purpose: 'project' | 'root', initialRootId: string | undefined, requestId: string) =>
