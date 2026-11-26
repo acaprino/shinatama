@@ -52,6 +52,8 @@ export class ThreadsController extends Store {
   showArchived = false;
   /** An operation on a thread or a session is under way: the sidebar's controls wait for it. */
   busy = false;
+  /** A press of "Choose projects" is being saved: the rows wait for it, since two at once would save the sidebar from the same old state. */
+  toggling = false;
   private readonly namedAt = new Map<string, number>();
 
   private readonly tones = createToneKeeper();
@@ -556,11 +558,15 @@ export class ThreadsController extends Store {
   /** "Choose projects": a folder is put in the sidebar, or taken away. A folder that is not a project yet is recorded as one first (the window's
    *  own project does not change). Said in a notice when Rust refuses it. */
   async toggleProjectAt(path: string): Promise<void> {
+    if (this.toggling) return;
+    this.toggling = true;
+    this.changed();
     try {
       const project = await projectsApi.select(path);
       await this.toggleActive(project.id);
       await this.app.projects.refreshRecent();
     } catch (error) { this.app.ui.error(error); }
+    finally { this.toggling = false; this.changed(); }
   }
 
   /** A project whose session was just started is listed, so that the thread that session is in has its row. */
