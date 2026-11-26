@@ -113,3 +113,11 @@ export function threadsOff<T extends { workset: { id: string } | null; ended: bo
   const stop = leave.filter(view => !view.ended);
   return { stop, leave, ask: stop.length > 0 };
 }
+
+/** What the card of a tab that does not run says, from where its open stands (`openStep`): `agent` is the label of its agent. */
+export function savedCardText(saved: Pick<ThreadSummary, 'status' | 'nativeAvailable'>, step: OpenStep, agent: string): string {
+  if (step === 'resume') return 'Not running. Its conversation is saved.';
+  if (step === 'recover') return 'Marked open by a session that is no longer here.';
+  if (saved.status === 'unbound') return 'Nothing was saved in this session.';
+  return saved.nativeAvailable !== true ? 'Its saved conversation cannot be reached now.' : `${agent} cannot reopen its sessions.`;
+}

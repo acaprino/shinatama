@@ -1620,12 +1620,13 @@ dependencies = [
 
 [[package]]
 name = "imago-shell"
-version = "0.4.1"
-source = "git+https://github.com/acaprino/imago.git?rev=3dbbe92fa953395034651c5c946256d929d15beb#3dbbe92fa953395034651c5c946256d929d15beb"
+version = "1.4.0"
+source = "git+https://github.com/acaprino/imago?tag=v1.4.0#aa0ade6eb81379e319f08c5373b244cbf8fb6daa"
 dependencies = [
  "serde",
  "serde_json",
  "tauri",
+ "tauri-plugin",
  "webview2-com",
  "windows-core",
  "windows-sys 0.61.2",

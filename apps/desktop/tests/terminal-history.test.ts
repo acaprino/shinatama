@@ -1,14 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cellStyle, createArchive, serializeLine, splitOutput, windowStart } from '../src/terminal-history.ts';
-import { archivedLineAt, holdAt, LINE_PITCH, lineAt, minimapGeometry } from '../src/terminal-minimap.ts';
+import { cellStyle, createArchive, createTerminalHistory, serializeLine, windowStart, windowTitle, WINDOW_LINES, type HistorySource } from '../src/terminal-history.ts';
 
-type Fake = { chars: string; width?: number; bold?: boolean; fg?: number; fgRgb?: boolean; bg?: number };
+type Fake = { chars: string; width?: number; bold?: boolean; fg?: number; fgRgb?: boolean; bg?: number; bgRgb?: boolean };
 const cell = (value: Fake) => ({
   getChars: () => value.chars, getWidth: () => value.width ?? 1, getCode: () => 0,
   isBold: () => Number(!!value.bold), isDim: () => 0, isItalic: () => 0, isUnderline: () => 0, isBlink: () => 0,
   isInverse: () => 0, isInvisible: () => 0, isStrikethrough: () => 0, isOverline: () => 0,
-  isFgRGB: () => !!value.fgRgb, isBgRGB: () => false,
+  isFgRGB: () => !!value.fgRgb, isBgRGB: () => !!value.bgRgb,
   isFgPalette: () => value.fg !== undefined && !value.fgRgb, isBgPalette: () => value.bg !== undefined,
   isFgDefault: () => value.fg === undefined, isBgDefault: () => value.bg === undefined,
   getFgColor: () => value.fg ?? 0, getBgColor: () => value.bg ?? 0,
@@ -51,52 +50,67 @@ test('the archive joins wrapped lines, fills whole chunks and drops the oldest p
   assert.deepEqual(await archive.read(3, 5), ['six', 'seven']);
 });
 
-test('the minimap gives the archive a capped share and maps the frame both ways', () => {
-  const none = minimapGeometry(400, 0, 1024, 0, 24);
-  assert.equal(none.archiveHeight, 0); assert.equal(none.liveHeight, 400);
-  const some = minimapGeometry(400, 90_000, 1024, 1000, 24);
-  assert.equal(some.archiveHeight, 120); assert.equal(some.liveHeight, 280);
-  assert.ok(some.frameTop >= 120 && some.frameTop + some.frameHeight <= 400);
-  assert.equal(lineAt(0, some, 1024, 24), 0);
-  assert.equal(lineAt(400, some, 1024, 24), 1000);
-  // A few archived lines take a few pixels, not a third of the strip.
-  assert.equal(minimapGeometry(400, 10, 100, 0, 40).archiveHeight, 30);
-  assert.equal(archivedLineAt(0, some, 90_000), 0);
-  assert.equal(archivedLineAt(119, some, 90_000), 89_250);
-});
-
-test('a short scrollback keeps its lines a few pixels apart instead of stretching them', () => {
-  const fresh = minimapGeometry(700, 0, 43, 0, 43);
-  assert.equal(fresh.pitch, LINE_PITCH);
-  assert.deepEqual([fresh.frameTop, fresh.frameHeight], [0, 43 * LINE_PITCH]);
-  const scrolled = minimapGeometry(700, 0, 443, 400, 43);
-  assert.ok(scrolled.pitch < LINE_PITCH && scrolled.pitch > 1);
-  assert.equal(scrolled.frameTop + scrolled.frameHeight, 700);
-  // A click below what the strip holds goes to the end; at the top, to the start.
-  assert.equal(lineAt(699, fresh, 43, 43), 0);
-  assert.equal(lineAt(699, scrolled, 443, 43), 400);
-  assert.equal(lineAt(0, scrolled, 443, 43), 0);
-});
-
-test('a drag that takes the frame moves it without a jump', () => {
-  const shape = minimapGeometry(600, 0, 1043, 500, 43);
-  const y = shape.frameTop + 3; const hold = holdAt(y, shape, 500);
-  assert.equal(lineAt(y, shape, 1043, 43, hold), 500);
-  assert.equal(lineAt(y + 10 * shape.pitch, shape, 1043, 43, hold), 510);
-  // A click elsewhere centers the frame on the pointer: the frame's middle stands for where it is.
-  assert.ok(Math.abs(lineAt(shape.frameTop + shape.frameHeight / 2, shape, 1043, 43) - 500) <= 1);
-});
-
-test('output is cut after every few newlines and nothing is lost', () => {
-  const bytes = new TextEncoder().encode('a\nb\nc\nd\ne');
-  const parts = splitOutput(bytes, 2).map(part => new TextDecoder().decode(part));
-  assert.deepEqual(parts, ['a\nb\n', 'c\nd\n', 'e']);
-  assert.deepEqual(splitOutput(new Uint8Array(0)).map(part => part.length), [0]);
-  assert.equal(splitOutput(new TextEncoder().encode('x\n'), 1).length, 1);
-});
-
 test('a history window stays inside the archive', () => {
   assert.equal(windowStart(10, 500), 0);
   assert.equal(windowStart(5000, 10_000), 4000);
   assert.equal(windowStart(9999, 10_000), 8000);
+});
+
+test('a background in true colour is kept too', () => {
+  assert.equal(cellStyle(cell({ chars: 'a', bg: 0x0a0b0c, bgRgb: true }) as never), ';48;2;10;11;12');
+});
+
+test('the title of the history window says which lines are shown, and how many older ones were not kept', () => {
+  assert.equal(windowTitle(0, 2000, 2500, 0), 'Earlier lines 1–2,000 of 2,500');
+  assert.match(windowTitle(500, 2000, 2500, 120), /older not kept/);
+  assert.equal(WINDOW_LINES, 2000);
+});
+
+/** A terminal that holds lines the way xterm does: a buffer that drops its oldest line past a limit, with a marker that follows its line. */
+function fakeTerminal(limit: number, rows: number) {
+  const lines: string[] = [];
+  const markers = new Set<{ line: number; isDisposed: boolean; dispose(): void; offset: number }>();
+  let baseY = 0;
+  const terminal = {
+    cols: 40,
+    buffer: {
+      active: { type: 'normal' },
+      normal: {
+        get baseY() { return baseY; }, get cursorY() { return Math.min(rows - 1, lines.length - 1 - baseY); }, get length() { return lines.length; },
+        getLine: (index: number) => lines[index] === undefined ? undefined : line([...lines[index]].map(chars => ({ chars }))),
+        getNullCell: () => cell({ chars: '' }),
+      },
+    },
+    registerMarker() {
+      const marker = { line: Math.max(0, lines.length - 1), isDisposed: false, dispose() { marker.isDisposed = true; markers.delete(marker); }, offset: 0 };
+      markers.add(marker);
+      return marker;
+    },
+  } as unknown as HistorySource;
+  return {
+    terminal,
+    print(text: string) {
+      lines.push(text);
+      baseY = Math.max(0, lines.length - rows);
+      while (lines.length > limit) {
+        lines.shift(); baseY = Math.max(0, lines.length - rows);
+        for (const marker of markers) marker.line -= 1;
+      }
+      for (const marker of markers) if (marker.line < 0) marker.isDisposed = true;
+    },
+  };
+}
+
+test('what scrolls out of the live buffer is kept, in order, and what is still there is not copied twice', async () => {
+  const { terminal, print } = fakeTerminal(10, 4);
+  const history = createTerminalHistory(terminal);
+  for (let n = 1; n <= 6; n++) { print(`line ${n}`); history.capture(); }
+  // Nothing has left the live buffer yet.
+  assert.equal(history.archive.lines(), 0);
+  for (let n = 7; n <= 25; n++) { print(`line ${n}`); history.capture(); }
+  const kept = await history.archive.read(0, history.archive.lines());
+  assert.ok(kept.length > 0);
+  assert.equal(kept[0], 'line 1');
+  assert.deepEqual(kept, kept.map((_, index) => `line ${index + 1}`));
+  history.dispose();
 });

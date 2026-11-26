@@ -50,3 +50,15 @@ test('moves coalesce to the last, other events keep their order', () => {
   const out = coalesce([move(11), move(12), down, move(13), move(14)]);
   assert.deepEqual(out.map(e => e.type === 'mouse' ? `${e.kind}:${e.x}` : e.type), ['moved:2', 'pressed:100', 'moved:4']);
 });
+
+test('what the frame surface tells is the same input as the canvas gave, with the point already in the box', async () => {
+  const { frameKeyInput, framePointerInput, frameWheelInput, keepsForApp } = await import('../src/browser-input.ts');
+  const held = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: true };
+  assert.deepEqual(framePointerInput({ kind: 'down', x: 12, y: 34, button: 2, buttons: 2, detail: 2, ...held }), { type: 'mouse', kind: 'pressed', x: 12, y: 34, button: 'right', buttons: 2, modifiers: 8, clickCount: 2 });
+  assert.deepEqual(framePointerInput({ kind: 'move', x: 1, y: 2, button: 0, buttons: 1, detail: 0, ...held }), { type: 'mouse', kind: 'moved', x: 1, y: 2, button: 'left', buttons: 1, modifiers: 8, clickCount: 0 });
+  assert.equal(framePointerInput({ kind: 'up', x: 1, y: 2, button: 0, buttons: 0, detail: 1, ...held }).type, 'mouse');
+  assert.deepEqual(frameWheelInput({ x: 5, y: 6, deltaX: 0, deltaY: 3, deltaMode: 1, ...held }), { type: 'wheel', x: 5, y: 6, dx: 0, dy: 120, modifiers: 8 });
+  assert.deepEqual(frameKeyInput({ kind: 'down', key: 'a', code: 'KeyA', keyCode: 65, ...held }), { type: 'key', kind: 'down', key: 'a', code: 'KeyA', text: 'a', modifiers: 8, keyCode: 65 });
+  assert.equal(keepsForApp({ key: 'Tab', ctrlKey: true }), true);
+  assert.equal(keepsForApp({ key: 'Tab', ctrlKey: false }), false);
+});

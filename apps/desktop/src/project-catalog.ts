@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './api/core.ts';
 
 export type Project = { id: string; path: string; name: string; last_opened: number; available: boolean };
 export type Candidate = Omit<Project, 'id' | 'last_opened'> & { id: string | null; last_opened: number | null; modifiedMs: number | null; rootId: string };

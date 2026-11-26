@@ -65,3 +65,58 @@ test('what the member shinatama writes is a notice of the team, addressed or not
   assert.equal(eventLine(event('11', { actor: 'user-2', host: true, text: 'hi' })).kind, 'message');
   assert.equal(eventLine(event('12', { actor: 'shinatama-x', host: true, text: 'hi' })).kind, 'message');
 });
+
+// --- what the conversation panel shows of a room -------------------------------------------------------------------------------------
+
+import { chosenRecipient, clockText, recipientChoices, sessionLine, visibleEvents } from '../src/thread-chat-model.ts';
+
+const room = parseSnapshot({
+  enabled: true,
+  members: [
+    { memberId: 'm1', name: 'claude-1', harness: 'claude_code', role: 'peer', active: true, sessionId: 't_aaaaaaaaaaaa' },
+    { memberId: 'm2', name: 'user', harness: 'user', role: 'user', active: true, sessionId: null, user: true },
+    { memberId: 'm3', name: 'old-1', harness: 'pi', role: 'peer', active: false, sessionId: null },
+    { memberId: 'm4', name: 'extra-1', harness: 'codex', role: 'peer', active: true, sessionId: null },
+  ],
+  sessions: [{ sessionId: 't_aaaaaaaaaaaa', harness: 'claude_code', title: 'Fix it', state: 'running', memberName: 'claude-1', connection: 'in_room', wakes: 2 }],
+  events: [],
+})!;
+const harness = (id: string) => ({ claude_code: 'Claude Code', codex: 'Codex' } as Record<string, string>)[id] ?? id;
+
+test('a message can go to the members that sessions are, to any other active member that is not the person, or to the whole room', () => {
+  const choices = recipientChoices(room, harness);
+  assert.deepEqual(choices.map(choice => choice.value), ['claude-1', 'extra-1', '']);
+  assert.equal(choices[0].label, 'claude-1 · Claude Code');
+  assert.match(choices.at(-1)!.label, /Whole room/);
+  assert.deepEqual(recipientChoices(null, harness).map(choice => choice.value), ['']);
+});
+
+test('the recipient shown is the person\'s choice while it is still offered, else the first member', () => {
+  const choices = recipientChoices(room, harness);
+  assert.equal(chosenRecipient(choices, null), 'claude-1');
+  assert.equal(chosenRecipient(choices, 'extra-1'), 'extra-1');
+  assert.equal(chosenRecipient(choices, ''), '', 'the whole room is a choice too');
+  assert.equal(chosenRecipient(choices, 'gone-1'), 'claude-1', 'a member that left is not offered');
+});
+
+test('the filter keeps every line, or the messages alone', () => {
+  const lines = [event('1', { kind: 'join' }), event('2'), event('3', { kind: 'signal' })];
+  assert.equal(visibleEvents(lines, 'all').length, 3);
+  assert.deepEqual(visibleEvents(lines, 'messages').map(item => item.eventId), ['2']);
+});
+
+test('a session of the thread is told by its name, its member, and how it stands in the room', () => {
+  const line = sessionLine(room.sessions[0], harness);
+  assert.equal(line.name, 'Fix it · Claude Code');
+  assert.equal(line.member, '@claude-1');
+  assert.match(line.state, /running · in the room · woken 2×/);
+  const bare = sessionLine({ ...room.sessions[0], title: null, memberName: null, harness: null, wakes: null, connection: 'unsupported' }, harness);
+  assert.equal(bare.name, 'Session');
+  assert.equal(bare.member, '');
+  assert.match(bare.state, /cannot take part/);
+});
+
+test('the time of a line is read, and empty when it cannot be', () => {
+  assert.notEqual(clockText('2026-11-16T10:00:00.000Z'), '');
+  assert.equal(clockText('not a time'), '');
+});

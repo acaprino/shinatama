@@ -64,3 +64,24 @@ export function coalesce(events: readonly BrowserInputEvent[]): BrowserInputEven
   }
   return out;
 }
+
+// What Sigrid's FrameSurface tells (pointer, wheel and key events with the point already in the box), as the same input events. Structural
+// types: this file imports nothing of Sigrid.
+export interface FramePointerLike { readonly kind: 'down' | 'up' | 'move'; readonly x: number; readonly y: number; readonly button: number; readonly buttons: number; readonly detail: number; readonly altKey: boolean; readonly ctrlKey: boolean; readonly metaKey: boolean; readonly shiftKey: boolean }
+export interface FrameWheelLike { readonly x: number; readonly y: number; readonly deltaX: number; readonly deltaY: number; readonly deltaMode: number; readonly altKey: boolean; readonly ctrlKey: boolean; readonly metaKey: boolean; readonly shiftKey: boolean }
+export interface FrameKeyLike extends KeyLike { readonly kind: 'down' | 'up' }
+
+export function framePointerInput(event: FramePointerLike): BrowserInputEvent {
+  return mouseEvent(event.kind === 'down' ? 'pressed' : event.kind === 'up' ? 'released' : 'moved', { ...event, clientX: event.x, clientY: event.y }, { left: 0, top: 0 });
+}
+
+export function frameWheelInput(event: FrameWheelLike): BrowserInputEvent {
+  return wheelEvent({ ...event, clientX: event.x, clientY: event.y, button: 0, buttons: 0, detail: 0 }, { left: 0, top: 0 });
+}
+
+export function frameKeyInput(event: FrameKeyLike): BrowserInputEvent {
+  return keyEvent(event.kind, event);
+}
+
+/** Ctrl+Tab is the app's (the next tab): the surface leaves it to the page's commands. */
+export const keepsForApp = (event: Pick<KeyLike, 'key' | 'ctrlKey'>): boolean => event.key === 'Tab' && event.ctrlKey;

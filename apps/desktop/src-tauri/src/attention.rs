@@ -387,25 +387,12 @@ fn present(app: &tauri::AppHandle, controller: &Controller, sound: bool) {
         feed.last_sound = Some(Instant::now());
     }
     drop(feed);
-    if let Some(widget) = app.get_webview_window("attention") {
-        let mut position = None;
-        if visible {
-            // Position in the main window's monitor work area, including negative
-            // coordinates and DPI scaling; leave the taskbar unobstructed.
-            if let Some(monitor) = app
-                .get_webview_window("main")
-                .and_then(|main| main.current_monitor().ok().flatten())
-            {
-                let area = monitor.work_area();
-                let scale = monitor.scale_factor();
-                let width = (440.0 * scale).ceil() as i32;
-                let height = (190.0 * scale).ceil() as i32;
-                let margin = (16.0 * scale).ceil() as i32;
-                let x = area.position.x + (area.size.width as i32 - width - margin).max(0);
-                let y = area.position.y + (area.size.height as i32 - height - margin).max(0);
-                position = Some((x, y));
-            }
-        }
+    // Built here when the shell built the main window again and the widget went with it (widget_window.rs).
+    if let Some(widget) = crate::widget_window::ensure(app) {
+        // In the main window's monitor work area, clear of the taskbar (widget_window.rs).
+        let position = visible
+            .then(|| crate::widget_window::corner(app, &widget))
+            .flatten();
         place_without_activation(&widget, visible, position);
         let _ = widget.emit("attention-changed", ());
     }

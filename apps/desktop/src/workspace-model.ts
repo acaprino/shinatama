@@ -4,7 +4,7 @@ export const WORKSPACE_LIMITS = Object.freeze({ views: 64, groups: 32, nodes: 63
 export const MIN_PANE_SIZE = Object.freeze({ width: 160, height: 144 });
 export type Axis = 'columns' | 'rows';
 export type Direction = 'left' | 'right' | 'up' | 'down';
-export type GatedPanelKind = 'acp' | 'companion' | 'sessions' | 'files' | 'markdown' | 'preview' | 'browser' | 'team' | 'mini-app';
+export type GatedPanelKind = 'acp' | 'companion' | 'sessions' | 'files' | 'markdown' | 'preview' | 'browser' | 'team' | 'chat' | 'mini-app';
 export type ResourceReference =
   | { readonly kind: 'terminal'; readonly instanceId: string | null; readonly threadId: string | null; readonly profileId: string | null }
   | { readonly kind: GatedPanelKind; readonly resourceId: string };
@@ -30,7 +30,7 @@ export type LayoutMutation = { readonly ok: true; readonly layout: WorkspaceLayo
 
 // An available terminal container does not qualify an agent or authorize a launch.
 export const NATIVE_CAPABILITIES = Object.freeze({ terminal: true, acp: false, companion: false, sessions: false,
-  files: false, markdown: false, preview: false, browser: false, team: false, 'mini-app': false } as const);
+  files: false, markdown: false, preview: false, browser: false, team: false, chat: false, 'mini-app': false } as const);
 export type NativeCapabilities = typeof NATIVE_CAPABILITIES;
 
 type Edge = { readonly axis: Axis; readonly side: 'before' | 'after'; readonly newGroupId: string; readonly newSplitId: string };
@@ -84,7 +84,7 @@ function view(value: unknown): PanelView {
   } else {
     const ref = record(raw, ['kind', 'resourceId']);
     switch (ref.kind) {
-      case 'acp': case 'companion': case 'sessions': case 'files': case 'markdown': case 'preview': case 'browser': case 'team': case 'mini-app':
+      case 'acp': case 'companion': case 'sessions': case 'files': case 'markdown': case 'preview': case 'browser': case 'team': case 'chat': case 'mini-app':
         resource = { kind: ref.kind, resourceId: id(ref.resourceId) }; break;
       default: fail('invalid-layout');
     }

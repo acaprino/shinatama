@@ -21,3 +21,4 @@ release/
 
 # Playwright MCP snapshots and screenshots (tool output, never project files)
 .playwright-mcp/
+apps/desktop/tests/out/

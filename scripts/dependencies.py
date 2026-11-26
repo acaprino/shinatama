@@ -23,6 +23,8 @@ NOTICE = 'THIRD_PARTY_NOTICES.md'
 POLICY = 'docs/implementation/dependency-policy.md'
 SKIP_DIRECTORIES = {'.git', '.agents', '.codex', '.daodan', '.jcode', '.prototype-evidence', '.verification', '__pycache__', 'node_modules', 'target', 'dist', 'verify'}
 EXACT_VERSION = re.compile(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z')
+# A release of the suite's own packages (Imago, Sigrid): the asset of a GitHub Release, whose version is in its name and in the lock.
+SUITE_RELEASE = re.compile(r'https://github\.com/acaprino/(imago|sigrid)/releases/download/v(\d+\.\d+\.\d+)/acaprino-\1-\2\.tgz\Z')
 PINNED_NPM_GIT = re.compile(r'git\+https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\.git#[0-9a-f]{40}\Z')
 KNOWN_LICENSES = {'MIT', 'MIT-0', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'CC0-1.0', 'Unlicense', 'Zlib', 'Unicode-3.0', 'BSL-1.0', 'MPL-2.0'}
 REVIEW_LICENSES = {'MPL-2.0'}
@@ -219,6 +221,12 @@ def validate_npm(root: Path) -> list[str]:
                 if locked.get('resolved') != version or not EXACT_VERSION.fullmatch(locked.get('version') or ''):
                     errors.append(f'package-lock.json: {name} must resolve the declared Git repository and full commit with an exact package version')
                 continue
+            release = SUITE_RELEASE.fullmatch(version) if isinstance(version, str) else None
+            if release:
+                # The lock records the tarball and its integrity; the version is the one of the release.
+                if locked.get('resolved') != version or locked.get('version') != release.group(2) or not locked.get('integrity'):
+                    errors.append(f'package-lock.json: {name} must resolve the release tarball it declares, with its integrity')
+                continue
             if not isinstance(version, str) or not EXACT_VERSION.fullmatch(version):
                 errors.append(f'package.json: {name} must use an exact version')
             if locked.get('version') != version:
@@ -251,7 +259,12 @@ def validate_cargo(root: Path, metadata: dict | None = None) -> list[str]:
     allowed = manifest['workspace'].get('dependencies', {})
     for name, dependency in allowed.items():
         if isinstance(dependency, dict) and 'git' in dependency:
-            if not re.fullmatch(r'[0-9a-fA-F]{40}', dependency.get('rev', '')) or 'branch' in dependency or 'tag' in dependency:
+            # A release tag of the suite's own crate is allowed: Cargo.lock records the commit it points to, and imago-check holds the tag
+            # equal to the npm release. Any other Git dependency needs a full immutable rev.
+            tagged = name == 'imago-shell' and re.fullmatch(r'v\d+\.\d+\.\d+', dependency.get('tag', '')) and 'rev' not in dependency
+            if not tagged and (not re.fullmatch(r'[0-9a-fA-F]{40}', dependency.get('rev', '')) or 'branch' in dependency or 'tag' in dependency):
+                errors.append(f'Cargo.toml: Git dependency {name} needs a full immutable rev, without tag/branch')
+            if 'branch' in dependency:
                 errors.append(f'Cargo.toml: Git dependency {name} needs a full immutable rev, without tag/branch')
     manifests = []
     if 'package' in manifest:
@@ -311,16 +324,45 @@ def cargo_roles(metadata: dict) -> dict[str, set[str]]:
     return roles
 
 
-def supplements(root: Path) -> dict[tuple[str, str], dict]:
-    result = {}
+def supplement_blocks(root: Path) -> list[tuple[dict, str]]:
+    blocks = []
     text = (root/POLICY).read_text(encoding='utf-8')
     for match in re.finditer(r'<!-- supplement (\{[^\n]+\}) -->\s*```text\n(.*?)\n```', text, re.S):
         info = json.loads(match[1])
         body = match[2].replace('\r\n', '\n').strip() + '\n'
         if sha256(body) != info['sha256']:
             raise ValueError('Reviewed license supplement hash mismatch')
+        blocks.append((info, body))
+    return blocks
+
+
+def supplements(root: Path) -> dict[tuple[str, str], dict]:
+    """Reviewed texts of Rust crates, bound to the exact version and VCS revision."""
+    result = {}
+    for info, body in supplement_blocks(root):
+        if info.get('ecosystem', 'rust') != 'rust':
+            continue
         for name, package in info['packages'].items():
             result[(name, package['version'])] = {**info, 'revision':package['revision'], 'text':body}
+    return result
+
+
+def repository_key(value) -> str | None:
+    """A repository URL as a manifest and a review spell it, once: no credentials, no `git+`, no `.git`."""
+    url = clean_url(value)
+    return url.removesuffix('.git') if url else None
+
+
+def npm_supplements(root: Path) -> dict[tuple[str, str], dict]:
+    """Reviewed texts of npm packages that ship none, bound to the exact version, the lockfile integrity, the declared license and the repository."""
+    result = {}
+    if not (root/POLICY).is_file():
+        return result
+    for info, body in supplement_blocks(root):
+        if info.get('ecosystem') != 'npm':
+            continue
+        for name, package in info['packages'].items():
+            result[(name, package['version'])] = {**info, 'integrity':package['integrity'], 'text':body}
     return result
 
 
@@ -359,6 +401,7 @@ def npm_inventory(root: Path) -> tuple[list[dict], list[str]]:
     lock = read_json(root/'package-lock.json')
     manifest = read_json(root/'package.json')
     direct = set().union(*(manifest.get(key, {}) for key in ('dependencies', 'devDependencies', 'optionalDependencies')))
+    reviewed = npm_supplements(root)
     for key, package in sorted(lock['packages'].items()):
         if not key or not target_matches(package.get('os'), 'win32') or not target_matches(package.get('cpu'), 'x64'):
             continue
@@ -386,6 +429,14 @@ def npm_inventory(root: Path) -> tuple[list[dict], list[str]]:
                     and clean_url(wrapper.get('repository'))):
                     texts = [{**text, 'file':f"{wrapper_name}/{text['file']}", 'source':'reviewed-wrapper'} for text in license_files(wrapper_base)]
         license = package.get('license') or local.get('license')
+        supplement = reviewed.get((name, version))
+        if base.is_dir() and not has_license_text(texts) and supplement:
+            if (package.get('integrity') != supplement['integrity'] or license != supplement['license']
+                or repository_key(local.get('repository')) != repository_key(supplement['repository'])):
+                errors.append(f'npm {name}@{version}: reviewed supplement provenance mismatch')
+            else:
+                texts.append({'file':'LICENSE (reviewed source supplement)', 'sha256':supplement['sha256'],
+                    'source':'reviewed-supplement', 'url':supplement['source'], 'text':supplement['text']})
         policy, notes = license_policy(license)
         if policy == 'error':
             errors.extend(f'npm {name}@{version}: {note}' for note in notes)

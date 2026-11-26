@@ -27,7 +27,9 @@ license = "Apache-2.0"
 # without major versions, against the pinned 1.99.1 toolchain. watchexec-supervisor and expectrl
 # are not used, per the C13 card.
 [workspace.dependencies]
-imago-shell = { git = "https://github.com/acaprino/imago.git", rev = "3dbbe92fa953395034651c5c946256d929d15beb" }
+# The window the apps of the suite share, as a Tauri plugin. The tag is the one @acaprino/imago has in package.json; the crate pins
+# tauri to =2.12.5, and with it serde, serde_json, webview2-com, windows-core and windows-sys.
+imago-shell = { git = "https://github.com/acaprino/imago", tag = "v1.4.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
@@ -42,8 +44,8 @@ rusqlite = { version = "0.40.2", features = ["bundled", "backup", "hooks"] }
 embed-resource = "=3.0.12"
 # Dependency inventory: THIRD_PARTY_NOTICES.md; full release audit remains register X3.
 portable-pty = "0.9"
-tauri = "2.9"
-tauri-build = "2.5"
+tauri = "2.12"
+tauri-build = "=2.7.4"
 tauri-plugin-dialog = "=2.8.4"
 # 2026-11-14: COM interface cast for WebView2's memory target (desktop responsiveness.rs). The
 # version webview2-com already links, so no second binding; MIT OR Apache-2.0.
