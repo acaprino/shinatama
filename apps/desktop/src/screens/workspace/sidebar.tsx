@@ -133,6 +133,12 @@ export function WorkspaceSidebar({ state }: { state: SidebarState }) {
                 {`New thread in ${nameOf(project)}`}
               </NavItem>
             ) : null}
+            {/* A project with no thread has no row whose menu offers "Remove from the sidebar": this is its way out (a folder that is gone, too). */}
+            {rows.length === 0 && !threads.showArchived ? (
+              <NavItem icon={<Icon name="close" />} disabled={busy} onClick={() => { void threads.removeProject(project); }}>
+                {`Remove ${nameOf(project)} from the sidebar`}
+              </NavItem>
+            ) : null}
           </SidebarGroup>
         );
       })}

@@ -319,6 +319,36 @@ impl Database {
         Ok(entries)
     }
 
+    /// The projects with these ids, in the order asked, whether or not `recent` still holds them: the
+    /// history keeps ten, the thread sidebar lists up to 32 and must name and offer every one it lists.
+    /// An id no project has is left out.
+    pub fn by_ids(&self, ids: &[String]) -> Result<Vec<ProjectRecord>> {
+        let connection = self.lock()?;
+        let mut statement =
+            connection.prepare("SELECT id,path,name,last_opened FROM project WHERE id=?1")?;
+        let mut entries = Vec::new();
+        for id in ids.iter().take(32) {
+            let found = statement
+                .query_row([id], |row| {
+                    Ok(ProjectRecord {
+                        id: row.get(0)?,
+                        path: row.get(1)?,
+                        name: row.get(2)?,
+                        last_opened: row.get(3)?,
+                        available: false,
+                    })
+                })
+                .optional()?;
+            entries.extend(found);
+        }
+        drop(statement);
+        drop(connection);
+        for entry in &mut entries {
+            entry.available = Path::new(&entry.path).is_dir();
+        }
+        Ok(entries)
+    }
+
     /// Select an existing folder without creating or modifying anything in it.
     pub fn select(&self, path: &Path) -> Result<ProjectRecord> {
         self.select_if_not_cancelled(path, &crate::cancellation::MutationToken::new())

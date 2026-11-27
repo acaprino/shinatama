@@ -55,7 +55,7 @@ export class ProjectsController extends Store {
     const revision = ++this.restoring;
     try {
       this.set(await projectsApi.path());
-      const recent = await projectsApi.recent();
+      const recent = await projectsApi.recent(this.app.threads.activeProjectIds());
       if (revision !== this.restoring) return;
       this.recent = recent;
       const latest = recent[0];
@@ -75,7 +75,7 @@ export class ProjectsController extends Store {
   /** Reads the recent projects again and tells the thread sidebar which one is the current. */
   async refreshRecent(): Promise<void> {
     try {
-      const recent = await projectsApi.recent();
+      const recent = await projectsApi.recent(this.app.threads.activeProjectIds());
       this.recent = recent;
       const current = recent.find(project => samePath(project.path, this.path));
       this.app.threads.setProjects(

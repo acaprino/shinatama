@@ -98,6 +98,42 @@ fn bundled_fts5_pragmas_and_private_files_are_effective() {
 }
 
 #[test]
+fn projects_beyond_the_ten_recent_are_still_read_by_id() {
+    let fixture = Fixture::new();
+    let database = Database::open(&fixture.location(), None).unwrap();
+    let ids = (0..12)
+        .map(|index| {
+            database
+                .select(&fixture.project(&format!("project-{index}")))
+                .unwrap()
+                .id
+        })
+        .collect::<Vec<_>>();
+    let recent = database.recent().unwrap();
+    assert_eq!(recent.len(), 10);
+    // The two opened first are the ones the history dropped.
+    assert!(
+        recent
+            .iter()
+            .all(|entry| entry.id != ids[0] && entry.id != ids[1])
+    );
+    fs::remove_dir(fixture.project("project-1")).unwrap();
+    let found = database
+        .by_ids(&[ids[1].clone(), "p_aaaaaaaaaaaa".to_string(), ids[0].clone()])
+        .unwrap();
+    // The order asked; an id no project has is left out; a deleted folder is still named, as unavailable.
+    assert_eq!(
+        found
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect::<Vec<_>>(),
+        [ids[1].as_str(), ids[0].as_str()]
+    );
+    assert!(!found[0].available && found[1].available);
+    assert_eq!(found[1].name, "project-0");
+}
+
+#[test]
 fn project_identity_recent_order_and_missing_roots_survive_restart() {
     let fixture = Fixture::new();
     let first_path = fixture.project("first");

@@ -7,7 +7,8 @@ export type ProjectEntry = { id: string; path: string; name: string; last_opened
 export const projectsApi = {
   /** The project the window was started in (the folder Shinatama was opened on). */
   path: () => invoke<string>('project_path'),
-  recent: () => invoke<ProjectEntry[]>('project_recent'),
+  /** The ten recent projects, then those of `include` (ids) the history has dropped: the sidebar lists up to 32 and must name each one. */
+  recent: (include: readonly string[] = []) => invoke<ProjectEntry[]>('project_recent', { include }),
   select: (path: string, requestId?: string) => invoke<ProjectEntry>('project_select', { path, requestId }),
   newProjectOptions: () => invoke<unknown>('new_project_options'),
   newProjectCreate: (request: unknown, requestId: string) => invoke<unknown>('new_project_create', { request, requestId }),

@@ -86,9 +86,10 @@ export class Shinatama {
       ui.setRuntime({ text: 'Local runtime · experimental', failed: false });
       appLog('page', 'The main window loaded.');
       await settings.readStorage();
+      // The sidebar's saved list is read first: the projects it lists beyond the ten recent are named from it.
+      await threads.loadSidebar();
       await projects.restore();
       await projects.refreshRecent();
-      await threads.loadSidebar();
       for (const project of threads.activeProjectIds()) void threads.refreshList(project);
       // Turn on the threads that were on, before the saved layout loads, so their tabs keep their panes.
       await threads.reopenLast();
