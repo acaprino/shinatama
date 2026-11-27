@@ -149,15 +149,21 @@ async fn storage_location(
 async fn project_recent(
     window: tauri::WebviewWindow,
     services: State<'_, Services>,
+    // Projects the thread sidebar lists that the ten-entry history has dropped: they are appended, after the history.
+    include: Option<Vec<String>>,
 ) -> Result<Vec<ProjectEntry>, String> {
     local(&window)?;
     let services = services.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        services
-            .load()?
-            .store
-            .recent()
-            .map_err(|e| format!("{e:#}"))
+        let store = services.load()?.store.clone();
+        let mut entries = store.recent().map_err(|e| format!("{e:#}"))?;
+        let missing: Vec<String> = include
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|id| !entries.iter().any(|entry| &entry.id == id))
+            .collect();
+        entries.extend(store.by_ids(&missing).map_err(|e| format!("{e:#}"))?);
+        Ok::<_, String>(entries)
     })
     .await
     .map_err(|e| e.to_string())?

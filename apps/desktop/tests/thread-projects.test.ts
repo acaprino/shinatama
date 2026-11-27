@@ -66,3 +66,16 @@ test('a project whose session was started is listed once, and a refusal of Rust 
   assert.deepEqual(refused.notices, [{ text: 'The folder is gone.', error: true }]);
   void notices;
 });
+
+test('a project the sidebar lists beyond the ten recent is asked for by its id, so the sidebar names it by its folder and not by its id', async () => {
+  const far = { id: 'p_bbbbbbbbbbbb', path: 'C:\\work\\gone', name: 'gone', last_opened: 0, available: false };
+  const { app, calls } = fakeHost({
+    ...answers(),
+    thread_sidebar_load: () => ({ revision: 1, settings: { version: 1, width: 236, collapsed: false, activeProjects: [far.id] } }),
+    project_recent: (args: Record<string, unknown> | undefined) => [entry, ...((args?.include as string[] | undefined)?.includes(far.id) ? [far] : [])],
+  });
+  await app.threads.loadSidebar();
+  await app.projects.refreshRecent();
+  assert.deepEqual(calls.filter(call => call.command === 'project_recent').at(-1)?.args, { include: [far.id] });
+  assert.equal(app.projects.pathOf(far.id), far.path);
+});
